@@ -115,26 +115,30 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get('hub.mode');
-  const token = request.nextUrl.searchParams.get('hub.verify_token');
+const token = request.nextUrl.searchParams.get('hub.verify_token');
   const challenge = request.nextUrl.searchParams.get('hub.challenge');
 
-  // Accept BOTH tokens - env var OR default
+  // Accept tokens: env var OR any of these defaults
   const expectedFromEnv = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
   const defaultToken = 'whatsapp_verify_token_123';
+  const altToken = 'whatsapp_verify_token_134';
   const verifyToken = expectedFromEnv || defaultToken;
+  
+  // Accept ANY of these tokens
+  const isValid = (token === verifyToken) || (token === defaultToken) || (token === altToken);
   
   console.log('[Webhook] GET - Meta token:', token, '| Expected:', verifyToken);
 
-if (!mode && !token) {
+  if (!mode && !token) {
     return NextResponse.json({
       status: 'webhook_server_online',
       timestamp: new Date().toISOString(),
       expectedToken: verifyToken,
-      envTokenSet: !!expectedFromEnv
+      acceptAlt: true
     });
   }
 
-  if (mode === 'subscribe' && token === verifyToken) {
+  if (mode === 'subscribe' && isValid) {
     console.log('[Webhook] ✅ Verification successful');
     return new NextResponse(challenge, { status: 200 });
   }
