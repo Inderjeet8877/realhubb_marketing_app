@@ -304,6 +304,27 @@ export default function WhatsAppPage() {
     } catch {}
   };
 
+  const testDirectSave = async () => {
+    if (!selectedConversation) return;
+    try {
+      const r = await fetch("/api/whatsapp/test-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          phone: selectedConversation.phone, 
+          message: '🧪 Direct test message!',
+          direction: 'inbound'
+        }),
+      });
+      const data = await r.json();
+      alert('Test result: ' + JSON.stringify(data, null, 2));
+      // Refresh conversations
+      fetchConversations();
+    } catch (error) {
+      alert('Test error: ' + error);
+    }
+  };
+
   const handleSendReply = async () => {
     if (!selectedConversation || !replyText.trim()) return;
     setSendingReply(true);
@@ -573,6 +594,13 @@ export default function WhatsAppPage() {
                     title="Simulate a test inbound message from this customer"
                   >
                     {simulatingInbound ? "..." : "Test Reply"}
+                  </button>
+                  <button 
+                    onClick={testDirectSave} 
+                    className="px-2 py-1 text-[10px] bg-blue-600 hover:bg-blue-700 text-white rounded border border-white/20"
+                    title="Direct save test - bypass webhook"
+                  >
+                    Direct Test
                   </button>
                   <button onClick={() => setSelectedConversation(null)} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-full">
                     <X className="w-4 h-4" />
