@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
         const messageTextRaw = msg.text?.body || msg.image?.caption || msg.video?.caption || msg.document?.caption || '';
         console.log('[Webhook] Message text extracted:', messageTextRaw ? messageTextRaw.substring(0, 30) : 'EMPTY - trying other types');
-        console.log('[Webhook] Full msg object keys:', Object.keys(msg));
+        console.log('[Webhook] Full msg object keys:', msg ? Object.keys(msg) : 'msg is undefined');
         
         const messageText =
           msg.text?.body ||
@@ -95,12 +95,17 @@ export async function POST(request: NextRequest) {
           (msg.reaction?.emoji ? `[Reaction: ${msg.reaction.emoji}]` : null) ||
           `[${msg.type || 'Unknown'} message]`;
 
-        console.log('[Webhook] Final messageText:', messageText.substring(0, 50));
+        if (!messageText) {
+          messageText = `[${msg.type || 'Unknown'} message]`;
+        }
+        
+        console.log('[Webhook] Final messageText:', messageText ? messageText.substring(0, 50) : 'UNDEFINED');
 
         const contact = contacts.find((c: any) => c.wa_id === msg.from);
         const senderName = contact?.profile?.name || phone;
 
-        console.log('[Webhook] Attempting to save:', { phone, name: senderName, messageText: messageText.substring(0, 50), msgId: msg.id });
+        const logMsg = messageText ? messageText.substring(0, 30) : 'empty';
+        console.log('[Webhook] Attempting to save:', { phone, name: senderName, messageText: logMsg, msgId: msg.id });
 
         try {
           const docRef = await addDoc(collection(db, 'whatsapp_conversations'), {
