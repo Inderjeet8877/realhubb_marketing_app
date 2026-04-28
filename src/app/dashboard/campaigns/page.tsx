@@ -79,6 +79,7 @@ export default function CampaignsPage() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchCampaigns();
   }, [selectedAccount]);

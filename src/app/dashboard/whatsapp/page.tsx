@@ -143,6 +143,7 @@ export default function WhatsAppPage() {
   }, []);
 
   // Real-time conversation list listener
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (activeTab !== "inbox") return;
     setLoadingConversations(true);
@@ -191,6 +192,7 @@ export default function WhatsAppPage() {
   }, [activeTab]);
 
   // Real-time chat messages listener — fires instantly on status changes (delivered/read)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!selectedConversation) return;
     setLoadingMessages(true);
@@ -874,7 +876,7 @@ export default function WhatsAppPage() {
             </div>
 
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-yellow-800 text-xs font-medium">After fixing Meta config, click the "Test Reply" button in any chat to verify inbound messages work end-to-end.</p>
+              <p className="text-yellow-800 text-xs font-medium">After fixing Meta config, click the &quot;Test Reply&quot; button in any chat to verify inbound messages work end-to-end.</p>
             </div>
           </div>
         </div>

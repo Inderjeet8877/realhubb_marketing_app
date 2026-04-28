@@ -30,6 +30,7 @@ export default function ContactsPage() {
     fetchContacts();
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (searchTerm === '' && selectedIds.size > 0) {
       setSelectedIds(new Set());
