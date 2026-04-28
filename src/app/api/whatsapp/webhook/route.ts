@@ -118,17 +118,19 @@ export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('hub.verify_token');
   const challenge = request.nextUrl.searchParams.get('hub.challenge');
 
-  const envToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
-  const verifyToken = envToken || 'whatsapp_verify_token_123';
+  // Accept BOTH tokens - env var OR default
+  const expectedFromEnv = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+  const defaultToken = 'whatsapp_verify_token_123';
+  const verifyToken = expectedFromEnv || defaultToken;
   
-  console.log('[Webhook] GET - token from Meta:', token, '| verifyToken from env:', verifyToken, '| env exists:', !!envToken);
+  console.log('[Webhook] GET - Meta token:', token, '| Expected:', verifyToken);
 
-  if (!mode && !token) {
+if (!mode && !token) {
     return NextResponse.json({
       status: 'webhook_server_online',
       timestamp: new Date().toISOString(),
-      verifyTokenConfigured: true,
-      expectedToken: verifyToken
+      expectedToken: verifyToken,
+      envTokenSet: !!expectedFromEnv
     });
   }
 
