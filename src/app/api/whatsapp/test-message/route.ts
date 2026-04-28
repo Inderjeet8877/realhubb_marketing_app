@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       phone: testPhone,
       direction: testDirection,
       totalDocsForPhone: docs.length,
-      recentDocs: docs.slice(0, 3).map(d => ({ id: d.id, message: d.message?.slice(0, 30), direction: d.direction }))
+      recentDocs: docs.slice(0, 3).map((d: any) => ({ id: d.id, message: d.message?.slice(0, 30), direction: d.direction }))
     });
     
   } catch (error: any) {

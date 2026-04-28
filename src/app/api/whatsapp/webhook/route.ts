@@ -3,7 +3,6 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs, limit, upda
 import { db } from '@/lib/firebase';
 
 export async function POST(request: NextRequest) {
-  // Log raw headers to diagnose ngrok / proxy issues
   const contentType = request.headers.get('content-type') || '';
   console.log('[Webhook] POST received, content-type:', contentType);
 
@@ -17,12 +16,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'ok' });
   }
 
-  // Log every webhook call + save errors to Firestore so user can see in UI
-  let saveError = null;
-  
-  // Then continue with normal log
+  let saveError: string | null = null;
+
   try {
-    const logDoc = await addDoc(collection(db, 'webhook_logs'), {
+    await addDoc(collection(db, 'webhook_logs'), {
       receivedAt: serverTimestamp(),
       object: body?.object,
       hasMessages: !!(body?.entry?.[0]?.changes?.[0]?.value?.messages),
@@ -33,7 +30,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (logErr) {
     console.error('[Webhook] Failed to write log:', logErr);
-  }
   }
 
   if (body?.object !== 'whatsapp_business_account') {
@@ -46,7 +42,6 @@ export async function POST(request: NextRequest) {
   for (const change of entry.changes) {
     const value = change.value;
 
-    // ── Status updates (delivered / read) ──────────────────────────────
     if (value.statuses) {
       for (const s of value.statuses) {
         if (!s.id || !s.status) continue;
@@ -56,20 +51,18 @@ export async function POST(request: NextRequest) {
           );
           if (!snap.empty) {
             await updateDoc(snap.docs[0].ref, { status: s.status });
-            console.log(`[Webhook] Status ${s.status} applied to wamid ${s.id}`);
+            console.log('[Webhook] Status ' + s.status + ' applied to wamid ' + s.id);
           }
         } catch (err) {
-          console.error(`[Webhook] Failed to update status for wamid ${s.id}:`, err);
+          console.error('[Webhook] Failed to update status for wamid ' + s.id + ':', err);
         }
       }
     }
 
-    // ── Inbound messages ────────────────────────────────────────────────
     if (value.messages) {
       const contacts: any[] = value.contacts || [];
 
       for (const msg of value.messages) {
-        // Normalise phone: strip everything except digits
         const phone = (msg.from || '').replace(/\D/g, '');
         console.log('[Webhook] Raw msg.from:', msg.from, '-> normalized:', phone);
         
@@ -78,38 +71,26 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const messageTextRaw = msg.text?.body || msg.image?.caption || msg.video?.caption || msg.document?.caption || '';
-        console.log('[Webhook] Message text extracted:', messageTextRaw ? messageTextRaw.substring(0, 30) : 'EMPTY - trying other types');
-        console.log('[Webhook] Full msg object keys:', msg ? Object.keys(msg) : 'msg is undefined');
+        let messageText = msg.text?.body || msg.image?.caption || msg.video?.caption || msg.document?.caption || '';
         
-        const messageText =
-          msg.text?.body ||
-          msg.image?.caption ||
-          msg.video?.caption ||
-          msg.document?.caption ||
-          (msg.audio?.id ? '[Voice message]' : null) ||
-          (msg.sticker?.id ? '[Sticker]' : null) ||
-          (msg.location
-            ? `[Location: ${msg.location.latitude}, ${msg.location.longitude}]`
-            : null) ||
-          (msg.reaction?.emoji ? `[Reaction: ${msg.reaction.emoji}]` : null) ||
-          `[${msg.type || 'Unknown'} message]`;
-
         if (!messageText) {
-          messageText = `[${msg.type || 'Unknown'} message]`;
+          if (msg.audio?.id) messageText = '[Voice message]';
+          else if (msg.sticker?.id) messageText = '[Sticker]';
+          else if (msg.location) messageText = '[Location]';
+          else if (msg.reaction?.emoji) messageText = '[Reaction]';
+          else messageText = '[' + (msg.type || 'Unknown') + ' message]';
         }
-        
-        console.log('[Webhook] Final messageText:', messageText ? messageText.substring(0, 50) : 'UNDEFINED');
+
+        console.log('[Webhook] Final messageText:', messageText.substring(0, 50));
 
         const contact = contacts.find((c: any) => c.wa_id === msg.from);
         const senderName = contact?.profile?.name || phone;
 
-        const logMsg = messageText ? messageText.substring(0, 30) : 'empty';
-        console.log('[Webhook] Attempting to save:', { phone, name: senderName, messageText: logMsg, msgId: msg.id });
+        console.log('[Webhook] Attempting to save:', { phone: phone, name: senderName, messageText: messageText.substring(0, 30), msgId: msg.id });
 
         try {
           const docRef = await addDoc(collection(db, 'whatsapp_conversations'), {
-            phone,
+            phone: phone,
             name: senderName,
             message: messageText,
             direction: 'inbound',
@@ -120,9 +101,9 @@ export async function POST(request: NextRequest) {
             wamid: msg.id,
             msgType: msg.type || 'text',
           });
-          console.log(`[Webhook] ✅ Saved inbound from ${phone}: "${messageText.slice(0, 60)}", docId: ${docRef.id}`);
-        } catch (saveErr) {
-          console.error(`[Webhook] ❌ Failed to save inbound from ${phone}:`, saveErr);
+          console.log('[Webhook] ✅ Saved inbound from ' + phone + ': ' + messageText.substring(0, 60) + ', docId: ' + docRef.id);
+        } catch (saveErr: any) {
+          console.error('[Webhook] ❌ Failed to save inbound from ' + phone + ':', saveErr);
           saveError = saveErr.toString();
         }
       }
@@ -139,7 +120,6 @@ export async function GET(request: NextRequest) {
 
   const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'whatsapp_verify_token_123';
 
-  // No params = health check — confirms server is reachable
   if (!mode && !token) {
     return NextResponse.json({
       status: 'webhook_server_online',
