@@ -107,12 +107,12 @@ export async function POST(request: NextRequest) {
           saveError = saveErr.toString();
         }
         
-        // Mark message as read automatically
+        // Mark message as read AND show typing indicator automatically
         try {
           const accessToken = process.env.META_ACCESS_TOKEN_1;
           const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID_1;
           if (accessToken && phoneNumberId && msg.id) {
-            const markReadResponse = await fetch('https://graph.facebook.com/v25.0/' + phoneNumberId + '/messages', {
+            const response = await fetch('https://graph.facebook.com/v25.0/' + phoneNumberId + '/messages', {
               method: 'POST',
               headers: { 
                 'Authorization': 'Bearer ' + accessToken, 
@@ -121,14 +121,15 @@ export async function POST(request: NextRequest) {
               body: JSON.stringify({
                 messaging_product: 'whatsapp',
                 status: 'read',
-                message_id: msg.id
+                message_id: msg.id,
+                typing_indicator: { type: 'text' }
               })
             });
-            const markResult = await markReadResponse.json();
-            console.log('[Webhook] Marked as read:', msg.id, '->', JSON.stringify(markResult));
+            const result = await response.json();
+            console.log('[Webhook] Marked read + typing:', msg.id, '->', JSON.stringify(result));
           }
         } catch (markErr) {
-          console.error('[Webhook] Failed to mark as read:', markErr);
+          console.error('[Webhook] Failed to mark read/typing:', markErr);
         }
       }
     }
