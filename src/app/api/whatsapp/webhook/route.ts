@@ -86,8 +86,10 @@ export async function POST(request: NextRequest) {
         const contact = contacts.find((c: any) => c.wa_id === msg.from);
         const senderName = contact?.profile?.name || phone;
 
+        console.log('[Webhook] Attempting to save:', { phone, name: senderName, messageText: messageText.substring(0, 50), msgId: msg.id });
+
         try {
-          await addDoc(collection(db, 'whatsapp_conversations'), {
+          const docRef = await addDoc(collection(db, 'whatsapp_conversations'), {
             phone,
             name: senderName,
             message: messageText,
@@ -99,7 +101,7 @@ export async function POST(request: NextRequest) {
             wamid: msg.id,
             msgType: msg.type || 'text',
           });
-          console.log(`[Webhook] ✅ Saved inbound from ${phone}: "${messageText.slice(0, 60)}"`);
+          console.log(`[Webhook] ✅ Saved inbound from ${phone}: "${messageText.slice(0, 60)}", docId: ${docRef.id}`);
         } catch (saveErr) {
           console.error(`[Webhook] ❌ Failed to save inbound from ${phone}:`, saveErr);
         }
