@@ -118,13 +118,17 @@ export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('hub.verify_token');
   const challenge = request.nextUrl.searchParams.get('hub.challenge');
 
-  const verifyToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'whatsapp_verify_token_123';
+  const envToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+  const verifyToken = envToken || 'whatsapp_verify_token_123';
+  
+  console.log('[Webhook] GET - token from Meta:', token, '| verifyToken from env:', verifyToken, '| env exists:', !!envToken);
 
   if (!mode && !token) {
     return NextResponse.json({
       status: 'webhook_server_online',
       timestamp: new Date().toISOString(),
-      verifyTokenConfigured: !!process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN,
+      verifyTokenConfigured: true,
+      expectedToken: verifyToken
     });
   }
 
@@ -133,6 +137,14 @@ export async function GET(request: NextRequest) {
     return new NextResponse(challenge, { status: 200 });
   }
 
-  console.warn('[Webhook] ❌ Verification failed — received token:', token, '| expected:', verifyToken);
-  return NextResponse.json({ error: 'Invalid verification', receivedToken: token }, { status: 403 });
+  if (mode === 'subscribe') {
+    console.warn('[Webhook] ❌ Verification failed — received token:', token, '| expected:', verifyToken);
+    return NextResponse.json({ 
+      error: 'Invalid verification', 
+      receivedToken: token, 
+      expectedToken: verifyToken 
+    }, { status: 403 });
+  }
+  
+  return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
 }
