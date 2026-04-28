@@ -17,17 +17,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'ok' });
   }
 
-  // Log every webhook call to Firestore so we can diagnose
+  // Log every webhook call + save errors to Firestore so user can see in UI
+  let saveError = null;
+  
+  // Then continue with normal log
   try {
-    await addDoc(collection(db, 'webhook_logs'), {
+    const logDoc = await addDoc(collection(db, 'webhook_logs'), {
       receivedAt: serverTimestamp(),
       object: body?.object,
       hasMessages: !!(body?.entry?.[0]?.changes?.[0]?.value?.messages),
       hasStatuses: !!(body?.entry?.[0]?.changes?.[0]?.value?.statuses),
+      messagePhones: body?.entry?.[0]?.changes?.[0]?.value?.messages?.map((m: any) => m.from) || [],
+      saveError: saveError,
       rawBody: JSON.stringify(body).slice(0, 3000),
     });
   } catch (logErr) {
     console.error('[Webhook] Failed to write log:', logErr);
+  }
   }
 
   if (body?.object !== 'whatsapp_business_account') {
@@ -104,6 +110,7 @@ export async function POST(request: NextRequest) {
           console.log(`[Webhook] ✅ Saved inbound from ${phone}: "${messageText.slice(0, 60)}", docId: ${docRef.id}`);
         } catch (saveErr) {
           console.error(`[Webhook] ❌ Failed to save inbound from ${phone}:`, saveErr);
+          saveError = saveErr.toString();
         }
       }
     }
