@@ -71,11 +71,17 @@ export async function POST(request: NextRequest) {
       for (const msg of value.messages) {
         // Normalise phone: strip everything except digits
         const phone = (msg.from || '').replace(/\D/g, '');
+        console.log('[Webhook] Raw msg.from:', msg.from, '-> normalized:', phone);
+        
         if (!phone) {
           console.warn('[Webhook] Received message with no phone, skipping');
           continue;
         }
 
+        const messageTextRaw = msg.text?.body || msg.image?.caption || msg.video?.caption || msg.document?.caption || '';
+        console.log('[Webhook] Message text extracted:', messageTextRaw ? messageTextRaw.substring(0, 30) : 'EMPTY - trying other types');
+        console.log('[Webhook] Full msg object keys:', Object.keys(msg));
+        
         const messageText =
           msg.text?.body ||
           msg.image?.caption ||
@@ -88,6 +94,8 @@ export async function POST(request: NextRequest) {
             : null) ||
           (msg.reaction?.emoji ? `[Reaction: ${msg.reaction.emoji}]` : null) ||
           `[${msg.type || 'Unknown'} message]`;
+
+        console.log('[Webhook] Final messageText:', messageText.substring(0, 50));
 
         const contact = contacts.find((c: any) => c.wa_id === msg.from);
         const senderName = contact?.profile?.name || phone;
