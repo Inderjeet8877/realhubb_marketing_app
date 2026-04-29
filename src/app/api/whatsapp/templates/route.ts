@@ -114,7 +114,6 @@ export async function POST(request: Request) {
 
     // Build components for Meta API
     const components: any[] = [];
-    let mediaHandle = '';
     
     // Add header if exists
     if (headerType && headerType !== 'none' && headerContent) {
@@ -125,56 +124,27 @@ export async function POST(request: Request) {
           text: headerContent
         });
       } else if (headerType === 'image' || headerType === 'video' || headerType === 'document') {
-        // First upload media to Meta
-        try {
-          console.log(`Uploading ${headerType} to Meta...`);
-          
-          // Convert URL to base64 for upload
-          const mediaResponse = await fetch(headerContent);
-          const mediaBuffer = await mediaResponse.arrayBuffer();
-          const base64 = Buffer.from(mediaBuffer).toString('base64');
-          const mimeType = headerType === 'image' ? 'image/jpeg' : headerType === 'video' ? 'video/mp4' : 'application/pdf';
-          
-          const uploadResponse = await fetch(
-            `${WHATSAPP_API_URL}/${businessAccountId}/media`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                messaging_product: 'whatsapp',
-                type: headerType,
-                file: base64,
-              })
-            }
-          );
-          
-          const uploadData = await uploadResponse.json();
-          console.log('Media upload response:', JSON.stringify(uploadData));
-          
-          if (uploadResponse.ok && uploadData.id) {
-            mediaHandle = uploadData.id;
-            components.push({
-              type: 'HEADER',
-              format: headerType.toUpperCase(),
-              [headerType]: { id: mediaHandle }
-            });
-          } else {
-            console.error('Media upload failed:', uploadData);
-          }
-        } catch (mediaError: any) {
-          console.error('Media upload error:', mediaError);
-        }
+        // For template creation, Meta only needs a sample URL in the example field.
+        // No upload needed — the actual media is provided at send time.
+        components.push({
+          type: 'HEADER',
+          format: headerType.toUpperCase(),
+          example: {
+            header_handle: [headerContent],
+          },
+        });
       }
     }
 
-    // Add body
-    components.push({
-      type: 'BODY',
-      text: content
-    });
+    // Add body — if it has {{1}}, {{2}} variables, provide example values
+    const variableMatches = content.match(/\{\{\d+\}\}/g) || [];
+    const bodyComponent: any = { type: 'BODY', text: content };
+    if (variableMatches.length > 0) {
+      bodyComponent.example = {
+        body_text: [variableMatches.map((_, i) => `sample_value_${i + 1}`)],
+      };
+    }
+    components.push(bodyComponent);
 
     // Add footer if exists
     if (footerContent) {
@@ -211,7 +181,7 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: name.toLowerCase().replace(/\s+/g, '_'),
+          name: name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
           language: language || 'en_US',
           category: category || 'MARKETING',
           components: components
@@ -220,9 +190,9 @@ export async function POST(request: Request) {
     );
 
     const metaData = await metaResponse.json();
-    console.log('Meta template creation response:', JSON.stringify(metaData));
-    console.log('Meta response status:', metaResponse.status);
-    console.log('Category sent to Meta:', category || 'MARKETING');
+    console.log('Meta template response status:', metaResponse.status);
+    console.log('Meta template response body:', JSON.stringify(metaData, null, 2));
+    console.log('Components sent:', JSON.stringify(components, null, 2));
 
     let approvalStatus = 'none';
     let metaTemplateId = '';
