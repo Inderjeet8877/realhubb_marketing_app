@@ -117,7 +117,6 @@ export async function POST(request: Request) {
         components.push({ type: 'HEADER', format: headerType.toUpperCase() });
       }
     }
-    }
 
     // BODY — include variable examples if body uses {{1}} style placeholders
     const variableRegex = new RegExp('\\{\\{\\d+\\}\\}', 'g');
@@ -125,7 +124,7 @@ export async function POST(request: Request) {
     const bodyComponent: any = { type: 'BODY', text: content };
     if (variableMatches.length > 0) {
       bodyComponent.example = {
-        body_text: [variableMatches.map((_: string, i: number) => `sample_value_${i + 1}`)],
+        body_text: [variableMatches.map((val: string, idx: number) => 'sample_' + (idx + 1))],
       };
     }
     components.push(bodyComponent);
