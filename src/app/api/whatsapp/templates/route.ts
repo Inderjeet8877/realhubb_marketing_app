@@ -197,17 +197,28 @@ export async function POST(request: Request) {
         errorMessage += ` - Field: ${metaError.error_data.param}, Issue: ${metaError.error_data.detail}`;
       }
       
-      // Check if template already exists (error code 10000)
+      // Check if template already exists (error code 10000 or message contains 'already exists')
       if (metaData.error.code === 10000 || metaData.error.message?.includes('already exists')) {
-        // Try to find existing template
+        // Try to find existing template - search by name
         try {
           const searchResponse = await fetch(
-            `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?name=${name.toLowerCase().replace(/\s+/g, '_')}&access_token=${accessToken}`
+            `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?name=${safeName}&access_token=${accessToken}`
           );
           const searchData = await searchResponse.json();
           if (searchData.data && searchData.data.length > 0) {
-            metaTemplateId = searchData.data[0].id;
-            approvalStatus = searchData.data[0].status === 'APPROVED' ? 'approved' : 'pending';
+            const existingMeta = searchData.data[0];
+            metaTemplateId = existingMeta.id;
+            // Map Meta status to our status
+            const metaStatus = existingMeta.status; // APPROVED, PENDING, INCOMPLETE, etc.
+            if (metaStatus === 'APPROVED') {
+              approvalStatus = 'approved';
+            } else if (metaStatus === 'PENDING') {
+              approvalStatus = 'pending'; 
+            } else {
+              // NOT_SUBMITTED, INCOMPLETE, or any other status - treat as pending for now
+              approvalStatus = 'pending';
+            }
+            console.log('Found existing Meta template:', metaStatus, '-> mapped to:', approvalStatus);
           }
         } catch (searchError) {
           console.error('Search error:', searchError);
@@ -217,31 +228,41 @@ export async function POST(request: Request) {
       console.error('Meta API error:', errorMessage);
     }
 
-    // Save to Firestore ONLY if Meta accepted the template
+    // Save to Firestore if Meta accepted OR found existing with any status
     let savedTemplateId = null;
-    if (metaTemplateId || approvalStatus === 'pending') {
-      const docRef = await adminDb.collection('whatsapp_templates').add({
-        name: safeName,
-        language: language || 'en_US',
-        category: category || 'MARKETING',
-        content,
-        headerType: headerType || 'none',
-        headerContent: headerContent || '',
-        footerContent: footerContent || '',
-        buttons: buttons || [],
-        approvalStatus,
-        metaTemplateId,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-      savedTemplateId = docRef?.id;
+    if (metaTemplateId || approvalStatus === 'pending' || approvalStatus !== 'none') {
+      // This includes: pending (submitted to Meta), found existing, approved, etc.
+      try {
+        const docRef = await adminDb.collection('whatsapp_templates').add({
+          name: safeName,
+          language: language || 'en_US',
+          category: category || 'MARKETING',
+          content,
+          headerType: headerType || 'none',
+          headerContent: headerContent || '',
+          footerContent: footerContent || '',
+          buttons: buttons || [],
+          approvalStatus,
+          metaTemplateId,
+          metaError: errorMessage || null,  // Store error if any for reference
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        savedTemplateId = docRef?.id;
+      } catch (saveErr) {
+        console.error('Firestore save error:', saveErr);
+      }
     }
 
     return NextResponse.json({
-      success: !!metaTemplateId,  // True only if Meta accepted
-      template: metaTemplateId ? { id: savedTemplateId, name, metaTemplateId } : null,
+      success: !!(metaTemplateId || approvalStatus !== 'none'),  // Success if Meta accepted OR found existing
+      template: (metaTemplateId || approvalStatus !== 'none') 
+        ? { id: savedTemplateId, name, metaTemplateId, approvalStatus } 
+        : null,
       message: metaTemplateId 
         ? (approvalStatus === 'approved' ? 'Template approved and ready!' : 'Template submitted for Meta review.')
-        : errorMessage || 'Failed to create on Meta'
+        : (approvalStatus !== 'none'
+            ? 'Template already exists on Meta. Saved locally with status: ' + approvalStatus
+            : errorMessage || 'Failed to create on Meta')
     });
   } catch (error: any) {
     console.error('Template creation error:', error);
