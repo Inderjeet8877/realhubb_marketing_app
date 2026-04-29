@@ -105,22 +105,22 @@ export async function POST(request: Request) {
     }
 
     // ── Build components ────────────────────────────────────────────────
-    const components: any[] = [];
+const components: any[] = [];
 
-// HEADER — Try to handle IMAGE properly for Meta
-    // For IMAGE headers, Meta expects: format:"IMAGE" with no example OR example with header_handle
-    if (headerType && headerType !== 'none' && headerContent) {
+    // HEADER — IMAGE header requires header_handle from Meta's upload API
+    // We can't upload to Meta, so just send format only (no example)
+    if (headerType && headerType !== 'none') {
       const headerUpper = headerType.toUpperCase();
       
       if (headerUpper === 'IMAGE' || headerUpper === 'VIDEO' || headerUpper === 'DOCUMENT') {
-        // For media types, send format only - NO example (that causes invalid parameter)
-        // The actual image/video will be provided at send time
+        // Send ONLY format - no example, no text field
+        // This might work or might fail, but at least we try
         components.push({ 
           type: 'HEADER', 
-          format: headerUpper 
+          format: headerUpper
+          // NO example field - that was causing "Invalid parameter"
         });
-      } else {
-        // TEXT header works fine
+      } else if (headerUpper === 'TEXT' && headerContent) {
         components.push({ 
           type: 'HEADER', 
           format: headerUpper,
@@ -129,14 +129,25 @@ export async function POST(request: Request) {
       }
     }
 
-    // BODY — include variable examples if body uses {{1}} style placeholders
-    const variableRegex = new RegExp('\\{\\{\\d+\\}\\}', 'g');
-    const variableMatches = content.match(variableRegex) || [];
+    // BODY — Meta expects named parameters format
+    // Check for {{variable}} in body text
     const bodyComponent: any = { type: 'BODY', text: content };
-    if (variableMatches.length > 0) {
-      bodyComponent.example = {
-        body_text: [variableMatches.map((val: string, idx: number) => 'sample_' + (idx + 1))],
-      };
+    
+    // Check for {{1}} or {{variable}} style parameters
+    const namedParams = content.match(/\{\{(\w+)\}\}/g) || [];
+    const positionalParams = content.match(/\{\{(\d+)\}\}/g) || [];
+    
+    if (namedParams.length > 0) {
+      // Named format: {{variable_name}}
+      const examples = namedParams.map((_: string, idx: number) => {
+        const varName = _.replace(/\{\{/, '').replace(/\}\}/, '');
+        return { param_name: varName, example: 'sample_' + (idx + 1) };
+      });
+      bodyComponent.example = { body_text_named_params: examples };
+    } else if (positionalParams.length > 0) {
+      // Positional format: {{1}}
+      const examples = positionalParams.map((_: string, idx: number) => 'sample_' + (idx + 1));
+      bodyComponent.example = { body_text: [examples] };
     }
     components.push(bodyComponent);
 
@@ -171,6 +182,7 @@ export async function POST(request: Request) {
       name: safeName,
       language: language || 'en_US',
       category: category || 'MARKETING',
+      parameter_format: 'named',  // Required for named parameters like {{variable}}
       components,
     };
 
