@@ -19,7 +19,119 @@ interface WhatsAppTemplate {
   createdAt: any;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const syncFromMeta = url.searchParams.get('syncFromMeta') === 'true';
+  
+  // If syncFromMeta=true, fetch ALL templates from Meta and save to Firestore
+  if (syncFromMeta) {
+    const accessToken = process.env.META_ACCESS_TOKEN_1;
+    const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
+    
+    if (!accessToken || !businessAccountId) {
+      return NextResponse.json({ error: 'WhatsApp not configured' }, { status: 500 });
+    }
+    
+    try {
+      // Fetch ALL templates from Meta (paginated)
+      let allMetaTemplates: any[] = [];
+      let nextPage: string | null = `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}`;
+      
+      while (nextPage) {
+        const metaRes = await fetch(nextPage);
+        const metaData = await metaRes.json();
+        
+        if (metaData.data && Array.isArray(metaData.data)) {
+          allMetaTemplates = [...allMetaTemplates, ...metaData.data];
+        }
+        
+        // Check for next page
+        nextPage = metaData.paging?.cursors?.after 
+          ? `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}&after=${metaData.paging.cursors.after}`
+          : null;
+      }
+      
+      console.log('Fetching templates from Meta, count:', allMetaTemplates.length);
+      
+      // Save each template to Firestore
+      let savedCount = 0;
+      for (const mt of allMetaTemplates) {
+        try {
+          // Determine header type
+          let headerType = 'none';
+          if (mt.components) {
+            const headerComp = mt.components.find((c: any) => c.type === 'HEADER');
+            if (headerComp) {
+              if (headerComp.format === 'IMAGE') headerType = 'image';
+              else if (headerComp.format === 'VIDEO') headerType = 'video';
+              else if (headerComp.format === 'DOCUMENT') headerType = 'document';
+              else if (headerComp.format === 'TEXT') headerType = 'text';
+            }
+          }
+          
+          // Extract body text
+          let content = '';
+          if (mt.components) {
+            const bodyComp = mt.components.find((c: any) => c.type === 'BODY');
+            content = bodyComp?.text || '';
+          }
+          
+          // Extract footer
+          let footerContent = '';
+          if (mt.components) {
+            const footerComp = mt.components.find((c: any) => c.type === 'FOOTER');
+            footerContent = footerComp?.text || '';
+          }
+          
+          // Extract buttons
+          let buttons: any[] = [];
+          if (mt.components) {
+            const buttonsComp = mt.components.find((c: any) => c.type === 'BUTTONS');
+            if (buttonsComp?.buttons) {
+              buttons = buttonsComp.buttons.map((b: any) => {
+                if (b.type === 'URL') return { type: 'URL', text: b.text, url: b.url };
+                if (b.type === 'PHONE_NUMBER') return { type: 'PHONE', text: b.text, phone_number: b.phone_number };
+                return { type: 'QUICK_REPLY', text: b.text };
+              });
+            }
+          }
+          
+          const status = mt.status === 'APPROVED' ? 'approved' : mt.status === 'PENDING' ? 'pending' : mt.status === 'REJECTED' ? 'rejected' : 'none';
+          
+          // Save to Firestore
+          await adminDb.collection('whatsapp_templates').add({
+            name: mt.name,
+            language: mt.language || 'en_US',
+            category: mt.category?.toLowerCase() || 'marketing',
+            content,
+            headerType,
+            headerContent: '',
+            footerContent,
+            buttons,
+            approvalStatus: status,
+            metaTemplateId: mt.id,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+          
+          savedCount++;
+        } catch (saveError) {
+          console.error('Error saving template:', mt.name, saveError);
+        }
+      }
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: `Synced ${savedCount} templates from Meta`,
+        count: savedCount 
+      });
+      
+    } catch (error) {
+      console.error('Meta sync error:', error);
+      return NextResponse.json({ error: String(error) }, { status: 500 });
+    }
+  }
+  
+  // Normal GET - return templates from Firestore
   try {
     const snapshot = await adminDb
       .collection('whatsapp_templates')

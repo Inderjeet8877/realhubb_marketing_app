@@ -129,6 +129,7 @@ export default function WhatsAppPage() {
   const [waAccountId] = useState<string>("1");
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [syncingTemplates, setSyncingTemplates] = useState(false);
   const [messageType, setMessageType] = useState<"template" | "text">("template");
   const [bulkMessageType, setBulkMessageType] = useState<"template" | "text">("text");
   const [selectedBulkTemplate, setSelectedBulkTemplate] = useState<string>("");
@@ -251,6 +252,24 @@ export default function WhatsAppPage() {
         setTemplates((d.templates || []).filter((t: any) => t.approvalStatus === "approved" || t.approvalStatus === "none"));
       }
     } catch {}
+  };
+
+  const syncTemplatesFromMeta = async () => {
+    setSyncingTemplates(true);
+    try {
+      const r = await fetch("/api/whatsapp/templates?syncFromMeta=true");
+      const d = await r.json();
+      if (d.success) {
+        alert(`Synced ${d.count} templates from Meta!`);
+        fetchTemplates();
+      } else {
+        alert(d.error || "Sync failed");
+      }
+    } catch (e) {
+      alert("Sync error: " + e);
+    } finally {
+      setSyncingTemplates(false);
+    }
   };
 
   const fetchContacts = async () => {
@@ -748,12 +767,21 @@ export default function WhatsAppPage() {
               </div>
               {messageType === "template" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Template</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Select Template</label>
+                    <button 
+                      onClick={syncTemplatesFromMeta} 
+                      disabled={syncingTemplates}
+                      className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                    >
+                      {syncingTemplates ? "Syncing..." : "↻ Sync from Meta"}
+                    </button>
+                  </div>
                   <select value={selectedTemplate} onChange={e => setSelectedTemplate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900">
                     <option value="">Select a template...</option>
                     {templates.map(t => <option key={t.id} value={t.name}>{t.name} ({t.approvalStatus === "approved" ? "Approved" : "Pending"})</option>)}
                   </select>
-                  {templates.length === 0 && <p className="text-xs text-yellow-600 mt-1">No templates. Create one at Templates page.</p>}
+                  {templates.length === 0 && <p className="text-xs text-yellow-600 mt-1">No templates. Click "Sync from Meta" or create at Templates page.</p>}
                   <p className="text-xs text-gray-500 mt-2">Variables: Leave empty if template has no variables</p>
                 </div>
               )}
