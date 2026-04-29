@@ -9,7 +9,6 @@ export async function GET(request: NextRequest) {
       const snap = await adminDb
         .collection('whatsapp_conversations')
         .where('phone', '==', phone)
-        .orderBy('createdAt', 'asc')
         .limit(300)
         .get();
 
@@ -26,7 +25,7 @@ export async function GET(request: NextRequest) {
           templateName: d.templateName,
           msgType: d.msgType,
         };
-      });
+      }).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
       return NextResponse.json({ success: true, messages });
     }
