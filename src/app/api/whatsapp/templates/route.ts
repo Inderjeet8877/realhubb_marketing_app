@@ -38,8 +38,8 @@ export async function GET(request: Request) {
       let nextPage: string | null = `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}`;
       
       while (nextPage) {
-        const metaRes = await fetch(nextPage);
-        const metaData = await metaRes.json();
+        const metaRes: any = await fetch(nextPage);
+        const metaData: any = await metaRes.json();
         
         if (metaData.data && Array.isArray(metaData.data)) {
           allMetaTemplates = [...allMetaTemplates, ...metaData.data];
