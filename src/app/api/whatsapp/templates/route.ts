@@ -107,16 +107,19 @@ export async function POST(request: Request) {
     // ── Build components ────────────────────────────────────────────────
     const components: any[] = [];
 
-// HEADER — for IMAGE, don't send example (Meta needs media handle which we don't have)
-    // Just send the format type to avoid "Invalid parameter"
-    if (headerType && headerType !== 'none') {
-      if (headerType.toUpperCase() === 'IMAGE') {
-        // For image, just declare TEXT format for now (simplest workaround)
-        components.push({ type: 'HEADER', format: 'TEXT', text: headerContent?.slice(0, 60) || 'Image header' });
-      } else {
-        components.push({ type: 'HEADER', format: headerType.toUpperCase() });
-      }
+// HEADER — disabled unless header has content (TEXT type)
+    // IMAGE/VIDEO/DOCUMENT need media handle from Meta upload API
+    // For now, disable ALL header types to avoid "Invalid parameter" errors
+    // Only works without header (NONE)
+    /*
+    if (headerType && headerType !== 'none' && headerContent) {
+      components.push({ 
+        type: 'HEADER', 
+        format: headerType.toUpperCase(),
+        text: headerContent?.slice(0, 60) || undefined
+      });
     }
+    */
 
     // BODY — include variable examples if body uses {{1}} style placeholders
     const variableRegex = new RegExp('\\{\\{\\d+\\}\\}', 'g');
