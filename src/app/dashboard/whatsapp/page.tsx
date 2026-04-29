@@ -129,6 +129,7 @@ export default function WhatsAppPage() {
   const [waAccountId] = useState<string>("1");
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [templateSendImageUrl, setTemplateSendImageUrl] = useState<string>("");
   const [syncingTemplates, setSyncingTemplates] = useState(false);
   const [messageType, setMessageType] = useState<"template" | "text">("template");
   const [bulkMessageType, setBulkMessageType] = useState<"template" | "text">("text");
@@ -408,6 +409,8 @@ export default function WhatsAppPage() {
     try {
       alert(`Calling API with: phone=${phoneNumber}, type=${messageType}, template=${selectedTemplate}`);
       const templateObj = templates.find((t: any) => t.name === selectedTemplate);
+      // For image templates: use manually entered URL first, fall back to stored headerContent
+      const effectiveImageUrl = templateSendImageUrl.trim() || templateObj?.headerContent || "";
       const response = await fetch("/api/whatsapp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -419,7 +422,7 @@ export default function WhatsAppPage() {
           templateContent: messageType === "template" ? (templateObj?.content || "") : undefined,
           languageCode: messageType === "template" ? (templateObj?.language || "en") : undefined,
           templateHeaderType: messageType === "template" ? (templateObj?.headerType || "") : undefined,
-          templateHeaderContent: messageType === "template" ? (templateObj?.headerContent || "") : undefined,
+          templateHeaderContent: messageType === "template" ? effectiveImageUrl : undefined,
           isTemplate: messageType === "template",
         }),
       });
@@ -783,11 +786,37 @@ export default function WhatsAppPage() {
                       {syncingTemplates ? "Syncing..." : "↻ Sync from Meta"}
                     </button>
                   </div>
-                  <select value={selectedTemplate} onChange={e => setSelectedTemplate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900">
+                  <select
+                    value={selectedTemplate}
+                    onChange={e => { setSelectedTemplate(e.target.value); setTemplateSendImageUrl(""); }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
+                  >
                     <option value="">Select a template...</option>
-                    {templates.map(t => <option key={t.id} value={t.name}>{t.name} ({t.approvalStatus === "approved" ? "Approved" : "Pending"})</option>)}
+                    {templates.map(t => {
+                      const icon = t.headerType === 'image' ? '🖼 ' : t.headerType === 'video' ? '🎥 ' : t.headerType === 'document' ? '📄 ' : '';
+                      return <option key={t.id} value={t.name}>{icon}{t.name} ({t.approvalStatus === "approved" ? "Approved" : "Pending"})</option>;
+                    })}
                   </select>
                   {templates.length === 0 && <p className="text-xs text-yellow-600 mt-1">No templates. Click Sync from Meta or create at Templates page.</p>}
+
+                  {/* Image URL input — shown when selected template has an image header */}
+                  {(() => {
+                    const sel = templates.find((t: any) => t.name === selectedTemplate);
+                    if (!sel || sel.headerType !== 'image') return null;
+                    return (
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <label className="block text-xs font-semibold text-blue-800 mb-1">🖼 Image URL (required for this template)</label>
+                        <input
+                          type="text"
+                          value={templateSendImageUrl || sel.headerContent || ""}
+                          onChange={e => setTemplateSendImageUrl(e.target.value)}
+                          placeholder="https://your-server.com/image.jpg"
+                          className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        />
+                        <p className="text-xs text-blue-600 mt-1">Must be a publicly accessible URL (HTTPS). This image is sent with the template.</p>
+                      </div>
+                    );
+                  })()}
                   <p className="text-xs text-gray-500 mt-2">Variables: Leave empty if template has no variables</p>
                 </div>
               )}

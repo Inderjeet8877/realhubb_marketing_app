@@ -53,76 +53,91 @@ export async function GET(request: Request) {
       
       console.log('Fetching templates from Meta, count:', allMetaTemplates.length);
       
-      // Save each template to Firestore
+      // Upsert each template — update existing, create only if new
       let savedCount = 0;
+      let updatedCount = 0;
+
       for (const mt of allMetaTemplates) {
         try {
-          // Determine header type
+          // Parse components
+          const headerComp = mt.components?.find((c: any) => c.type === 'HEADER');
           let headerType = 'none';
-          if (mt.components) {
-            const headerComp = mt.components.find((c: any) => c.type === 'HEADER');
-            if (headerComp) {
-              if (headerComp.format === 'IMAGE') headerType = 'image';
-              else if (headerComp.format === 'VIDEO') headerType = 'video';
-              else if (headerComp.format === 'DOCUMENT') headerType = 'document';
-              else if (headerComp.format === 'TEXT') headerType = 'text';
-            }
+          if (headerComp) {
+            if (headerComp.format === 'IMAGE')    headerType = 'image';
+            else if (headerComp.format === 'VIDEO')    headerType = 'video';
+            else if (headerComp.format === 'DOCUMENT') headerType = 'document';
+            else if (headerComp.format === 'TEXT')     headerType = 'text';
           }
-          
-          // Extract body text
-          let content = '';
-          if (mt.components) {
-            const bodyComp = mt.components.find((c: any) => c.type === 'BODY');
-            content = bodyComp?.text || '';
-          }
-          
-          // Extract footer
-          let footerContent = '';
-          if (mt.components) {
-            const footerComp = mt.components.find((c: any) => c.type === 'FOOTER');
-            footerContent = footerComp?.text || '';
-          }
-          
-          // Extract buttons
-          let buttons: any[] = [];
-          if (mt.components) {
-            const buttonsComp = mt.components.find((c: any) => c.type === 'BUTTONS');
-            if (buttonsComp?.buttons) {
-              buttons = buttonsComp.buttons.map((b: any) => {
-                if (b.type === 'URL') return { type: 'URL', text: b.text, url: b.url };
-                if (b.type === 'PHONE_NUMBER') return { type: 'PHONE', text: b.text, phone_number: b.phone_number };
-                return { type: 'QUICK_REPLY', text: b.text };
-              });
-            }
-          }
-          
-          const status = mt.status === 'APPROVED' ? 'approved' : mt.status === 'PENDING' ? 'pending' : mt.status === 'REJECTED' ? 'rejected' : 'none';
-          
-          // Save to Firestore
-          await adminDb.collection('whatsapp_templates').add({
+
+          const bodyComp    = mt.components?.find((c: any) => c.type === 'BODY');
+          const footerComp  = mt.components?.find((c: any) => c.type === 'FOOTER');
+          const buttonsComp = mt.components?.find((c: any) => c.type === 'BUTTONS');
+
+          const content      = bodyComp?.text || '';
+          const footerContent = footerComp?.text || '';
+          const buttons = (buttonsComp?.buttons || []).map((b: any) => {
+            if (b.type === 'URL')          return { type: 'URL',   text: b.text, url: b.url };
+            if (b.type === 'PHONE_NUMBER') return { type: 'PHONE', text: b.text, phone_number: b.phone_number };
+            return { type: 'QUICK_REPLY', text: b.text };
+          });
+
+          const status = mt.status === 'APPROVED' ? 'approved'
+            : mt.status === 'REJECTED' ? 'rejected' : 'pending';
+
+          const templateData = {
             name: mt.name,
-            language: mt.language || 'en_US',
-            category: mt.category?.toLowerCase() || 'marketing',
+            language: mt.language || 'en',
+            category: mt.category || 'MARKETING',
             content,
             headerType,
-            headerContent: '',
             footerContent,
             buttons,
             approvalStatus: status,
             metaTemplateId: mt.id,
-            createdAt: FieldValue.serverTimestamp(),
-          });
-          
-          savedCount++;
+          };
+
+          // Check by metaTemplateId first, then by name — UPDATE if exists, CREATE if not
+          let existingSnap = await adminDb
+            .collection('whatsapp_templates')
+            .where('metaTemplateId', '==', mt.id)
+            .limit(1).get();
+
+          if (existingSnap.empty) {
+            existingSnap = await adminDb
+              .collection('whatsapp_templates')
+              .where('name', '==', mt.name)
+              .limit(1).get();
+          }
+
+          if (!existingSnap.empty) {
+            // Update — but preserve headerContent (user may have added image URL manually)
+            const existing = existingSnap.docs[0].data();
+            await existingSnap.docs[0].ref.update({
+              ...templateData,
+              // Keep existing headerContent if present, otherwise empty
+              headerContent: existing.headerContent || '',
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+            updatedCount++;
+          } else {
+            await adminDb.collection('whatsapp_templates').add({
+              ...templateData,
+              headerContent: '',
+              createdAt: FieldValue.serverTimestamp(),
+            });
+            savedCount++;
+          }
         } catch (saveError) {
-          console.error('Error saving template:', mt.name, saveError);
+          console.error('Error syncing template:', mt.name, saveError);
         }
       }
-      
-      return NextResponse.json({ 
-        success: true, 
-        message: `Synced ${savedCount} templates from Meta`,
-        count: savedCount 
+
+      return NextResponse.json({
+        success: true,
+        message: `Sync complete: ${savedCount} new, ${updatedCount} updated`,
+        new: savedCount,
+        updated: updatedCount,
+        total: allMetaTemplates.length,
       });
       
     } catch (error) {
