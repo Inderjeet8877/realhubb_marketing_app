@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Realhubb Platform — Complete Setup Guide</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a2e; background: #fff; font-size: 13px; line-height: 1.6; }
+
+  /* ── Cover page ── */
+  .cover {
+    height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #075e54 0%, #128c7e 50%, #25d366 100%);
+    color: #fff; text-align: center; padding: 40px; page-break-after: always;
+  }
+  .cover .logo { font-size: 52px; margin-bottom: 12px; }
+  .cover h1 { font-size: 36px; font-weight: 800; letter-spacing: -1px; margin-bottom: 10px; }
+  .cover h2 { font-size: 18px; font-weight: 400; opacity: .85; margin-bottom: 40px; }
+  .cover .badge {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+    border-radius: 30px; padding: 8px 24px; font-size: 13px; margin-bottom: 8px;
+  }
+  .cover .meta { margin-top: 60px; opacity: .7; font-size: 12px; }
+
+  /* ── Page layout ── */
+  .page { max-width: 800px; margin: 0 auto; padding: 50px 60px; }
+  @media print {
+    .page { padding: 30px 40px; }
+    .page-break { page-break-before: always; }
+  }
+
+  /* ── Typography ── */
+  h1.section { font-size: 26px; color: #075e54; border-bottom: 3px solid #25d366; padding-bottom: 10px; margin: 40px 0 20px; }
+  h2.sub { font-size: 17px; color: #128c7e; margin: 28px 0 12px; }
+  h3.step-title { font-size: 14px; font-weight: 700; color: #075e54; margin: 16px 0 6px; }
+  p { margin-bottom: 10px; color: #333; }
+
+  /* ── Table of contents ── */
+  .toc { background: #f0fdf4; border-left: 4px solid #25d366; padding: 24px 28px; border-radius: 6px; margin: 20px 0 40px; }
+  .toc h3 { color: #075e54; font-size: 15px; margin-bottom: 14px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { padding: 4px 0; color: #128c7e; font-weight: 500; }
+  .toc li span { color: #555; font-weight: 400; font-size: 12px; margin-left: 6px; }
+
+  /* ── Step boxes ── */
+  .step-box {
+    border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px 22px;
+    margin: 14px 0; position: relative;
+  }
+  .step-num {
+    position: absolute; top: -12px; left: 18px;
+    background: #075e54; color: #fff; border-radius: 20px;
+    padding: 2px 12px; font-size: 11px; font-weight: 700; letter-spacing: .5px;
+  }
+
+  /* ── Code blocks ── */
+  code {
+    background: #1e293b; color: #86efac; padding: 2px 7px; border-radius: 4px;
+    font-family: 'Consolas', 'Courier New', monospace; font-size: 12px;
+  }
+  .code-block {
+    background: #1e293b; color: #e2e8f0; border-radius: 8px;
+    padding: 16px 20px; margin: 12px 0; overflow: auto;
+    font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; line-height: 1.7;
+  }
+  .code-block .comment { color: #6b7280; }
+  .code-block .key { color: #93c5fd; }
+  .code-block .val { color: #86efac; }
+  .code-block .url { color: #fbbf24; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 12px; }
+  th { background: #075e54; color: #fff; padding: 9px 14px; text-align: left; font-weight: 600; }
+  td { padding: 9px 14px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  tr:nth-child(even) td { background: #f9fafb; }
+  td code { background: #e0f2fe; color: #0369a1; }
+
+  /* ── Alert boxes ── */
+  .alert { border-radius: 8px; padding: 14px 18px; margin: 14px 0; display: flex; gap: 12px; align-items: flex-start; }
+  .alert.info  { background: #eff6ff; border-left: 4px solid #3b82f6; }
+  .alert.warn  { background: #fffbeb; border-left: 4px solid #f59e0b; }
+  .alert.success { background: #f0fdf4; border-left: 4px solid #22c55e; }
+  .alert.danger  { background: #fef2f2; border-left: 4px solid #ef4444; }
+  .alert-icon { font-size: 18px; line-height: 1; }
+  .alert p { margin: 0; font-size: 12px; }
+  .alert strong { font-weight: 700; }
+
+  /* ── Flow diagram ── */
+  .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+  .flow-node {
+    background: #075e54; color: #fff; border-radius: 8px;
+    padding: 8px 14px; font-size: 11px; font-weight: 600; text-align: center; min-width: 90px;
+  }
+  .flow-node.inbound { background: #2563eb; }
+  .flow-node.firebase { background: #ea580c; }
+  .flow-node.frontend { background: #7c3aed; }
+  .flow-arrow { color: #9ca3af; font-size: 18px; font-weight: 700; }
+
+  /* ── Checklist ── */
+  .checklist { list-style: none; padding: 0; }
+  .checklist li { padding: 5px 0 5px 26px; position: relative; font-size: 12px; color: #374151; }
+  .checklist li::before { content: "☐"; position: absolute; left: 0; color: #075e54; font-size: 14px; }
+
+  /* ── Env var list ── */
+  .env-var { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin: 6px 0; }
+  .env-var .name { font-family: monospace; font-size: 12px; font-weight: 700; color: #0369a1; }
+  .env-var .desc { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 1px solid #e5e7eb; margin: 30px 0; }
+
+  /* ── Footer ── */
+  .footer { text-align: center; color: #9ca3af; font-size: 11px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
+
+  /* ── Architecture diagram ── */
+  .arch { background: #0f172a; border-radius: 10px; padding: 24px; margin: 16px 0; color: #e2e8f0; font-family: monospace; font-size: 11px; line-height: 2; }
+  .arch .green { color: #4ade80; }
+  .arch .blue  { color: #60a5fa; }
+  .arch .orange{ color: #fb923c; }
+  .arch .yellow{ color: #facc15; }
+  .arch .purple{ color: #c084fc; }
+
+  /* ── Print ── */
+  @page { size: A4; margin: 15mm; }
+  @media print {
+    .cover { height: auto; padding: 80px 40px; min-height: 100vh; }
+    body { font-size: 12px; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ COVER ══ -->
+<div class="cover">
+  <div class="logo">💬</div>
+  <h1>Realhubb Platform</h1>
+  <h2>WhatsApp Business Messaging — Complete Setup Guide</h2>
+  <div class="badge">📋 Step-by-Step Configuration &amp; Architecture</div>
+  <div class="badge">🚀 Firebase · Meta Cloud API · Vercel · Next.js 15</div>
+  <div class="meta">
+    Version 1.0 &nbsp;·&nbsp; April 2025 &nbsp;·&nbsp; realhubb_business (+91 63649 40394)<br/>
+    GitHub: github.com/Inderjeet8877/realhubb_marketing_app
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ PAGE 1 — TOC ══ -->
+<div class="page">
+
+  <h1 class="section">📑 Table of Contents</h1>
+  <div class="toc">
+    <h3>What's in this guide</h3>
+    <ol>
+      <li>System Overview &amp; Architecture <span>— how the platform works end to end</span></li>
+      <li>Prerequisites <span>— accounts and tools you need</span></li>
+      <li>Firebase Setup <span>— project, Firestore, security rules, Admin SDK</span></li>
+      <li>Meta / WhatsApp Cloud API Setup <span>— app, WABA, phone number, tokens</span></li>
+      <li>Environment Variables <span>— complete list of all .env keys</span></li>
+      <li>Vercel Deployment <span>— connect GitHub, add env vars, deploy</span></li>
+      <li>Webhook Configuration <span>— subscribe, verify, test</span></li>
+      <li>WABA Subscription <span>— the critical step for inbound messages</span></li>
+      <li>How Messages Flow <span>— inbound, outbound, real-time ticks</span></li>
+      <li>Troubleshooting Checklist <span>— common issues and fixes</span></li>
+    </ol>
+  </div>
+
+  <div class="alert success">
+    <div class="alert-icon">✅</div>
+    <p><strong>This guide covers the complete working setup</strong> that was built, debugged and confirmed working — including every issue encountered and its solution.</p>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════ PAGE 2 — ARCHITECTURE ══ -->
+<div class="page page-break">
+
+  <h1 class="section">1. System Overview &amp; Architecture</h1>
+
+  <h2 class="sub">What the platform does</h2>
+  <p>Realhubb is a WhatsApp Business CRM that lets you send individual &amp; bulk messages, manage conversations in a real-time inbox, track message delivery status (sent → delivered → read with blue ticks), and receive replies from customers — all in one dashboard.</p>
+
+  <h2 class="sub">Technology Stack</h2>
+  <table>
+    <tr><th>Layer</th><th>Technology</th><th>Purpose</th></tr>
+    <tr><td>Frontend</td><td>Next.js 15 + Tailwind CSS</td><td>Dashboard UI — WhatsApp-style inbox</td></tr>
+    <tr><td>Backend</td><td>Next.js API Routes (serverless)</td><td>Send messages, receive webhooks, manage data</td></tr>
+    <tr><td>Database</td><td>Firebase Firestore</td><td>Store conversations, messages, templates, contacts</td></tr>
+    <tr><td>Auth</td><td>Firebase Auth</td><td>Dashboard login</td></tr>
+    <tr><td>Messaging API</td><td>Meta WhatsApp Cloud API v21</td><td>Send &amp; receive WhatsApp messages</td></tr>
+    <tr><td>Hosting</td><td>Vercel</td><td>Deploy and serve the Next.js app</td></tr>
+    <tr><td>Server SDK</td><td>Firebase Admin SDK</td><td>Server-side Firestore (bypasses security rules)</td></tr>
+  </table>
+
+  <h2 class="sub">Architecture Diagram</h2>
+  <div class="arch">
+    <span class="green">┌─────────────────────────────────────────────────────────────┐</span><br/>
+    <span class="green">│                    REALHUBB PLATFORM                        │</span><br/>
+    <span class="green">└─────────────────────────────────────────────────────────────┘</span><br/>
+    <br/>
+    <span class="yellow">  [Browser / Dashboard]</span><br/>
+    <span class="yellow">    ↕ onSnapshot (real-time)</span>   <span class="orange">← Firebase Client SDK</span><br/>
+    <span class="orange">  [Firestore DB]</span><br/>
+    <span class="orange">    ↕ Admin SDK (no rules)</span>    <span class="blue">← Server-side only</span><br/>
+    <span class="blue">  [Next.js API Routes on Vercel]</span><br/>
+    <span class="blue">    /api/whatsapp/send        → outbound messages</span><br/>
+    <span class="blue">    /api/whatsapp/webhook     ← inbound messages + status</span><br/>
+    <span class="blue">    /api/whatsapp/messages    → fetch conversation history</span><br/>
+    <span class="blue">    ↕ REST API</span><br/>
+    <span class="purple">  [Meta WhatsApp Cloud API]</span><br/>
+    <span class="purple">    ↕ WhatsApp Network</span><br/>
+    <span class="green">  [Customer's Phone]</span><br/>
+  </div>
+
+  <h2 class="sub">Real-time Message Flow</h2>
+
+  <h3 class="step-title">Outbound (Business → Customer)</h3>
+  <div class="flow">
+    <div class="flow-node">Dashboard<br/>Send btn</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node">/api/whatsapp<br/>/send</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node">Meta API<br/>graph.fb.com</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node inbound">Customer<br/>WhatsApp</div>
+    <div class="flow-arrow">+</div>
+    <div class="flow-node firebase">Firestore<br/>saved</div>
+  </div>
+
+  <h3 class="step-title">Inbound (Customer → Business)</h3>
+  <div class="flow">
+    <div class="flow-node inbound">Customer<br/>sends msg</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node">Meta WABA<br/>routes it</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node">/api/whatsapp<br/>/webhook POST</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node firebase">Firestore<br/>Admin SDK</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node frontend">onSnapshot<br/>→ Inbox</div>
+  </div>
+
+  <h3 class="step-title">Delivery Status (Ticks)</h3>
+  <div class="flow">
+    <div class="flow-node">Meta detects<br/>delivered/read</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node">/webhook<br/>statuses[]</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node firebase">updateDoc<br/>status field</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-node frontend">✓ → ✓✓ → 🔵✓✓<br/>instantly</div>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════ PAGE 3 — PREREQUISITES ══ -->
+<div class="page page-break">
+
+  <h1 class="section">2. Prerequisites</h1>
+
+  <p>Before you start, make sure you have all of the following:</p>
+
+  <table>
+    <tr><th>Item</th><th>Where to get it</th><th>Notes</th></tr>
+    <tr><td>Facebook / Meta developer account</td><td>developers.facebook.com</td><td>Free — use existing Facebook account</td></tr>
+    <tr><td>Meta Business Portfolio</td><td>business.facebook.com</td><td>Required to own a WABA</td></tr>
+    <tr><td>WhatsApp Business Account (WABA)</td><td>Created inside Meta App setup</td><td>Holds your phone number</td></tr>
+    <tr><td>Production phone number</td><td>Meta → WhatsApp → Phone Numbers</td><td>Must be verified — +91 63649 40394 in this case</td></tr>
+    <tr><td>Firebase project</td><td>console.firebase.google.com</td><td>Free Spark plan is sufficient</td></tr>
+    <tr><td>GitHub account</td><td>github.com</td><td>For source code hosting</td></tr>
+    <tr><td>Vercel account</td><td>vercel.com</td><td>Free Hobby plan works</td></tr>
+    <tr><td>Node.js 18+</td><td>nodejs.org</td><td>For local development</td></tr>
+  </table>
+
+  <div class="alert warn">
+    <div class="alert-icon">⚠️</div>
+    <p><strong>Important:</strong> Use a <strong>production phone number</strong> (not Meta's test number) so any WhatsApp user can send messages. Test numbers only accept messages from explicitly registered test recipients.</p>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════ PAGE 4 — FIREBASE SETUP ══ -->
+<div class="page page-break">
+
+  <h1 class="section">3. Firebase Setup</h1>
+
+  <h2 class="sub">3.1 Create Firebase Project</h2>
+
+  <div class="step-box">
+    <div class="step-num">STEP 1</div>
+    <h3 class="step-title">Create project</h3>
+    <p>Go to <strong>console.firebase.google.com</strong> → <strong>Add project</strong> → Enter name (e.g. <code>realhubb-marketing-app</code>) → Disable Google Analytics (optional) → Create project.</p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 2</div>
+    <h3 class="step-title">Enable Firestore</h3>
+    <p>In the left sidebar → <strong>Firestore Database</strong> → <strong>Create database</strong> → Choose <strong>Start in production mode</strong> → Select region (e.g. <code>asia-south1</code> for India) → Done.</p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 3</div>
+    <h3 class="step-title">Get Web App Config</h3>
+    <p>⚙️ Project Settings → <strong>General</strong> tab → scroll to <strong>Your apps</strong> → Click <strong>&lt;/&gt; Web</strong> → Register app → copy the <code>firebaseConfig</code> object. You need these for <code>NEXT_PUBLIC_FIREBASE_*</code> env vars.</p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 4</div>
+    <h3 class="step-title">Get Admin SDK credentials (service account)</h3>
+    <p>⚙️ Project Settings → <strong>Service accounts</strong> tab → <strong>Generate new private key</strong> → Download the JSON file. Extract <code>client_email</code> and <code>private_key</code> for Vercel env vars.</p>
+  </div>
+
+  <h2 class="sub">3.2 Firestore Security Rules</h2>
+  <p>Go to <strong>Firestore → Rules</strong> tab and paste the following rules, then click <strong>Publish</strong>:</p>
+
+  <div class="code-block">
+<span class="key">rules_version</span> = <span class="val">'2'</span>;<br/>
+service cloud.firestore {<br/>
+&nbsp;&nbsp;match /databases/{database}/documents {<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// WhatsApp — webhook writes without auth, dashboard reads freely</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;match /whatsapp_conversations/{docId} {<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if true;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;match /webhook_logs/{docId} {<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if true;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;match /whatsapp_templates/{docId} {<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if true;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">// Everything else requires login</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;match /{document=**} {<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if request.auth != null;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;}<br/>
+}
+  </div>
+
+  <div class="alert info">
+    <div class="alert-icon">ℹ️</div>
+    <p><strong>Why <code>write: if true</code> for WhatsApp collections?</strong> The webhook runs as a serverless function with no user auth context. Firebase Admin SDK bypasses rules, but these rules are also needed so the client SDK (browser onSnapshot) can read messages without the user needing special permissions.</p>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════ PAGE 5 — META SETUP ══ -->
+<div class="page page-break">
+
+  <h1 class="section">4. Meta / WhatsApp Cloud API Setup</h1>
+
+  <h2 class="sub">4.1 Create Meta App</h2>
+
+  <div class="step-box">
+    <div class="step-num">STEP 1</div>
+    <h3 class="step-title">Create new Meta App</h3>
+    <p>Go to <strong>developers.facebook.com/apps</strong> → <strong>Create App</strong> → Select <strong>"Connect with customers through WhatsApp"</strong> use case → Enter app name → Select or create a Business Portfolio → Create app.</p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 2</div>
+    <h3 class="step-title">Connect WhatsApp Business Account</h3>
+    <p>In the app → <strong>WhatsApp → API Setup</strong> → Connect to your WhatsApp Business Account (WABA). Note the <strong>WhatsApp Business Account ID</strong> shown on this page — you'll need it as <code>WHATSAPP_BUSINESS_ACCOUNT_ID_1</code>.</p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 3</div>
+    <h3 class="step-title">Add production phone number</h3>
+    <p>WhatsApp → <strong>Phone Numbers</strong> → Add a phone number → Complete verification (OTP) → Done. Note the <strong>Phone Number ID</strong> — you need it as <code>WHATSAPP_PHONE_NUMBER_ID_1</code>.</p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 4</div>
+    <h3 class="step-title">Generate Permanent Access Token</h3>
+    <p>1. Go to <strong>Meta Business Manager → Settings → System Users</strong> → Add new system user.<br/>
+    2. Assign assets → select your app → <strong>Full Control</strong>.<br/>
+    3. Assign your WhatsApp Business Account → <strong>Full Control</strong>.<br/>
+    4. Click <strong>Generate Token</strong> → add permissions: <code>whatsapp_business_messaging</code>, <code>whatsapp_business_management</code>.<br/>
+    5. Copy and save the token — this is <code>META_ACCESS_TOKEN_1</code>.</p>
+  </div>
+
+  <div class="alert warn">
+    <div class="alert-icon">⚠️</div>
+    <p><strong>Never use temporary tokens in production.</strong> The temporary token from API Setup expires in hours. Always use the permanent System User token for Vercel.</p>
+  </div>
+
+  <h2 class="sub">4.2 Configure Webhook</h2>
+
+  <div class="step-box">
+    <div class="step-num">STEP 5</div>
+    <h3 class="step-title">Set webhook URL and token</h3>
+    <p>WhatsApp → <strong>Configuration</strong> → Webhook section:<br/>
+    • <strong>Callback URL:</strong> <code>https://your-app.vercel.app/api/whatsapp/webhook</code><br/>
+    • <strong>Verify Token:</strong> <code>whatsapp_verify_token_123</code> (or any secret string — must match <code>WHATSAPP_WEBHOOK_VERIFY_TOKEN</code> env var)<br/>
+    Click <strong>Verify and Save</strong>.</p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 6</div>
+    <h3 class="step-title">Subscribe to webhook fields</h3>
+    <p>Under <strong>Webhook Fields</strong> → click <strong>Manage</strong> → enable the <strong>messages</strong> toggle → Save. This tells Meta to send inbound message events to your webhook.</p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 7 ⭐ CRITICAL</div>
+    <h3 class="step-title">Subscribe WABA to the app webhook (one-time)</h3>
+    <p>After deploying to Vercel, open this URL in your browser once:<br/>
+    <code>https://your-app.vercel.app/api/whatsapp/setup-webhook</code><br/><br/>
+    You should see <code>"success": true</code>. This call does <code>POST /{WABA_ID}/subscribed_apps</code> which links your production WABA to the app so real inbound messages trigger your webhook.<br/><br/>
+    <strong>Without this step, only Meta's test button will work — real user messages will be silently dropped.</strong></p>
+  </div>
+
+  <div class="alert danger">
+    <div class="alert-icon">🚨</div>
+    <p><strong>Common Mistake:</strong> The webhook "Test" button in Meta's dashboard directly pings your URL — it bypasses WhatsApp's real message routing. It can pass even when real messages fail. Always test with a real phone sending to your business number after completing Step 7.</p>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════ PAGE 6 — ENV VARS ══ -->
+<div class="page page-break">
+
+  <h1 class="section">5. Environment Variables</h1>
+  <p>These variables must be added in <strong>Vercel → Settings → Environment Variables</strong> AND in your local <code>.env.local</code> file for development. The <code>.env.local</code> file is in <code>.gitignore</code> and is never pushed to GitHub.</p>
+
+  <h2 class="sub">Firebase (Client SDK — browser)</h2>
+
+  <div class="env-var">
+    <div class="name">NEXT_PUBLIC_FIREBASE_API_KEY</div>
+    <div class="desc">From Firebase Console → Project Settings → General → Web App config</div>
+  </div>
+  <div class="env-var">
+    <div class="name">NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN</div>
+    <div class="desc">Format: your-project-id.firebaseapp.com</div>
+  </div>
+  <div class="env-var">
+    <div class="name">NEXT_PUBLIC_FIREBASE_PROJECT_ID</div>
+    <div class="desc">Your Firebase project ID (e.g. realhubb-marketing-app)</div>
+  </div>
+  <div class="env-var">
+    <div class="name">NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET</div>
+    <div class="desc">Format: your-project-id.firebasestorage.app</div>
+  </div>
+  <div class="env-var">
+    <div class="name">NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID</div>
+    <div class="desc">Numeric sender ID from Web App config</div>
+  </div>
+  <div class="env-var">
+    <div class="name">NEXT_PUBLIC_FIREBASE_APP_ID</div>
+    <div class="desc">Format: 1:123456789:web:abcdef...</div>
+  </div>
+
+  <h2 class="sub">Firebase Admin SDK (server-side — bypasses Firestore rules)</h2>
+
+  <div class="env-var">
+    <div class="name">FIREBASE_ADMIN_CLIENT_EMAIL</div>
+    <div class="desc">From service account JSON → client_email field (e.g. firebase-adminsdk-xxx@project.iam.gserviceaccount.com)</div>
+  </div>
+  <div class="env-var">
+    <div class="name">FIREBASE_ADMIN_PRIVATE_KEY</div>
+    <div class="desc">From service account JSON → private_key field. Include the full value with -----BEGIN RSA PRIVATE KEY----- and -----END RSA PRIVATE KEY-----. Paste as-is in Vercel.</div>
+  </div>
+
+  <h2 class="sub">Meta / WhatsApp Cloud API</h2>
+
+  <div class="env-var">
+    <div class="name">META_ACCESS_TOKEN_1</div>
+    <div class="desc">Permanent System User access token from Meta Business Manager → System Users → Generate Token</div>
+  </div>
+  <div class="env-var">
+    <div class="name">WHATSAPP_PHONE_NUMBER_ID_1</div>
+    <div class="desc">Phone Number ID from Meta → WhatsApp → API Setup (numeric, e.g. 1043186245551497)</div>
+  </div>
+  <div class="env-var">
+    <div class="name">WHATSAPP_BUSINESS_ACCOUNT_ID_1</div>
+    <div class="desc">WABA ID from Meta → WhatsApp → API Setup (numeric, e.g. 1757017775671902)</div>
+  </div>
+  <div class="env-var">
+    <div class="name">WHATSAPP_WEBHOOK_VERIFY_TOKEN</div>
+    <div class="desc">Any secret string you choose — must match what you enter in Meta's webhook verify token field (e.g. whatsapp_verify_token_123)</div>
+  </div>
+
+  <div class="alert info">
+    <div class="alert-icon">ℹ️</div>
+    <p><strong>After adding all variables in Vercel</strong>, click <strong>Redeploy</strong> (Deployments tab → 3 dots → Redeploy) for the new values to take effect.</p>
+  </div>
+
+</div>
+
+<!-- ════════════════════════════════ PAGE 7 — DEPLOYMENT ══ -->
+<div class="page page-break">
+
+  <h1 class="section">6. Vercel Deployment</h1>
+
+  <div class="step-box">
+    <div class="step-num">STEP 1</div>
+    <h3 class="step-title">Push code to GitHub</h3>
+    <div class="code-block">
+<span class="comment"># In the project directory</span><br/>
+git init<br/>
+git add .<br/>
+git commit -m <span class="val">"Initial commit"</span><br/>
+git remote add origin https://github.com/YOUR_USERNAME/realhubb_marketing_app.git<br/>
+git branch -M main<br/>
+git push -u origin main
+    </div>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 2</div>
+    <h3 class="step-title">Connect to Vercel</h3>
+    <p>Go to <strong>vercel.com</strong> → <strong>Add New Project</strong> → Import your GitHub repository → Select <strong>Next.js</strong> framework (auto-detected) → Do NOT deploy yet — add env vars first.</p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 3</div>
+    <h3 class="step-title">Add all environment variables</h3>
+    <p>In the import screen → <strong>Environment Variables</strong> section → add every variable from Section 5 of this guide → then click <strong>Deploy</strong>.</p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 4</div>
+    <h3 class="step-title">Verify deployment</h3>
+    <p>After deployment, open the app URL. Then test the webhook server is alive:<br/>
+    <code>https://your-app.vercel.app/api/whatsapp/webhook</code><br/>
+    Should return: <code>{"status":"webhook_online","ts":"..."}</code></p>
+  </div>
+
+  <div class="step-box">
+    <div class="step-num">STEP 5</div>
+    <h3 class="step-title">Future deployments (automatic)</h3>
+    <p>Every <code>git push origin main</code> triggers an automatic Vercel deployment. No manual action needed after initial setup.</p>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════ PAGE 8 — HOW IT WORKS ══ -->
+<div class="page page-break">
+
+  <h1 class="section">7. How Messages Work</h1>
+
+  <h2 class="sub">7.1 Sending a Message (Outbound)</h2>
+  <table>
+    <tr><th>Step</th><th>What happens</th><th>Code location</th></tr>
+    <tr><td>1</td><td>User enters phone + message in dashboard and clicks Send</td><td>whatsapp/page.tsx → handleSend()</td></tr>
+    <tr><td>2</td><td>Frontend calls POST /api/whatsapp/send with phone, message, templateName</td><td>page.tsx → fetch("/api/whatsapp/send")</td></tr>
+    <tr><td>3</td><td>API route formats phone number (adds 91 country code), builds WhatsApp API payload</td><td>send/route.ts → handleSingleSend()</td></tr>
+    <tr><td>4</td><td>POST to graph.facebook.com/v21.0/{phoneNumberId}/messages with Bearer token</td><td>send/route.ts → fetch(WHATSAPP_API_URL)</td></tr>
+    <tr><td>5</td><td>WhatsApp delivers message to customer's phone</td><td>Meta's infrastructure</td></tr>
+    <tr><td>6</td><td>API saves message to Firestore (Admin SDK) with direction: "outbound", status: "sent", wamid</td><td>send/route.ts → saveMessage()</td></tr>
+    <tr><td>7</td><td>onSnapshot fires on frontend → message appears with single gray ✓ tick</td><td>page.tsx → onSnapshot()</td></tr>
+  </table>
+
+  <h2 class="sub">7.2 Receiving a Message (Inbound)</h2>
+  <table>
+    <tr><th>Step</th><th>What happens</th><th>Code location</th></tr>
+    <tr><td>1</td><td>Customer sends WhatsApp message to +91 63649 40394</td><td>Customer's phone</td></tr>
+    <tr><td>2</td><td>Meta routes it to subscribed webhook URL (POST)</td><td>Meta → WABA subscription</td></tr>
+    <tr><td>3</td><td>Webhook receives JSON payload with messages[] array</td><td>webhook/route.ts → POST handler</td></tr>
+    <tr><td>4</td><td>Extracts phone (normalizes digits only), message text, sender name</td><td>webhook/route.ts</td></tr>
+    <tr><td>5</td><td>Saves to Firestore via Admin SDK (direction: "inbound")</td><td>webhook/route.ts → adminDb.add()</td></tr>
+    <tr><td>6</td><td>onSnapshot on frontend detects new document → message appears as white bubble (left)</td><td>page.tsx → onSnapshot()</td></tr>
+  </table>
+
+  <h2 class="sub">7.3 Message Status Ticks (Real-time)</h2>
+  <table>
+    <tr><th>Status</th><th>Visual</th><th>Trigger</th></tr>
+    <tr><td>sent</td><td>Single gray ✓</td><td>Message accepted by Meta API — saved immediately on send</td></tr>
+    <tr><td>delivered</td><td>Double gray ✓✓</td><td>Meta sends webhook statuses[] with status: "delivered"</td></tr>
+    <tr><td>read</td><td>Double blue ✓✓</td><td>Meta sends webhook statuses[] with status: "read" when customer opens the chat</td></tr>
+  </table>
+  <p>The webhook handler updates <code>whatsapp_conversations/{docId}</code> with the new status field. The frontend <code>onSnapshot</code> listener picks up the change instantly — no polling, no page refresh.</p>
+
+  <h2 class="sub">7.4 Template vs Text Messages</h2>
+  <table>
+    <tr><th>Type</th><th>When to use</th><th>Restriction</th></tr>
+    <tr><td>Template message</td><td>First contact, or after 24h of no customer reply</td><td>Must be pre-approved by Meta</td></tr>
+    <tr><td>Text message (reply)</td><td>Within 24h of customer's last message</td><td>No restriction — free-form text</td></tr>
+  </table>
+
+</div>
+
+<!-- ══════════════════════════════ PAGE 9 — TROUBLESHOOTING ══ -->
+<div class="page page-break">
+
+  <h1 class="section">8. Troubleshooting Checklist</h1>
+
+  <h2 class="sub">8.1 Inbound messages not appearing in inbox</h2>
+  <ul class="checklist">
+    <li>Open Vercel logs — is there a POST to /api/whatsapp/webhook when customer sends?</li>
+    <li>If NO POST in logs → WABA not subscribed. Call /api/whatsapp/setup-webhook once.</li>
+    <li>If POST exists but 500 error → check FIREBASE_ADMIN_CLIENT_EMAIL and FIREBASE_ADMIN_PRIVATE_KEY in Vercel</li>
+    <li>If POST exists, 200 OK, but no message in inbox → Firestore rules issue. Update rules in Firebase Console (Section 3.2)</li>
+    <li>Verify the webhook URL in Meta matches your Vercel URL exactly</li>
+    <li>Verify the verify token in Meta matches WHATSAPP_WEBHOOK_VERIFY_TOKEN in Vercel</li>
+    <li>Make sure "messages" field is subscribed under Webhook Fields in Meta</li>
+  </ul>
+
+  <h2 class="sub">8.2 Outbound messages failing</h2>
+  <ul class="checklist">
+    <li>Check META_ACCESS_TOKEN_1 is set in Vercel and is a permanent token (not temporary)</li>
+    <li>Check WHATSAPP_PHONE_NUMBER_ID_1 matches the Phone Number ID in Meta → API Setup</li>
+    <li>If sending a template: verify the template is APPROVED in Meta → Templates</li>
+    <li>If sending text reply: the customer must have messaged first within the last 24 hours</li>
+    <li>Check Vercel logs for the exact error from the WhatsApp API</li>
+  </ul>
+
+  <h2 class="sub">8.3 Webhook verification failing ("couldn't be validated")</h2>
+  <ul class="checklist">
+    <li>Visit the webhook URL in browser — should return JSON, not an error or HTML page</li>
+    <li>The verify token in Meta must exactly match WHATSAPP_WEBHOOK_VERIFY_TOKEN in Vercel</li>
+    <li>Vercel must have finished deploying the latest code (check Deployments tab — status: Ready)</li>
+    <li>If the page shows an error, check Vercel build logs for TypeScript or import errors</li>
+  </ul>
+
+  <h2 class="sub">8.4 Messages API returning 500</h2>
+  <ul class="checklist">
+    <li>Error "FAILED_PRECONDITION: requires index" → Remove orderBy from query and sort in JS instead</li>
+    <li>Error "permission-denied" → Firestore rules not updated. Publish rules from Firebase Console</li>
+    <li>Error "7 PERMISSION_DENIED" → Firebase Admin credentials wrong or missing in Vercel</li>
+    <li>Error "app/no-app" → NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing</li>
+  </ul>
+
+  <h2 class="sub">8.5 Delivery ticks not updating (staying at ✓)</h2>
+  <ul class="checklist">
+    <li>Meta only sends delivered/read webhooks for messages sent with a valid permanent token</li>
+    <li>The wamid (WhatsApp message ID) must be saved when sending — check Firestore for wamid field</li>
+    <li>The webhook must be subscribed to the messages field (which covers statuses too)</li>
+    <li>onSnapshot listener must be active — check browser console for Firestore permission errors</li>
+  </ul>
+
+  <hr class="divider"/>
+
+  <h2 class="sub">Quick Diagnostic URLs</h2>
+  <table>
+    <tr><th>URL</th><th>What it checks</th><th>Expected response</th></tr>
+    <tr><td><code>/api/whatsapp/webhook</code></td><td>Is the webhook server online?</td><td><code>{"status":"webhook_online"}</code></td></tr>
+    <tr><td><code>/api/whatsapp/setup-webhook</code></td><td>Subscribe WABA + list phones</td><td><code>{"success":true,"phoneNumbers":{...}}</code></td></tr>
+    <tr><td><code>/api/whatsapp/simulate-inbound</code> (GET)</td><td>View recent webhook call logs</td><td>List of recent webhook_logs entries</td></tr>
+  </table>
+
+  <div class="footer">
+    <p>Realhubb Platform Setup Guide · Version 1.0 · April 2025</p>
+    <p>GitHub: github.com/Inderjeet8877/realhubb_marketing_app · Deployed: realhubb-marketing-app.vercel.app</p>
+  </div>
+
+</div>
+
+</body>
+</html>

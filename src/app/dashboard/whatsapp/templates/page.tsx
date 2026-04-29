@@ -95,6 +95,20 @@ export default function WhatsAppTemplatesPage() {
   // Always creates a NEW template on Meta (POST) — works from both create and edit mode
   const handleCreateOnMeta = async () => {
     if (!name || !content) { alert("Template name and content are required"); return; }
+    
+    // Check if editing and name is same as original (would cause duplicate on Meta)
+    if (editingTemplate?.name && name === editingTemplate.name) {
+      alert(`Template name "${name}" already exists on Meta. Change the name to create a new template, or use "Save Locally" to update without creating.`);
+      return;
+    }
+    
+    // Check if this name already exists in our local templates
+    const existing = templates.find(t => t.name.toLowerCase() === name.toLowerCase() && t.id !== editingTemplate?.id);
+    if (existing) {
+      alert(`Template name "${name}" already exists locally. Change the name to create new.`);
+      return;
+    }
+    
     setSaving(true);
     try {
       const res = await fetch("/api/whatsapp/templates", {
@@ -109,10 +123,11 @@ export default function WhatsAppTemplatesPage() {
         resetForm();
         setShowModal(false);
       } else {
-        alert(data.error || "Failed to create template on Meta");
+        // Show exact Meta error
+        alert(data.error?.meta_error || data.error || "Failed to create template on Meta");
       }
-    } catch {
-      alert("Failed to create template");
+    } catch (err: any) {
+      alert("Failed to create template: " + (err.message || "Unknown error"));
     } finally {
       setSaving(false);
     }

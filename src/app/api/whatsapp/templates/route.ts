@@ -134,15 +134,23 @@ export async function POST(request: Request) {
       components.push({ type: 'FOOTER', text: footerContent.trim() });
     }
 
-    // BUTTONS
+    // BUTTONS - only include buttons with required fields
     if (buttons && buttons.length > 0) {
       const buttonComponents = buttons
         .filter((btn: any) => btn.text?.trim())          // skip empty buttons
         .map((btn: any) => {
-          if (btn.type === 'URL')   return { type: 'URL', text: btn.text, url: btn.url || '' };
-          if (btn.type === 'PHONE') return { type: 'PHONE_NUMBER', text: btn.text, phone_number: btn.phone_number || '' };
+          if (btn.type === 'URL') {
+            if (!btn.url?.trim()) return null;  // Skip URL button without URL
+            return { type: 'URL', text: btn.text, url: btn.url };
+          }
+          if (btn.type === 'PHONE') {
+            if (!btn.phone_number?.trim()) return null;  // Skip PHONE button without phone
+            return { type: 'PHONE_NUMBER', text: btn.text, phone_number: btn.phone_number };
+          }
           return { type: 'QUICK_REPLY', text: btn.text };
-        });
+        })
+        .filter(Boolean);  // Remove null entries
+      
       if (buttonComponents.length > 0) {
         components.push({ type: 'BUTTONS', buttons: buttonComponents });
       }
@@ -182,8 +190,12 @@ export async function POST(request: Request) {
       approvalStatus = 'pending';
       metaTemplateId = metaData.id;
     } else if (metaData.error) {
-      // Return the full Meta error so the frontend can show exactly what's wrong
-      errorMessage = `Meta API error (${metaData.error.code}): ${metaData.error.message || JSON.stringify(metaData.error)}`;
+      // Return detailed Meta error
+      const metaError = metaData.error;
+      errorMessage = `Meta error (${metaError.code}): ${metaError.message}`;
+      if (metaError.error_data) {
+        errorMessage += ` - Field: ${metaError.error_data.param}, Issue: ${metaError.error_data.detail}`;
+      }
       
       // Check if template already exists (error code 10000)
       if (metaData.error.code === 10000 || metaData.error.message?.includes('already exists')) {
@@ -205,33 +217,31 @@ export async function POST(request: Request) {
       console.error('Meta API error:', errorMessage);
     }
 
-    // Save to Firestore via Admin SDK
-    const docRef = await adminDb.collection('whatsapp_templates').add({
-      name: safeName,
-      language: language || 'en_US',
-      category: category || 'MARKETING',
-      content,
-      headerType: headerType || 'none',
-      headerContent: headerContent || '',
-      footerContent: footerContent || '',
-      buttons: buttons || [],
-      approvalStatus,
-      metaTemplateId,
-      createdAt: FieldValue.serverTimestamp(),
-    });
+    // Save to Firestore ONLY if Meta accepted the template
+    let savedTemplateId = null;
+    if (metaTemplateId || approvalStatus === 'pending') {
+      const docRef = await adminDb.collection('whatsapp_templates').add({
+        name: safeName,
+        language: language || 'en_US',
+        category: category || 'MARKETING',
+        content,
+        headerType: headerType || 'none',
+        headerContent: headerContent || '',
+        footerContent: footerContent || '',
+        buttons: buttons || [],
+        approvalStatus,
+        metaTemplateId,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      savedTemplateId = docRef?.id;
+    }
 
     return NextResponse.json({
-      success: true,
-      template: {
-        id: docRef.id,
-        name,
-        language,
-        category,
-        content,
-        approvalStatus,
-        metaTemplateId
-      },
-      message: errorMessage || (approvalStatus === 'approved' ? 'Template approved and ready to use!' : 'Template submitted for Meta review. This may take a few hours to get approved.')
+      success: !!metaTemplateId,  // True only if Meta accepted
+      template: metaTemplateId ? { id: savedTemplateId, name, metaTemplateId } : null,
+      message: metaTemplateId 
+        ? (approvalStatus === 'approved' ? 'Template approved and ready!' : 'Template submitted for Meta review.')
+        : errorMessage || 'Failed to create on Meta'
     });
   } catch (error: any) {
     console.error('Template creation error:', error);
