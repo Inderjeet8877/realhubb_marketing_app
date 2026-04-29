@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { FieldValue } from 'firebase-admin/firestore';
+import { adminDb } from '@/lib/firebase-admin';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
 
@@ -21,69 +21,51 @@ interface WhatsAppTemplate {
 
 export async function GET() {
   try {
-    const templatesRef = collection(db, 'whatsapp_templates');
-    const q = query(templatesRef, orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
-    
-    let templates = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate?.() || new Date()
+    const snapshot = await adminDb
+      .collection('whatsapp_templates')
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    let templates = snapshot.docs.map(d => ({
+      id: d.id,
+      ...d.data(),
+      createdAt: d.data().createdAt?.toDate?.() || new Date(),
     }));
 
-    // Try to sync status from Meta for templates that have metaTemplateId
-    const accountNum = '1';
-    const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`];
-    const businessAccountId = process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${accountNum}`];
+    // Sync status from Meta
+    const accessToken = process.env.META_ACCESS_TOKEN_1;
+    const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
 
     if (accessToken && businessAccountId) {
       try {
-        const metaResponse = await fetch(
+        const metaRes = await fetch(
           `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}`
         );
-        const metaData = await metaResponse.json();
-        
+        const metaData = await metaRes.json();
         if (metaData.data && Array.isArray(metaData.data)) {
-          // Update local status based on Meta status
-          const metaTemplates = metaData.data;
-          
           for (const template of templates) {
             const t = template as WhatsAppTemplate;
-            const metaTemplate = metaTemplates.find((m: any) => m.id === t.metaTemplateId);
-            if (metaTemplate && t.metaTemplateId) {
-              let newStatus = t.approvalStatus;
-              if (metaTemplate.status === 'APPROVED') {
-                newStatus = 'approved';
-              } else if (metaTemplate.status === 'REJECTED') {
-                newStatus = 'rejected';
-              } else if (metaTemplate.status === 'PENDING' || metaTemplate.status === 'IN_PROGRESS') {
-                newStatus = 'pending';
-              }
-              
+            const mt = metaData.data.find((m: any) => m.id === t.metaTemplateId);
+            if (mt && t.metaTemplateId) {
+              const newStatus =
+                mt.status === 'APPROVED' ? 'approved' :
+                mt.status === 'REJECTED' ? 'rejected' : 'pending';
               if (newStatus !== t.approvalStatus) {
-                await updateDoc(doc(db, 'whatsapp_templates', t.id!), {
-                  approvalStatus: newStatus
-                });
+                await adminDb.collection('whatsapp_templates').doc(t.id!).update({ approvalStatus: newStatus });
                 t.approvalStatus = newStatus;
               }
             }
           }
         }
       } catch (syncError) {
-        console.error('Error syncing with Meta:', syncError);
+        console.error('Meta sync error:', syncError);
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      templates,
-    });
+    return NextResponse.json({ success: true, templates });
   } catch (error: any) {
     console.error('Templates fetch error:', error);
-    return NextResponse.json(
-      { error: error.message, templates: [] },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message, templates: [] }, { status: 500 });
   }
 }
 
@@ -112,31 +94,32 @@ export async function POST(request: Request) {
       );
     }
 
-    // Build components for Meta API
+    // Sanitise name: lowercase, a-z/0-9/underscore only, must start with a letter
+    const safeName = name
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/^[^a-z]+/, '');          // strip leading non-alpha chars
+
+    if (!safeName) {
+      return NextResponse.json({ error: 'Template name must start with a letter' }, { status: 400 });
+    }
+
+    // ── Build components ────────────────────────────────────────────────
     const components: any[] = [];
-    
-    // Add header if exists
-    if (headerType && headerType !== 'none' && headerContent) {
-      if (headerType === 'text') {
-        components.push({
-          type: 'HEADER',
-          format: 'TEXT',
-          text: headerContent
-        });
+
+    // HEADER
+    if (headerType && headerType !== 'none') {
+      if (headerType === 'text' && headerContent) {
+        components.push({ type: 'HEADER', format: 'TEXT', text: headerContent });
       } else if (headerType === 'image' || headerType === 'video' || headerType === 'document') {
-        // For template creation, Meta only needs a sample URL in the example field.
-        // No upload needed — the actual media is provided at send time.
-        components.push({
-          type: 'HEADER',
-          format: headerType.toUpperCase(),
-          example: {
-            header_handle: [headerContent],
-          },
-        });
+        // Declare the media format only.
+        // Meta does NOT accept direct URLs as header_handle — the actual media
+        // is provided at send time via the template message API call.
+        components.push({ type: 'HEADER', format: headerType.toUpperCase() });
       }
     }
 
-    // Add body — if it has {{1}}, {{2}} variables, provide example values
+    // BODY — include variable examples if body uses {{1}} style placeholders
     const variableMatches = content.match(/\{\{\d+\}\}/g) || [];
     const bodyComponent: any = { type: 'BODY', text: content };
     if (variableMatches.length > 0) {
@@ -146,53 +129,49 @@ export async function POST(request: Request) {
     }
     components.push(bodyComponent);
 
-    // Add footer if exists
-    if (footerContent) {
-      components.push({
-        type: 'FOOTER',
-        text: footerContent
-      });
+    // FOOTER
+    if (footerContent?.trim()) {
+      components.push({ type: 'FOOTER', text: footerContent.trim() });
     }
 
-    // Add buttons if exist
+    // BUTTONS
     if (buttons && buttons.length > 0) {
-      const buttonComponents = buttons.map((btn: any) => {
-        if (btn.type === 'URL') {
-          return { type: 'URL', text: btn.text, url: btn.url };
-        } else if (btn.type === 'PHONE') {
-          return { type: 'PHONE_NUMBER', text: btn.text, phone_number: btn.phone_number };
-        } else {
+      const buttonComponents = buttons
+        .filter((btn: any) => btn.text?.trim())          // skip empty buttons
+        .map((btn: any) => {
+          if (btn.type === 'URL')   return { type: 'URL', text: btn.text, url: btn.url || '' };
+          if (btn.type === 'PHONE') return { type: 'PHONE_NUMBER', text: btn.text, phone_number: btn.phone_number || '' };
           return { type: 'QUICK_REPLY', text: btn.text };
-        }
-      });
-      components.push({
-        type: 'BUTTONS',
-        buttons: buttonComponents
-      });
+        });
+      if (buttonComponents.length > 0) {
+        components.push({ type: 'BUTTONS', buttons: buttonComponents });
+      }
     }
 
-    // Create template on Meta
+    const templatePayload = {
+      name: safeName,
+      language: language || 'en_US',
+      category: category || 'MARKETING',
+      components,
+    };
+
+    console.log('Sending to Meta:', JSON.stringify(templatePayload, null, 2));
+
     const metaResponse = await fetch(
       `${WHATSAPP_API_URL}/${businessAccountId}/message_templates`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-          language: language || 'en_US',
-          category: category || 'MARKETING',
-          components: components
-        })
+        body: JSON.stringify(templatePayload),
       }
     );
 
     const metaData = await metaResponse.json();
-    console.log('Meta template response status:', metaResponse.status);
-    console.log('Meta template response body:', JSON.stringify(metaData, null, 2));
-    console.log('Components sent:', JSON.stringify(components, null, 2));
+    console.log('Meta response status:', metaResponse.status);
+    console.log('Meta response body:', JSON.stringify(metaData, null, 2));
 
     let approvalStatus = 'none';
     let metaTemplateId = '';
@@ -203,7 +182,8 @@ export async function POST(request: Request) {
       approvalStatus = 'pending';
       metaTemplateId = metaData.id;
     } else if (metaData.error) {
-      errorMessage = metaData.error.message || JSON.stringify(metaData.error);
+      // Return the full Meta error so the frontend can show exactly what's wrong
+      errorMessage = `Meta API error (${metaData.error.code}): ${metaData.error.message || JSON.stringify(metaData.error)}`;
       
       // Check if template already exists (error code 10000)
       if (metaData.error.code === 10000 || metaData.error.message?.includes('already exists')) {
@@ -225,10 +205,9 @@ export async function POST(request: Request) {
       console.error('Meta API error:', errorMessage);
     }
 
-    // Save to Firestore
-    const templatesRef = collection(db, 'whatsapp_templates');
-    const docRef = await addDoc(templatesRef, {
-      name: name.toLowerCase().replace(/\s+/g, '_'),
+    // Save to Firestore via Admin SDK
+    const docRef = await adminDb.collection('whatsapp_templates').add({
+      name: safeName,
       language: language || 'en_US',
       category: category || 'MARKETING',
       content,
@@ -238,7 +217,7 @@ export async function POST(request: Request) {
       buttons: buttons || [],
       approvalStatus,
       metaTemplateId,
-      createdAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     return NextResponse.json({
@@ -268,13 +247,10 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, name, language, category, content, headerType, headerContent, footerContent, buttons } = body;
 
-    if (!id) {
-      return NextResponse.json({ error: 'Template ID required' }, { status: 400 });
-    }
+    if (!id) return NextResponse.json({ error: 'Template ID required' }, { status: 400 });
 
-    const templateRef = doc(db, 'whatsapp_templates', id);
-    await updateDoc(templateRef, {
-      name: name.toLowerCase().replace(/\s+/g, '_'),
+    await adminDb.collection('whatsapp_templates').doc(id).update({
+      name: (name || '').toLowerCase().replace(/[^a-z0-9_]/g, '_'),
       language: language || 'en_US',
       category: category || 'MARKETING',
       content,
@@ -282,13 +258,10 @@ export async function PUT(request: Request) {
       headerContent: headerContent || '',
       footerContent: footerContent || '',
       buttons: buttons || [],
-      updatedAt: serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Template updated successfully'
-    });
+    return NextResponse.json({ success: true, message: 'Template updated successfully' });
   } catch (error: any) {
     console.error('Template update error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -297,28 +270,16 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const body = await request.json();
-    const { ids } = body;
-    
-    if (ids && Array.isArray(ids)) {
-      for (const id of ids) {
-        await deleteDoc(doc(db, 'whatsapp_templates', id));
-      }
-      return NextResponse.json({
-        success: true,
-        message: `Deleted ${ids.length} template(s)`
-      });
+    const { ids } = await request.json();
+    if (!ids || !Array.isArray(ids)) {
+      return NextResponse.json({ error: 'No IDs provided' }, { status: 400 });
     }
-
-    return NextResponse.json(
-      { error: 'No IDs provided' },
-      { status: 400 }
-    );
+    for (const id of ids) {
+      await adminDb.collection('whatsapp_templates').doc(id).delete();
+    }
+    return NextResponse.json({ success: true, message: `Deleted ${ids.length} template(s)` });
   } catch (error: any) {
     console.error('Template delete error:', error);
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
