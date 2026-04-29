@@ -235,7 +235,7 @@ export default function WhatsAppPage() {
     );
 
     return () => unsub();
-  }, [selectedConversation?.phone]);
+  }, [selectedConversation?.phone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -781,7 +781,7 @@ export default function WhatsAppPage() {
                     <option value="">Select a template...</option>
                     {templates.map(t => <option key={t.id} value={t.name}>{t.name} ({t.approvalStatus === "approved" ? "Approved" : "Pending"})</option>)}
                   </select>
-                  {templates.length === 0 && <p className="text-xs text-yellow-600 mt-1">No templates. Click "Sync from Meta" or create at Templates page.</p>}
+                  {templates.length === 0 && <p className="text-xs text-yellow-600 mt-1">No templates. Click Sync from Meta or create at Templates page.</p>}
                   <p className="text-xs text-gray-500 mt-2">Variables: Leave empty if template has no variables</p>
                 </div>
               )}
