@@ -219,8 +219,16 @@ export default function WhatsAppPage() {
           .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
         setChatMessages(msgs);
       },
-      (err) => {
-        console.error("Chat listener error:", err);
+      async (err) => {
+        console.error("Chat listener error (falling back to API):", err);
+        // onSnapshot failed (permission denied etc.) — load via API instead
+        try {
+          const r = await fetch(`/api/whatsapp/messages?phone=${encodeURIComponent(selectedConversation.phone)}&account_id=${waAccountId}`);
+          if (r.ok) {
+            const d = await r.json();
+            setChatMessages(d.messages || []);
+          }
+        } catch {}
         setLoadingMessages(false);
       }
     );
@@ -268,9 +276,23 @@ export default function WhatsAppPage() {
     }
   };
 
-  const selectConversation = (conv: Conversation) => {
+  const selectConversation = async (conv: Conversation) => {
     setSelectedConversation(conv);
-    setChatMessages([]); // onSnapshot effect fires immediately and populates
+    setChatMessages([]);
+    setLoadingMessages(true);
+    // Load all history immediately via API (server-side, bypasses Firestore rules)
+    try {
+      const r = await fetch(`/api/whatsapp/messages?phone=${encodeURIComponent(conv.phone)}&account_id=${waAccountId}`);
+      if (r.ok) {
+        const d = await r.json();
+        setChatMessages(d.messages || []);
+      }
+    } catch (e) {
+      console.error("Failed to load messages via API:", e);
+    } finally {
+      setLoadingMessages(false);
+    }
+    // onSnapshot (set up by the effect) will push real-time updates on top
   };
 
   // Simulate an inbound message from the current conversation's customer (for testing)
