@@ -120,7 +120,8 @@ export async function POST(request: Request) {
     }
 
     // BODY — include variable examples if body uses {{1}} style placeholders
-    const variableMatches = content.match(/\{\{\d+\}\}/g) || [];
+    const variableRegex = new RegExp('\\{\\{\\d+\\}\\}', 'g');
+    const variableMatches = content.match(variableRegex) || [];
     const bodyComponent: any = { type: 'BODY', text: content };
     if (variableMatches.length > 0) {
       bodyComponent.example = {
@@ -272,13 +273,13 @@ export async function POST(request: Request) {
             ? 'Template already exists on Meta. Saved locally with status: ' + approvalStatus
             : errorMessage || 'Failed to create on Meta')
     });
-  } catch (error: any) {
-    console.error('Template creation error:', error);
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
-  }
+} catch (error) {
+      console.error('Template creation error:', error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Template creation failed' },
+        { status: 500 }
+      );
+    }
 }
 
 export async function PUT(request: Request) {
