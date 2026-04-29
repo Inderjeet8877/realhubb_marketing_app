@@ -109,11 +109,13 @@ const cleanPhone = phoneNumber.replace(/\D/g, '');
 
   // First priority: Send as template if isTemplate is true or templateName exists
   if (useTemplate && !imageUrl) {
-    let templateToUse = templateName || 'hello_world';
-    templateToUse = templateToUse.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-    
-    console.log(`Sending as TEMPLATE: ${templateToUse} to ${formattedPhone}`);
-    
+    // Use the exact template name — do NOT re-sanitize, Meta requires the exact stored name
+    const templateToUse = (templateName || 'hello_world').trim();
+    // Use the language that was stored with the template (passed from frontend)
+    const templateLang = languageCode || 'en';
+
+    console.log(`Sending as TEMPLATE: "${templateToUse}" lang:${templateLang} to ${formattedPhone}`);
+
     requestBody = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -121,10 +123,8 @@ const cleanPhone = phoneNumber.replace(/\D/g, '');
       type: 'template',
       template: {
         name: templateToUse,
-        language: {
-          code: languageCode || 'en_US'
-        }
-      }
+        language: { code: templateLang },
+      },
     };
   } 
   // Second priority: Send as image if templateType is image and imageUrl exists
@@ -276,11 +276,9 @@ async function handleBulkSend(body: BulkSendRequest) {
         to: formattedPhone,
         type: 'template',
         template: {
-          name: templateName || 'hello_world',
-          language: {
-            code: languageCode || 'en_US'
-          }
-        }
+          name: (templateName || 'hello_world').trim(),
+          language: { code: languageCode || 'en' },
+        },
       };
     } else if (templateType === 'image' && imageUrl) {
       requestBody = {

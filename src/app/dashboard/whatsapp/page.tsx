@@ -417,6 +417,7 @@ export default function WhatsAppPage() {
           accountId: waAccountId,
           templateName: messageType === "template" ? selectedTemplate : undefined,
           templateContent: messageType === "template" ? (templateObj?.content || "") : undefined,
+          languageCode: messageType === "template" ? (templateObj?.language || "en") : undefined,
           isTemplate: messageType === "template",
         }),
       });
@@ -454,6 +455,7 @@ export default function WhatsAppPage() {
           accountId: waAccountId,
           templateName: bulkMessageType === "template" ? selectedBulkTemplate : undefined,
           templateContent: bulkMessageType === "template" ? (bulkTemplateObj?.content || "") : undefined,
+          languageCode: bulkMessageType === "template" ? (bulkTemplateObj?.language || "en") : undefined,
           isTemplate: bulkMessageType === "template",
         }),
       });
