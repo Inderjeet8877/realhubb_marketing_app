@@ -272,16 +272,11 @@ export async function POST(request: Request) {
             ? 'Template already exists on Meta. Saved locally with status: ' + approvalStatus
             : errorMessage || 'Failed to create on Meta')
     });
-} catch (error) {
-      console.error('Template creation error:', error);
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Template creation failed' },
-        { status: 500 }
-      );
-    }
-}
+} catch (err) {
+    console.error('Template creation error:', err);
+return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 
-export async function PUT(request: Request) {
   try {
     const body = await request.json();
     const { id, name, language, category, content, headerType, headerContent, footerContent, buttons } = body;
