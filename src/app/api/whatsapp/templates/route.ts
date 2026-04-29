@@ -141,7 +141,7 @@ export async function POST(request: Request) {
     const bodyComponent: any = { type: 'BODY', text: content };
     if (variableMatches.length > 0) {
       bodyComponent.example = {
-        body_text: [variableMatches.map((_, i) => `sample_value_${i + 1}`)],
+        body_text: [variableMatches.map((_: string, i: number) => `sample_value_${i + 1}`)],
       };
     }
     components.push(bodyComponent);
