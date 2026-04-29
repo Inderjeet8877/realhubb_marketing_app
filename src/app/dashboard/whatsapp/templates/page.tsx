@@ -86,58 +86,59 @@ export default function WhatsAppTemplatesPage() {
     }
   };
 
-  const handleSaveTemplate = async () => {
-    if (!name || !content) {
-      alert("Template name and content are required");
-      return;
-    }
+  const buildPayload = () => ({
+    name, language, category, content,
+    headerType, headerContent, footerContent, buttons,
+    accountId: selectedAccount,
+  });
 
+  // Always creates a NEW template on Meta (POST) — works from both create and edit mode
+  const handleCreateOnMeta = async () => {
+    if (!name || !content) { alert("Template name and content are required"); return; }
     setSaving(true);
     try {
-      const payload = {
-        name,
-        language,
-        category,
-        content,
-        headerType,
-        headerContent,
-        footerContent,
-        buttons,
-        accountId: selectedAccount,
-      };
-
-      console.log('Saving template with category:', category);
-
-      let response;
-      if (editingTemplate?.id) {
-        // Update existing template
-        response = await fetch("/api/whatsapp/templates", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingTemplate.id, ...payload }),
-        });
-      } else {
-        // Create new template
-        response = await fetch("/api/whatsapp/templates", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      }
-
-      const data = await response.json();
-
+      const res = await fetch("/api/whatsapp/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPayload()),
+      });
+      const data = await res.json();
       if (data.success) {
-        alert(editingTemplate?.id ? 'Template updated!' : data.message);
+        alert(data.message || "Template submitted to Meta for review!");
         fetchTemplates();
         resetForm();
         setShowModal(false);
       } else {
-        alert(data.error || "Failed to save template");
+        alert(data.error || "Failed to create template on Meta");
       }
-    } catch (error) {
-      console.error("Error saving template:", error);
-      alert("Failed to save template");
+    } catch {
+      alert("Failed to create template");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Only updates local Firestore record — no Meta call (edit mode only)
+  const handleUpdateLocal = async () => {
+    if (!editingTemplate?.id || !name || !content) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/whatsapp/templates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingTemplate.id, ...buildPayload() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("Template saved locally (not submitted to Meta).");
+        fetchTemplates();
+        resetForm();
+        setShowModal(false);
+      } else {
+        alert(data.error || "Failed to update template");
+      }
+    } catch {
+      alert("Failed to update template");
     } finally {
       setSaving(false);
     }
@@ -315,7 +316,9 @@ export default function WhatsAppTemplatesPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Create Template</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                {editingTemplate ? `Edit: ${editingTemplate.name}` : "Create Template"}
+              </h2>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
@@ -329,6 +332,16 @@ export default function WhatsAppTemplatesPage() {
                     Using WhatsApp Account: realhubb_business (+91 63649 40394)
                   </p>
                 </div>
+
+                {editingTemplate && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Edit mode:</strong> Form is pre-filled from &quot;{editingTemplate.name}&quot;.
+                      Use <strong>Create on Meta</strong> to submit as a new template for review,
+                      or <strong>Save Locally</strong> to only update the stored record without submitting to Meta.
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -582,20 +595,34 @@ export default function WhatsAppTemplatesPage() {
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end gap-3">
+            <div className="mt-4 flex justify-end gap-3 flex-wrap">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { resetForm(); setShowModal(false); }}
                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
               >
                 Cancel
               </button>
+
+              {/* Show "Save Locally" only in edit mode */}
+              {editingTemplate && (
+                <button
+                  onClick={handleUpdateLocal}
+                  disabled={saving || !name || !content}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  Save Locally
+                </button>
+              )}
+
+              {/* Always visible — creates a new template on Meta */}
               <button
-                onClick={handleSaveTemplate}
+                onClick={handleCreateOnMeta}
                 disabled={saving || !name || !content}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {saving ? 'Creating...' : 'Create Template'}
+                {saving ? 'Submitting...' : editingTemplate ? 'Create on Meta' : 'Create Template'}
               </button>
             </div>
           </div>
