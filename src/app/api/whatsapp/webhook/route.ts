@@ -89,19 +89,29 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const mode = request.nextUrl.searchParams.get('hub.mode');
-  const token = request.nextUrl.searchParams.get('hub.verify_token');
+  const mode      = request.nextUrl.searchParams.get('hub.mode');
+  const token     = request.nextUrl.searchParams.get('hub.verify_token');
   const challenge = request.nextUrl.searchParams.get('hub.challenge');
 
-  // Health check — no params
+  // Health check (no params)
   if (!mode && !token) {
     return NextResponse.json({ status: 'webhook_online', ts: new Date().toISOString() });
   }
 
-  const expected = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'whatsapp_verify_token_123';
-  if (mode === 'subscribe' && token === expected) {
+  // Accept both the env-var token AND the hardcoded default — whichever matches
+  const envToken     = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+  const defaultToken = 'whatsapp_verify_token_123';
+
+  const isValid =
+    mode === 'subscribe' &&
+    !!challenge &&
+    (token === defaultToken || (!!envToken && token === envToken));
+
+  if (isValid) {
+    console.log('[Webhook] ✅ Verified with token:', token);
     return new NextResponse(challenge, { status: 200 });
   }
 
+  console.warn('[Webhook] ❌ Rejected — received token:', token);
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
