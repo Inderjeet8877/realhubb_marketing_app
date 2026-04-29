@@ -107,19 +107,27 @@ export async function POST(request: Request) {
     // ── Build components ────────────────────────────────────────────────
     const components: any[] = [];
 
-// HEADER — disabled unless header has content (TEXT type)
-    // IMAGE/VIDEO/DOCUMENT need media handle from Meta upload API
-    // For now, disable ALL header types to avoid "Invalid parameter" errors
-    // Only works without header (NONE)
-    /*
+// HEADER — Try to handle IMAGE properly for Meta
+    // For IMAGE headers, Meta expects: format:"IMAGE" with no example OR example with header_handle
     if (headerType && headerType !== 'none' && headerContent) {
-      components.push({ 
-        type: 'HEADER', 
-        format: headerType.toUpperCase(),
-        text: headerContent?.slice(0, 60) || undefined
-      });
+      const headerUpper = headerType.toUpperCase();
+      
+      if (headerUpper === 'IMAGE' || headerUpper === 'VIDEO' || headerUpper === 'DOCUMENT') {
+        // For media types, send format only - NO example (that causes invalid parameter)
+        // The actual image/video will be provided at send time
+        components.push({ 
+          type: 'HEADER', 
+          format: headerUpper 
+        });
+      } else {
+        // TEXT header works fine
+        components.push({ 
+          type: 'HEADER', 
+          format: headerUpper,
+          text: headerContent.slice(0, 60)
+        });
+      }
     }
-    */
 
     // BODY — include variable examples if body uses {{1}} style placeholders
     const variableRegex = new RegExp('\\{\\{\\d+\\}\\}', 'g');
