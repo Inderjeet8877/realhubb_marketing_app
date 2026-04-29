@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
-import { collection, addDoc, getDocs, query, where, limit, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { FieldValue } from 'firebase-admin/firestore';
+import { adminDb } from '@/lib/firebase-admin';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 
 async function getTemplateContent(templateName: string): Promise<string> {
   try {
     const normalized = templateName.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-    const snap = await getDocs(
-      query(collection(db, 'whatsapp_templates'), where('name', '==', normalized), limit(1))
-    );
+    const snap = await adminDb
+      .collection('whatsapp_templates')
+      .where('name', '==', normalized)
+      .limit(1)
+      .get();
     if (!snap.empty) return snap.docs[0].data().content || '';
   } catch (e) {
     console.error('getTemplateContent error:', e);
@@ -367,15 +369,14 @@ async function saveMessage(data: {
   templateName?: string;
 }) {
   try {
-    const messagesRef = collection(db, 'whatsapp_conversations');
-    await addDoc(messagesRef, {
+    await adminDb.collection('whatsapp_conversations').add({
       phone: data.to,
       name: data.to,
       message: data.message,
       direction: 'outbound',
       lastMessage: data.message,
-      lastMessageAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
+      lastMessageAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       status: data.status,
       wamid: data.wamid,
       ...(data.templateName && { templateName: data.templateName }),

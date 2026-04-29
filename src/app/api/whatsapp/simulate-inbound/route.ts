@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, addDoc, getDocs, query, where, limit, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { FieldValue } from 'firebase-admin/firestore';
+import { adminDb } from '@/lib/firebase-admin';
 
-// POST  — save a simulated inbound message + return recent webhook_logs
 export async function POST(request: NextRequest) {
   try {
     const { phone, message, name } = await request.json();
@@ -11,14 +10,14 @@ export async function POST(request: NextRequest) {
     const normalizedPhone = phone.replace(/\D/g, '');
     const text = (message || 'Test reply from customer').trim();
 
-    await addDoc(collection(db, 'whatsapp_conversations'), {
+    await adminDb.collection('whatsapp_conversations').add({
       phone: normalizedPhone,
       name: name || normalizedPhone,
       message: text,
       direction: 'inbound',
       lastMessage: text,
-      lastMessageAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
+      lastMessageAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       unreadCount: 1,
       wamid: `sim_${Date.now()}`,
       msgType: 'text',
@@ -31,12 +30,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET  — return recent webhook_logs so we can see if Meta is calling us
 export async function GET() {
   try {
-    const snap = await getDocs(
-      query(collection(db, 'webhook_logs'), limit(20))
-    );
+    const snap = await adminDb
+      .collection('webhook_logs')
+      .orderBy('receivedAt', 'desc')
+      .limit(20)
+      .get();
+
     const logs = snap.docs.map(d => {
       const data = d.data();
       return {
@@ -46,10 +47,6 @@ export async function GET() {
         hasMessages: data.hasMessages,
         hasStatuses: data.hasStatuses,
       };
-    }).sort((a, b) => {
-      if (!a.receivedAt) return 1;
-      if (!b.receivedAt) return -1;
-      return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
     });
 
     return NextResponse.json({ success: true, totalLogs: logs.length, logs });

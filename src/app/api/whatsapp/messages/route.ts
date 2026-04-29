@@ -1,73 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, getDocs, query, limit, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 
 export async function GET(request: NextRequest) {
   const phone = request.nextUrl.searchParams.get('phone');
 
   try {
-    const conversationsRef = collection(db, 'whatsapp_conversations');
-
     if (phone) {
-      const snapshot = await getDocs(
-        query(conversationsRef, where('phone', '==', phone), limit(200))
-      );
+      const snap = await adminDb
+        .collection('whatsapp_conversations')
+        .where('phone', '==', phone)
+        .orderBy('createdAt', 'asc')
+        .limit(300)
+        .get();
 
-      const messages = snapshot.docs
-        .map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            phone: data.phone,
-            message: data.message || '',
-            direction: data.direction || 'inbound',
-            status: data.status || (data.direction === 'outbound' ? 'sent' : undefined),
-            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-            wamid: data.wamid,
-            templateName: data.templateName,
-            msgType: data.msgType,
-          };
-        })
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      const messages = snap.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          phone: d.phone,
+          message: d.message || '',
+          direction: d.direction || 'inbound',
+          status: d.status || (d.direction === 'outbound' ? 'sent' : undefined),
+          createdAt: d.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          wamid: d.wamid,
+          templateName: d.templateName,
+          msgType: d.msgType,
+        };
+      });
 
       return NextResponse.json({ success: true, messages });
     }
 
-    const snapshot = await getDocs(query(conversationsRef, limit(500)));
+    // Conversation list — latest message per phone
+    const snap = await adminDb
+      .collection('whatsapp_conversations')
+      .orderBy('createdAt', 'desc')
+      .limit(500)
+      .get();
 
-    // Sort descending by createdAt in JS to get most recent per phone
-    const sortedDocs = snapshot.docs.sort((a, b) => {
-      const aTime = a.data().createdAt?.toDate?.()?.getTime() || 0;
-      const bTime = b.data().createdAt?.toDate?.()?.getTime() || 0;
-      return bTime - aTime;
-    });
-
-    // First pass: build conversation map (most recent doc per phone)
     const convMap = new Map<string, any>();
-    for (const doc of sortedDocs) {
-      const data = doc.data();
-      const phoneKey = data.phone;
-      if (!phoneKey || convMap.has(phoneKey)) continue;
-      convMap.set(phoneKey, {
-        id: doc.id,
-        phone: phoneKey,
-        name: data.name && data.name !== phoneKey ? data.name : phoneKey,
-        lastMessage: data.message || data.lastMessage || '',
-        lastMessageAt: data.createdAt?.toDate?.()?.toISOString() || null,
-        lastMessageDirection: data.direction,
-        unreadCount: data.unreadCount || 0,
-      });
+    const nameMap = new Map<string, string>();
+
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      if (!d.phone) continue;
+      if (d.name && d.name !== d.phone) nameMap.set(d.phone, d.name);
+      if (!convMap.has(d.phone)) {
+        convMap.set(d.phone, {
+          id: doc.id,
+          phone: d.phone,
+          name: d.name && d.name !== d.phone ? d.name : d.phone,
+          lastMessage: d.message || d.lastMessage || '',
+          lastMessageAt: d.createdAt?.toDate?.()?.toISOString() || null,
+          lastMessageDirection: d.direction,
+          unreadCount: d.unreadCount || 0,
+        });
+      }
     }
 
-    // Second pass: find a real contact name for any phone that only has phone as name
-    for (const doc of sortedDocs) {
-      const data = doc.data();
-      const phoneKey = data.phone;
-      if (!phoneKey) continue;
-      const conv = convMap.get(phoneKey);
-      if (conv && conv.name === phoneKey && data.name && data.name !== phoneKey) {
-        conv.name = data.name;
-      }
+    for (const [phone, name] of nameMap) {
+      const c = convMap.get(phone);
+      if (c && c.name === phone) c.name = name;
     }
 
     return NextResponse.json({ success: true, conversations: Array.from(convMap.values()) });

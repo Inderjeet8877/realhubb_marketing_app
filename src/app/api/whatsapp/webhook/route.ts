@@ -1,35 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, addDoc, serverTimestamp, query, where, getDocs, limit, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { FieldValue } from 'firebase-admin/firestore';
+import { adminDb } from '@/lib/firebase-admin';
 
 export async function POST(request: NextRequest) {
-  const contentType = request.headers.get('content-type') || '';
-  console.log('[Webhook] POST received, content-type:', contentType);
-
   let body: any = null;
   try {
-    const text = await request.text();
-    console.log('[Webhook] Raw body (first 500):', text.slice(0, 500));
-    body = JSON.parse(text);
-  } catch (e) {
-    console.error('[Webhook] Failed to parse body:', e);
+    body = await request.json();
+  } catch {
     return NextResponse.json({ status: 'ok' });
-  }
-
-  let saveError: string | null = null;
-
-  try {
-    await addDoc(collection(db, 'webhook_logs'), {
-      receivedAt: serverTimestamp(),
-      object: body?.object,
-      hasMessages: !!(body?.entry?.[0]?.changes?.[0]?.value?.messages),
-      hasStatuses: !!(body?.entry?.[0]?.changes?.[0]?.value?.statuses),
-      messagePhones: body?.entry?.[0]?.changes?.[0]?.value?.messages?.map((m: any) => m.from) || [],
-      saveError: saveError,
-      rawBody: JSON.stringify(body).slice(0, 3000),
-    });
-  } catch (logErr) {
-    console.error('[Webhook] Failed to write log:', logErr);
   }
 
   if (body?.object !== 'whatsapp_business_account') {
@@ -42,94 +20,66 @@ export async function POST(request: NextRequest) {
   for (const change of entry.changes) {
     const value = change.value;
 
+    // ── Status updates: delivered / read ──────────────────────────────
     if (value.statuses) {
       for (const s of value.statuses) {
         if (!s.id || !s.status) continue;
         try {
-          const snap = await getDocs(
-            query(collection(db, 'whatsapp_conversations'), where('wamid', '==', s.id), limit(1))
-          );
+          const snap = await adminDb
+            .collection('whatsapp_conversations')
+            .where('wamid', '==', s.id)
+            .limit(1)
+            .get();
           if (!snap.empty) {
-            await updateDoc(snap.docs[0].ref, { status: s.status });
-            console.log('[Webhook] Status ' + s.status + ' applied to wamid ' + s.id);
+            await snap.docs[0].ref.update({ status: s.status });
+            console.log(`[Webhook] ✅ Status ${s.status} → wamid ${s.id}`);
           }
         } catch (err) {
-          console.error('[Webhook] Failed to update status for wamid ' + s.id + ':', err);
+          console.error(`[Webhook] Failed to update status ${s.id}:`, err);
         }
       }
     }
 
+    // ── Inbound messages ──────────────────────────────────────────────
     if (value.messages) {
       const contacts: any[] = value.contacts || [];
 
       for (const msg of value.messages) {
         const phone = (msg.from || '').replace(/\D/g, '');
-        console.log('[Webhook] Raw msg.from:', msg.from, '-> normalized:', phone);
-        
-        if (!phone) {
-          console.warn('[Webhook] Received message with no phone, skipping');
-          continue;
-        }
+        if (!phone) continue;
 
-        let messageText = msg.text?.body || msg.image?.caption || msg.video?.caption || msg.document?.caption || '';
-        
-        if (!messageText) {
-          if (msg.audio?.id) messageText = '[Voice message]';
-          else if (msg.sticker?.id) messageText = '[Sticker]';
-          else if (msg.location) messageText = '[Location]';
-          else if (msg.reaction?.emoji) messageText = '[Reaction]';
-          else messageText = '[' + (msg.type || 'Unknown') + ' message]';
-        }
-
-        console.log('[Webhook] Final messageText:', messageText.substring(0, 50));
+        const messageText =
+          msg.text?.body ||
+          msg.image?.caption ||
+          msg.video?.caption ||
+          msg.document?.caption ||
+          (msg.audio?.id ? '[Voice message]' : null) ||
+          (msg.sticker?.id ? '[Sticker]' : null) ||
+          (msg.location
+            ? `[Location: ${msg.location.latitude}, ${msg.location.longitude}]`
+            : null) ||
+          (msg.reaction?.emoji ? `[Reaction: ${msg.reaction.emoji}]` : null) ||
+          `[${msg.type || 'Unknown'} message]`;
 
         const contact = contacts.find((c: any) => c.wa_id === msg.from);
         const senderName = contact?.profile?.name || phone;
 
-        console.log('[Webhook] Attempting to save:', { phone: phone, name: senderName, messageText: messageText.substring(0, 30), msgId: msg.id });
-
         try {
-          const docRef = await addDoc(collection(db, 'whatsapp_conversations'), {
-            phone: phone,
+          await adminDb.collection('whatsapp_conversations').add({
+            phone,
             name: senderName,
             message: messageText,
             direction: 'inbound',
             lastMessage: messageText,
-            lastMessageAt: serverTimestamp(),
-            createdAt: serverTimestamp(),
+            lastMessageAt: FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             unreadCount: 1,
             wamid: msg.id,
             msgType: msg.type || 'text',
           });
-          console.log('[Webhook] ✅ Saved inbound from ' + phone + ': ' + messageText.substring(0, 60) + ', docId: ' + docRef.id);
-        } catch (saveErr: any) {
-          console.error('[Webhook] ❌ Failed to save inbound from ' + phone + ':', saveErr);
-          saveError = saveErr.toString();
-        }
-        
-        // Mark message as read AND show typing indicator automatically
-        try {
-          const accessToken = process.env.META_ACCESS_TOKEN_1;
-          const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID_1;
-          if (accessToken && phoneNumberId && msg.id) {
-            const response = await fetch('https://graph.facebook.com/v25.0/' + phoneNumberId + '/messages', {
-              method: 'POST',
-              headers: { 
-                'Authorization': 'Bearer ' + accessToken, 
-                'Content-Type': 'application/json' 
-              },
-              body: JSON.stringify({
-                messaging_product: 'whatsapp',
-                status: 'read',
-                message_id: msg.id,
-                typing_indicator: { type: 'text' }
-              })
-            });
-            const result = await response.json();
-            console.log('[Webhook] Marked read + typing:', msg.id, '->', JSON.stringify(result));
-          }
-        } catch (markErr) {
-          console.error('[Webhook] Failed to mark read/typing:', markErr);
+          console.log(`[Webhook] ✅ Saved inbound from ${phone}: "${messageText.slice(0, 60)}"`);
+        } catch (err) {
+          console.error(`[Webhook] ❌ Failed to save from ${phone}:`, err);
         }
       }
     }
@@ -140,42 +90,18 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get('hub.mode');
-const token = request.nextUrl.searchParams.get('hub.verify_token');
+  const token = request.nextUrl.searchParams.get('hub.verify_token');
   const challenge = request.nextUrl.searchParams.get('hub.challenge');
 
-  // Accept tokens: env var OR any of these defaults
-  const expectedFromEnv = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
-  const defaultToken = 'whatsapp_verify_token_123';
-  const altToken = 'whatsapp_verify_token_134';
-  const verifyToken = expectedFromEnv || defaultToken;
-  
-  // Accept ANY of these tokens
-  const isValid = (token === verifyToken) || (token === defaultToken) || (token === altToken);
-  
-  console.log('[Webhook] GET - Meta token:', token, '| Expected:', verifyToken);
-
+  // Health check — no params
   if (!mode && !token) {
-    return NextResponse.json({
-      status: 'webhook_server_online',
-      timestamp: new Date().toISOString(),
-      expectedToken: verifyToken,
-      acceptAlt: true
-    });
+    return NextResponse.json({ status: 'webhook_online', ts: new Date().toISOString() });
   }
 
-  if (mode === 'subscribe' && isValid) {
-    console.log('[Webhook] ✅ Verification successful');
+  const expected = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'whatsapp_verify_token_123';
+  if (mode === 'subscribe' && token === expected) {
     return new NextResponse(challenge, { status: 200 });
   }
 
-  if (mode === 'subscribe') {
-    console.warn('[Webhook] ❌ Verification failed — received token:', token, '| expected:', verifyToken);
-    return NextResponse.json({ 
-      error: 'Invalid verification', 
-      receivedToken: token, 
-      expectedToken: verifyToken 
-    }, { status: 403 });
-  }
-  
-  return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
