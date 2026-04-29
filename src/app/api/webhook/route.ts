@@ -1,0 +1,115 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, limit, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+
+  const mode = searchParams.get('hub.mode');
+  const token = searchParams.get('hub.verify_token');
+  const challenge = searchParams.get('hub.challenge');
+
+  const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || 'whatsapp_verify_token_123';
+
+  console.log('[Webhook] GET - mode:', mode, 'token:', token, 'challenge:', challenge);
+
+  if (mode === 'subscribe' && token === verifyToken) {
+    console.log('[Webhook] ✅ Verified!');
+    return new NextResponse(challenge, { status: 200 });
+  }
+
+  if (!mode && !token) {
+    return NextResponse.json({
+      status: 'webhook_online',
+      message: 'WhatsApp webhook endpoint ready',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+}
+
+export async function POST(request: NextRequest) {
+  let body: any = null;
+  try {
+    const text = await request.text();
+    body = JSON.parse(text);
+  } catch (e) {
+    console.error('[Webhook] Failed to parse body:', e);
+    return NextResponse.json({ status: 'ok' });
+  }
+
+  console.log('[Webhook] POST received, body:', JSON.stringify(body).slice(0, 500));
+
+  if (body?.object !== 'whatsapp_business_account') {
+    return NextResponse.json({ status: 'ok' });
+  }
+
+  const entry = body.entry?.[0];
+  if (!entry?.changes) return NextResponse.json({ status: 'ok' });
+
+  for (const change of entry.changes) {
+    const value = change.value;
+
+    if (value.statuses) {
+      for (const s of value.statuses) {
+        if (!s.id || !s.status) continue;
+        try {
+          const snap = await getDocs(
+            query(collection(db, 'whatsapp_conversations'), where('wamid', '==', s.id), limit(1))
+          );
+          if (!snap.empty) {
+            await updateDoc(snap.docs[0].ref, { status: s.status });
+            console.log('[Webhook] Status ' + s.status + ' applied to wamid ' + s.id);
+          }
+        } catch (err) {
+          console.error('[Webhook] Failed to update status:', err);
+        }
+      }
+    }
+
+    if (value.messages) {
+      const contacts: any[] = value.contacts || [];
+
+      for (const msg of value.messages) {
+        const phone = (msg.from || '').replace(/\D/g, '');
+        
+        if (!phone) continue;
+
+        let messageText = msg.text?.body || msg.image?.caption || msg.video?.caption || msg.document?.caption || '';
+        
+        if (!messageText) {
+          if (msg.audio?.id) messageText = '[Voice message]';
+          else if (msg.sticker?.id) messageText = '[Sticker]';
+          else if (msg.location) messageText = '[Location]';
+          else messageText = '[' + (msg.type || 'Unknown') + ' message]';
+        }
+
+        const contact = contacts.find((c: any) => c.wa_id === msg.from);
+        const senderName = contact?.profile?.name || phone;
+
+        console.log('[Webhook] 📩 Received from', phone + ':', messageText);
+
+        try {
+          await addDoc(collection(db, 'whatsapp_conversations'), {
+            phone: phone,
+            name: senderName,
+            message: messageText,
+            direction: 'inbound',
+            lastMessage: messageText,
+            lastMessageAt: serverTimestamp(),
+            createdAt: serverTimestamp(),
+            unreadCount: 1,
+            wamid: msg.id,
+            msgType: msg.type || 'text',
+          });
+          console.log('[Webhook] ✅ Saved to Firestore');
+        } catch (saveErr) {
+          console.error('[Webhook] ❌ Failed to save:', saveErr);
+        }
+      }
+    }
+  }
+
+  return NextResponse.json({ status: 'ok' });
+}
