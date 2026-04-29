@@ -29,6 +29,8 @@ interface SendMessageRequest {
   caption?: string;
   templateName?: string;
   languageCode?: string;
+  templateHeaderType?: string;   // 'image' | 'video' | 'document' | 'text' | 'none'
+  templateHeaderContent?: string; // URL for media header
   isTemplate?: boolean;
 }
 
@@ -42,6 +44,8 @@ interface BulkSendRequest {
   caption?: string;
   templateName?: string;
   languageCode?: string;
+  templateHeaderType?: string;
+  templateHeaderContent?: string;
   isTemplate?: boolean;
 }
 
@@ -73,7 +77,7 @@ export async function POST(request: Request) {
 }
 
 async function handleSingleSend(body: SendMessageRequest) {
-  const { phoneNumber, message, templateContent, accountId, templateType = 'text', imageUrl, caption, templateName, languageCode = 'en_US', isTemplate } = body;
+  const { phoneNumber, message, templateContent, accountId, templateType = 'text', imageUrl, caption, templateName, languageCode = 'en', templateHeaderType, templateHeaderContent, isTemplate } = body;
 
   if (!phoneNumber) {
     return NextResponse.json(
@@ -109,12 +113,30 @@ const cleanPhone = phoneNumber.replace(/\D/g, '');
 
   // First priority: Send as template if isTemplate is true or templateName exists
   if (useTemplate && !imageUrl) {
-    // Use the exact template name — do NOT re-sanitize, Meta requires the exact stored name
-    const templateToUse = (templateName || 'hello_world').trim();
-    // Use the language that was stored with the template (passed from frontend)
+    // Use exact template name — strip trailing underscores (common sanitization artifact)
+    const templateToUse = (templateName || 'hello_world').trim().replace(/_+$/g, '');
     const templateLang = languageCode || 'en';
 
-    console.log(`Sending as TEMPLATE: "${templateToUse}" lang:${templateLang} to ${formattedPhone}`);
+    // Build header component if template has a media header (image/video/document)
+    const components: any[] = [];
+    if (templateHeaderType === 'image' && templateHeaderContent) {
+      components.push({
+        type: 'header',
+        parameters: [{ type: 'image', image: { link: templateHeaderContent } }],
+      });
+    } else if (templateHeaderType === 'video' && templateHeaderContent) {
+      components.push({
+        type: 'header',
+        parameters: [{ type: 'video', video: { link: templateHeaderContent } }],
+      });
+    } else if (templateHeaderType === 'document' && templateHeaderContent) {
+      components.push({
+        type: 'header',
+        parameters: [{ type: 'document', document: { link: templateHeaderContent } }],
+      });
+    }
+
+    console.log(`Sending TEMPLATE: "${templateToUse}" lang:${templateLang} header:${templateHeaderType} to ${formattedPhone}`);
 
     requestBody = {
       messaging_product: 'whatsapp',
@@ -124,6 +146,7 @@ const cleanPhone = phoneNumber.replace(/\D/g, '');
       template: {
         name: templateToUse,
         language: { code: templateLang },
+        ...(components.length > 0 && { components }),
       },
     };
   } 
@@ -238,7 +261,7 @@ const cleanPhone = phoneNumber.replace(/\D/g, '');
 }
 
 async function handleBulkSend(body: BulkSendRequest) {
-  const { contacts, message, templateContent, accountId, templateType = 'text', imageUrl, caption, templateName, languageCode = 'en_US', isTemplate } = body;
+  const { contacts, message, templateContent, accountId, templateType = 'text', imageUrl, caption, templateName, languageCode = 'en', templateHeaderType, templateHeaderContent, isTemplate } = body;
 
   if (!contacts || contacts.length === 0) {
     return NextResponse.json(
@@ -271,13 +294,23 @@ async function handleBulkSend(body: BulkSendRequest) {
     let requestBody: any;
 
     if (useTemplate) {
+      const bulkTemplateName = (templateName || 'hello_world').trim().replace(/_+$/g, '');
+      const bulkComponents: any[] = [];
+      if (templateHeaderType === 'image' && templateHeaderContent) {
+        bulkComponents.push({ type: 'header', parameters: [{ type: 'image', image: { link: templateHeaderContent } }] });
+      } else if (templateHeaderType === 'video' && templateHeaderContent) {
+        bulkComponents.push({ type: 'header', parameters: [{ type: 'video', video: { link: templateHeaderContent } }] });
+      } else if (templateHeaderType === 'document' && templateHeaderContent) {
+        bulkComponents.push({ type: 'header', parameters: [{ type: 'document', document: { link: templateHeaderContent } }] });
+      }
       requestBody = {
         messaging_product: 'whatsapp',
         to: formattedPhone,
         type: 'template',
         template: {
-          name: (templateName || 'hello_world').trim(),
+          name: bulkTemplateName,
           language: { code: languageCode || 'en' },
+          ...(bulkComponents.length > 0 && { components: bulkComponents }),
         },
       };
     } else if (templateType === 'image' && imageUrl) {

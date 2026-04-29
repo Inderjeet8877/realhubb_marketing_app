@@ -418,6 +418,8 @@ export default function WhatsAppPage() {
           templateName: messageType === "template" ? selectedTemplate : undefined,
           templateContent: messageType === "template" ? (templateObj?.content || "") : undefined,
           languageCode: messageType === "template" ? (templateObj?.language || "en") : undefined,
+          templateHeaderType: messageType === "template" ? (templateObj?.headerType || "") : undefined,
+          templateHeaderContent: messageType === "template" ? (templateObj?.headerContent || "") : undefined,
           isTemplate: messageType === "template",
         }),
       });
@@ -456,6 +458,8 @@ export default function WhatsAppPage() {
           templateName: bulkMessageType === "template" ? selectedBulkTemplate : undefined,
           templateContent: bulkMessageType === "template" ? (bulkTemplateObj?.content || "") : undefined,
           languageCode: bulkMessageType === "template" ? (bulkTemplateObj?.language || "en") : undefined,
+          templateHeaderType: bulkMessageType === "template" ? (bulkTemplateObj?.headerType || "") : undefined,
+          templateHeaderContent: bulkMessageType === "template" ? (bulkTemplateObj?.headerContent || "") : undefined,
           isTemplate: bulkMessageType === "template",
         }),
       });
