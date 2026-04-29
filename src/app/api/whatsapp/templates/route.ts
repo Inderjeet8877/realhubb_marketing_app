@@ -107,16 +107,16 @@ export async function POST(request: Request) {
     // ── Build components ────────────────────────────────────────────────
     const components: any[] = [];
 
-    // HEADER
+// HEADER — for IMAGE, don't send example (Meta needs media handle which we don't have)
+    // Just send the format type to avoid "Invalid parameter"
     if (headerType && headerType !== 'none') {
-      if (headerType === 'text' && headerContent) {
-        components.push({ type: 'HEADER', format: 'TEXT', text: headerContent });
-      } else if (headerType === 'image' || headerType === 'video' || headerType === 'document') {
-        // Declare the media format only.
-        // Meta does NOT accept direct URLs as header_handle — the actual media
-        // is provided at send time via the template message API call.
+      if (headerType.toUpperCase() === 'IMAGE') {
+        // For image, just declare TEXT format for now (simplest workaround)
+        components.push({ type: 'HEADER', format: 'TEXT', text: headerContent?.slice(0, 60) || 'Image header' });
+      } else {
         components.push({ type: 'HEADER', format: headerType.toUpperCase() });
       }
+    }
     }
 
     // BODY — include variable examples if body uses {{1}} style placeholders
@@ -165,6 +165,14 @@ export async function POST(request: Request) {
 
     console.log('Sending to Meta:', JSON.stringify(templatePayload, null, 2));
 
+    // Log what we're sending to debug
+    console.log('=== TEMPLATE CREATE DEBUG ===');
+    console.log('Name:', safeName);
+    console.log('Language:', language);
+    console.log('Category:', category);
+    console.log('HeaderType:', headerType);
+    console.log('Components:', JSON.stringify(components, null, 2));
+
     const metaResponse = await fetch(
       `${WHATSAPP_API_URL}/${businessAccountId}/message_templates`,
       {
@@ -177,9 +185,9 @@ export async function POST(request: Request) {
       }
     );
 
-    const metaData = await metaResponse.json();
     console.log('Meta response status:', metaResponse.status);
-    console.log('Meta response body:', JSON.stringify(metaData, null, 2));
+    const metaData = await metaResponse.json();
+    console.log('Meta response:', JSON.stringify(metaData, null, 2));
 
     let approvalStatus = 'none';
     let metaTemplateId = '';
