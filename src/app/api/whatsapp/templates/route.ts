@@ -4,20 +4,6 @@ import { adminDb } from '@/lib/firebase-admin';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
 
-interface WhatsAppTemplate {
-  id?: string;
-  name: string;
-  language: string;
-  category: string;
-  content: string;
-  headerType?: 'text' | 'image' | 'video' | 'document';
-  headerContent?: string;
-  footerContent?: string;
-  buttons?: { type: string; text: string; url?: string; phone_number?: string }[];
-  approvalStatus: 'pending' | 'approved' | 'rejected' | 'none';
-  metaTemplateId?: string;
-  createdAt: any;
-}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -146,48 +132,78 @@ export async function GET(request: Request) {
     }
   }
   
-  // Normal GET - return templates from Firestore
+  // GET — Meta is the source of truth; Firestore only provides saved image URLs
+  const accessToken = process.env.META_ACCESS_TOKEN_1;
+  const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
+
+  if (!accessToken || !businessAccountId) {
+    return NextResponse.json({ error: 'WhatsApp not configured', templates: [] }, { status: 500 });
+  }
+
   try {
-    const snapshot = await adminDb
-      .collection('whatsapp_templates')
-      .orderBy('createdAt', 'desc')
-      .get();
+    // 1. Fetch all templates from Meta (with pagination)
+    let metaTemplates: any[] = [];
+    let nextUrl: string | null =
+      `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}&limit=100`;
 
-    let templates = snapshot.docs.map(d => ({
-      id: d.id,
-      ...d.data(),
-      createdAt: d.data().createdAt?.toDate?.() || new Date(),
-    }));
-
-    // Sync status from Meta
-    const accessToken = process.env.META_ACCESS_TOKEN_1;
-    const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
-
-    if (accessToken && businessAccountId) {
-      try {
-        const metaRes = await fetch(
-          `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}`
-        );
-        const metaData = await metaRes.json();
-        if (metaData.data && Array.isArray(metaData.data)) {
-          for (const template of templates) {
-            const t = template as WhatsAppTemplate;
-            const mt = metaData.data.find((m: any) => m.id === t.metaTemplateId);
-            if (mt && t.metaTemplateId) {
-              const newStatus =
-                mt.status === 'APPROVED' ? 'approved' :
-                mt.status === 'REJECTED' ? 'rejected' : 'pending';
-              if (newStatus !== t.approvalStatus) {
-                await adminDb.collection('whatsapp_templates').doc(t.id!).update({ approvalStatus: newStatus });
-                t.approvalStatus = newStatus;
-              }
-            }
-          }
-        }
-      } catch (syncError) {
-        console.error('Meta sync error:', syncError);
-      }
+    while (nextUrl) {
+      const res: Response = await fetch(nextUrl);
+      const data: any = await res.json();
+      if (data.data) metaTemplates = [...metaTemplates, ...data.data];
+      nextUrl = data.paging?.next || null;
     }
+
+    // 2. Load Firestore docs keyed by metaTemplateId and name (for headerContent lookup)
+    const fsSnap = await adminDb.collection('whatsapp_templates').get();
+    const fsById   = new Map<string, any>();
+    const fsByName = new Map<string, any>();
+    fsSnap.docs.forEach(doc => {
+      const d = doc.data();
+      const row = { id: doc.id, ...d };
+      if (d.metaTemplateId) fsById.set(d.metaTemplateId, row);
+      if (d.name)           fsByName.set(d.name, row);
+    });
+
+    // 3. Build response from Meta data only (nothing extra from Firestore)
+    const templates = metaTemplates.map((mt: any) => {
+      const fs = fsById.get(mt.id) || fsByName.get(mt.name) || {};
+
+      const headerComp  = mt.components?.find((c: any) => c.type === 'HEADER');
+      const bodyComp    = mt.components?.find((c: any) => c.type === 'BODY');
+      const footerComp  = mt.components?.find((c: any) => c.type === 'FOOTER');
+      const buttonsComp = mt.components?.find((c: any) => c.type === 'BUTTONS');
+
+      const headerType =
+        !headerComp ? 'none' :
+        headerComp.format === 'IMAGE'    ? 'image' :
+        headerComp.format === 'VIDEO'    ? 'video' :
+        headerComp.format === 'DOCUMENT' ? 'document' : 'text';
+
+      const approvalStatus =
+        mt.status === 'APPROVED' ? 'approved' :
+        mt.status === 'REJECTED' ? 'rejected' : 'pending';
+
+      const buttons = (buttonsComp?.buttons || []).map((b: any) => {
+        if (b.type === 'URL')          return { type: 'URL',   text: b.text, url: b.url };
+        if (b.type === 'PHONE_NUMBER') return { type: 'PHONE', text: b.text, phone_number: b.phone_number };
+        return { type: 'QUICK_REPLY', text: b.text };
+      });
+
+      return {
+        id: fs.id || mt.id,           // Firestore doc id if exists (for edit/delete)
+        name: mt.name,
+        language: mt.language || 'en',
+        category: mt.category || 'MARKETING',
+        content: bodyComp?.text || '',
+        headerType,
+        headerContent: fs.headerContent || '', // Only from Firestore (user-saved image URL)
+        footerContent: footerComp?.text || '',
+        buttons,
+        approvalStatus,
+        metaTemplateId: mt.id,
+        createdAt: fs.createdAt?.toDate?.() || new Date(),
+      };
+    });
 
     return NextResponse.json({ success: true, templates });
   } catch (error: any) {
@@ -422,11 +438,13 @@ const components: any[] = [];
             ? 'Template already exists on Meta. Saved locally with status: ' + approvalStatus
             : errorMessage || 'Failed to create on Meta')
     });
-} catch (err) {
+  } catch (err) {
     console.error('Template creation error:', err);
-return NextResponse.json({ error: String(err) }, { status: 500 });
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
+}
 
+export async function PUT(request: Request) {
   try {
     const body = await request.json();
     const { id, name, language, category, content, headerType, headerContent, footerContent, buttons } = body;
@@ -435,7 +453,7 @@ return NextResponse.json({ error: String(err) }, { status: 500 });
 
     await adminDb.collection('whatsapp_templates').doc(id).update({
       name: (name || '').toLowerCase().replace(/[^a-z0-9_]/g, '_'),
-      language: language || 'en_US',
+      language: language || 'en',
       category: category || 'MARKETING',
       content,
       headerType: headerType || 'none',
