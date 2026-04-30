@@ -64,6 +64,14 @@ async function uploadMediaHandle(
   }
 }
 
+function normalizePhoneNumber(phone: string): string | null {
+  if (!phone?.trim()) return null;
+  const digits = phone.replace(/[^\d]/g, '');
+  const hadPlus = phone.trim().startsWith('+');
+  if (hadPlus) return '+' + digits;
+  return '+' + digits;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const syncFromMeta = url.searchParams.get('syncFromMeta') === 'true';
@@ -332,25 +340,14 @@ const components: any[] = [];
       }
     }
 
-    // BODY — Meta expects named parameters format
-    // Check for {{variable}} in body text
+    // BODY — use body_text example for any {{...}} variables
     const bodyComponent: any = { type: 'BODY', text: content };
-    
-    // Check for {{1}} or {{variable}} style parameters
-    const namedParams = content.match(/\{\{(\w+)\}\}/g) || [];
-    const positionalParams = content.match(/\{\{(\d+)\}\}/g) || [];
-    
-    if (namedParams.length > 0) {
-      // Named format: {{variable_name}}
-      const examples = namedParams.map((_: string, idx: number) => {
-        const varName = _.replace(/\{\{/, '').replace(/\}\}/, '');
-        return { param_name: varName, example: 'sample_' + (idx + 1) };
-      });
-      bodyComponent.example = { body_text_named_params: examples };
-    } else if (positionalParams.length > 0) {
-      // Positional format: {{1}}
-      const examples = positionalParams.map((_: string, idx: number) => 'sample_' + (idx + 1));
-      bodyComponent.example = { body_text: [examples] };
+    const allParams = content.match(/\{\{[^}]+\}\}/g) || [];
+    if (allParams.length > 0) {
+      // Meta only accepts body_text: [["val1","val2",...]] format
+      bodyComponent.example = {
+        body_text: [allParams.map((_: string, i: number) => `sample${i + 1}`)],
+      };
     }
     components.push(bodyComponent);
 
@@ -369,8 +366,10 @@ const components: any[] = [];
             return { type: 'URL', text: btn.text, url: btn.url };
           }
           if (btn.type === 'PHONE') {
-            if (!btn.phone_number?.trim()) return null;  // Skip PHONE button without phone
-            return { type: 'PHONE_NUMBER', text: btn.text, phone_number: btn.phone_number };
+            if (!btn.phone_number?.trim()) return null;
+            const normalizedPhone = normalizePhoneNumber(btn.phone_number);
+            if (!normalizedPhone) return null;
+            return { type: 'PHONE_NUMBER', text: btn.text, phone_number: normalizedPhone };
           }
           return { type: 'QUICK_REPLY', text: btn.text };
         })
@@ -385,19 +384,10 @@ const components: any[] = [];
       name: safeName,
       language: language || 'en_US',
       category: category || 'MARKETING',
-      parameter_format: 'named',  // Required for named parameters like {{variable}}
       components,
     };
 
-    console.log('Sending to Meta:', JSON.stringify(templatePayload, null, 2));
-
-    // Log what we're sending to debug
-    console.log('=== TEMPLATE CREATE DEBUG ===');
-    console.log('Name:', safeName);
-    console.log('Language:', language);
-    console.log('Category:', category);
-    console.log('HeaderType:', headerType);
-    console.log('Components:', JSON.stringify(components, null, 2));
+    console.log('[Template] Payload →', JSON.stringify(templatePayload));
 
     const metaResponse = await fetch(
       `${WHATSAPP_API_URL}/${businessAccountId}/message_templates`,
