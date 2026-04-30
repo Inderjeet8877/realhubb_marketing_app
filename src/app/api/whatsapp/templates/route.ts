@@ -322,15 +322,16 @@ const components: any[] = [];
     if (headerType && headerType !== 'none') {
       const headerUpper = headerType.toUpperCase();
       
-      if (headerUpper === 'IMAGE' || headerUpper === 'VIDEO' || headerUpper === 'DOCUMENT') {
-        const headerComp: any = { type: 'HEADER', format: headerUpper };
-        if (headerContent) {
-          const handle = await uploadMediaHandle(headerContent, accessToken);
-          if (handle) {
-            headerComp.example = { header_handle: [handle] };
-          }
+      if ((headerUpper === 'IMAGE' || headerUpper === 'VIDEO' || headerUpper === 'DOCUMENT') && headerContent) {
+        const handle = await uploadMediaHandle(headerContent, accessToken);
+        if (handle) {
+          components.push({
+            type: 'HEADER',
+            format: headerUpper,
+            example: { header_handle: [handle] },
+          });
         }
-        components.push(headerComp);
+        // If handle is null, skip the header entirely — don't send format without example
       } else if (headerUpper === 'TEXT' && headerContent) {
         components.push({ 
           type: 'HEADER', 
