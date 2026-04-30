@@ -496,13 +496,16 @@ export default function LeadsPage() {
         name: getLeadName(lead),
         phone: getLeadPhone(lead),
         email: getLeadEmail(lead),
-        tags: [selectedForm.name, selectedForm.pageName || selectedForm.businessName || ""].filter(Boolean),
+        tags: [selectedForm.pageName || selectedForm.businessName || ""].filter(Boolean),
       }));
+
+      // Use the form name as the batch name so it appears correctly in bulk send
+      const batchName = selectedForm.name;
 
       const response = await fetch("/api/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contacts }),
+        body: JSON.stringify({ contacts, dataName: batchName }),
       });
 
       const result = await response.json();
