@@ -50,6 +50,9 @@ export async function POST(request: NextRequest) {
 
         const messageText =
           msg.text?.body ||
+          msg.button?.text ||                            // quick-reply button click
+          msg.interactive?.button_reply?.title ||        // interactive button reply
+          msg.interactive?.list_reply?.title ||          // interactive list reply
           msg.image?.caption ||
           msg.video?.caption ||
           msg.document?.caption ||
