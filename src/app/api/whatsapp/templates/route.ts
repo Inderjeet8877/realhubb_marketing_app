@@ -8,47 +8,58 @@ const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
  * Upload an image/video/document to Meta's Resumable Upload API
  * and return the media handle (required for template header examples).
  */
+/**
+ * Upload media to Meta using the Resumable Upload API.
+ * Requires META_APP_ID — the App ID (not WABA ID).
+ */
 async function uploadMediaHandle(
   imageUrl: string,
   accessToken: string,
-  wabaId: string,
 ): Promise<string | null> {
-  try {
-    // 1. Download the file
-    const fileRes = await fetch(imageUrl);
-    if (!fileRes.ok) throw new Error(`Failed to fetch image: ${fileRes.status}`);
-    const buffer = Buffer.from(await fileRes.arrayBuffer());
-    const contentType = fileRes.headers.get('content-type') || 'image/jpeg';
-    const fileSize = buffer.length;
+  const appId = process.env.META_APP_ID;
+  if (!appId) {
+    console.error('META_APP_ID env var missing — cannot upload media handle');
+    return null;
+  }
 
-    // 2. Create upload session
-    const sessionRes = await fetch(
-      `${WHATSAPP_API_URL}/${wabaId}/uploads` +
-      `?file_length=${fileSize}&file_type=${encodeURIComponent(contentType)}&access_token=${accessToken}`,
+  try {
+    // 1. Download the image from its public URL
+    const fileRes = await fetch(imageUrl);
+    if (!fileRes.ok) {
+      console.error('Failed to download image:', fileRes.status, imageUrl);
+      return null;
+    }
+    const buffer    = Buffer.from(await fileRes.arrayBuffer());
+    const mimeType  = fileRes.headers.get('content-type') || 'image/jpeg';
+    const fileSize  = buffer.length;
+    console.log(`[upload] size=${fileSize} type=${mimeType}`);
+
+    // 2. Create upload session  →  POST /{app-id}/uploads
+    const sessionRes  = await fetch(
+      `${WHATSAPP_API_URL}/${appId}/uploads` +
+      `?file_length=${fileSize}&file_type=${encodeURIComponent(mimeType)}&access_token=${accessToken}`,
       { method: 'POST' },
     );
     const sessionData = await sessionRes.json();
-    const uploadId: string = sessionData.id; // e.g. "upload:XXXXXXX"
-    if (!uploadId) {
-      console.error('Upload session failed:', JSON.stringify(sessionData));
-      return null;
-    }
+    console.log('[upload] session:', JSON.stringify(sessionData));
+    const uploadId: string = sessionData.id; // "upload:XXXXX"
+    if (!uploadId) return null;
 
-    // 3. Upload the binary
-    const uploadRes = await fetch(`${WHATSAPP_API_URL}/${uploadId}`, {
+    // 3. Upload binary  →  POST /{upload-id}
+    const uploadRes  = await fetch(`${WHATSAPP_API_URL}/${uploadId}`, {
       method:  'POST',
       headers: {
-        Authorization: `OAuth ${accessToken}`,
-        file_offset:   '0',
-        'Content-Type': contentType,
+        Authorization:  `OAuth ${accessToken}`,
+        file_offset:    '0',
+        'Content-Type': mimeType,
       },
       body: buffer,
     });
     const uploadData = await uploadRes.json();
-    console.log('Media upload result:', JSON.stringify(uploadData));
-    return uploadData.h || null; // the handle, e.g. "4::aGFz..."
+    console.log('[upload] result:', JSON.stringify(uploadData));
+    return uploadData.h || null; // "4::aGFz..."
   } catch (err) {
-    console.error('uploadMediaHandle error:', err);
+    console.error('[upload] error:', err);
     return null;
   }
 }
@@ -306,7 +317,7 @@ const components: any[] = [];
       if (headerUpper === 'IMAGE' || headerUpper === 'VIDEO' || headerUpper === 'DOCUMENT') {
         const headerComp: any = { type: 'HEADER', format: headerUpper };
         if (headerContent) {
-          const handle = await uploadMediaHandle(headerContent, accessToken, businessAccountId);
+          const handle = await uploadMediaHandle(headerContent, accessToken);
           if (handle) {
             headerComp.example = { header_handle: [handle] };
           }
