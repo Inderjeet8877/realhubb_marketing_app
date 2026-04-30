@@ -4,6 +4,54 @@ import { adminDb } from '@/lib/firebase-admin';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
 
+/**
+ * Upload an image/video/document to Meta's Resumable Upload API
+ * and return the media handle (required for template header examples).
+ */
+async function uploadMediaHandle(
+  imageUrl: string,
+  accessToken: string,
+  wabaId: string,
+): Promise<string | null> {
+  try {
+    // 1. Download the file
+    const fileRes = await fetch(imageUrl);
+    if (!fileRes.ok) throw new Error(`Failed to fetch image: ${fileRes.status}`);
+    const buffer = Buffer.from(await fileRes.arrayBuffer());
+    const contentType = fileRes.headers.get('content-type') || 'image/jpeg';
+    const fileSize = buffer.length;
+
+    // 2. Create upload session
+    const sessionRes = await fetch(
+      `${WHATSAPP_API_URL}/${wabaId}/uploads` +
+      `?file_length=${fileSize}&file_type=${encodeURIComponent(contentType)}&access_token=${accessToken}`,
+      { method: 'POST' },
+    );
+    const sessionData = await sessionRes.json();
+    const uploadId: string = sessionData.id; // e.g. "upload:XXXXXXX"
+    if (!uploadId) {
+      console.error('Upload session failed:', JSON.stringify(sessionData));
+      return null;
+    }
+
+    // 3. Upload the binary
+    const uploadRes = await fetch(`${WHATSAPP_API_URL}/${uploadId}`, {
+      method:  'POST',
+      headers: {
+        Authorization: `OAuth ${accessToken}`,
+        file_offset:   '0',
+        'Content-Type': contentType,
+      },
+      body: buffer,
+    });
+    const uploadData = await uploadRes.json();
+    console.log('Media upload result:', JSON.stringify(uploadData));
+    return uploadData.h || null; // the handle, e.g. "4::aGFz..."
+  } catch (err) {
+    console.error('uploadMediaHandle error:', err);
+    return null;
+  }
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -256,13 +304,14 @@ const components: any[] = [];
       const headerUpper = headerType.toUpperCase();
       
       if (headerUpper === 'IMAGE' || headerUpper === 'VIDEO' || headerUpper === 'DOCUMENT') {
-        // Send ONLY format - no example, no text field
-        // This might work or might fail, but at least we try
-        components.push({ 
-          type: 'HEADER', 
-          format: headerUpper
-          // NO example field - that was causing "Invalid parameter"
-        });
+        const headerComp: any = { type: 'HEADER', format: headerUpper };
+        if (headerContent) {
+          const handle = await uploadMediaHandle(headerContent, accessToken, businessAccountId);
+          if (handle) {
+            headerComp.example = { header_handle: [handle] };
+          }
+        }
+        components.push(headerComp);
       } else if (headerUpper === 'TEXT' && headerContent) {
         components.push({ 
           type: 'HEADER', 
