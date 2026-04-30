@@ -113,8 +113,8 @@ const cleanPhone = phoneNumber.replace(/\D/g, '');
 
   // First priority: Send as template if isTemplate is true or templateName exists
   if (useTemplate && !imageUrl) {
-    // Use exact template name — strip trailing underscores (common sanitization artifact)
-    const templateToUse = (templateName || 'hello_world').trim().replace(/_+$/g, '');
+    // Use exact template name from Meta — do not modify it
+    const templateToUse = (templateName || 'hello_world').trim();
     const templateLang = languageCode || 'en';
 
     // Build header component if template has a media header (image/video/document)
@@ -294,7 +294,7 @@ async function handleBulkSend(body: BulkSendRequest) {
     let requestBody: any;
 
     if (useTemplate) {
-      const bulkTemplateName = (templateName || 'hello_world').trim().replace(/_+$/g, '');
+      const bulkTemplateName = (templateName || 'hello_world').trim();
       const bulkComponents: any[] = [];
       if (templateHeaderType === 'image' && templateHeaderContent) {
         bulkComponents.push({ type: 'header', parameters: [{ type: 'image', image: { link: templateHeaderContent } }] });
