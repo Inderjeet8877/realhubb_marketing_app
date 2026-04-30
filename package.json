@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "@types/jspdf": "^1.3.3",
     "@types/xlsx": "^0.0.35",
     "baileys": "^7.0.0-rc.9",
