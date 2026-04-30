@@ -9,6 +9,7 @@ interface Contact {
   phone: string;
   email?: string;
   tags: string[];
+  dataName?: string;
   addedAt: Date;
 }
 
@@ -24,6 +25,8 @@ export default function ContactsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [dataName, setDataName] = useState("");
+  const [filterBatch, setFilterBatch] = useState("all");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -64,9 +67,15 @@ export default function ContactsPage() {
     setImporting(true);
     setImportResult(null);
 
+    if (!dataName.trim()) {
+      setImportResult({ success: false, message: 'Please enter a batch name before uploading' });
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('dataName', dataName.trim());
 
       const response = await fetch('/api/contacts', {
         method: 'POST',
@@ -78,6 +87,7 @@ export default function ContactsPage() {
       if (response.ok) {
         setImportResult({ success: true, message: data.message });
         fetchContacts();
+        setDataName("");
         setTimeout(() => setShowImportModal(false), 2000);
       } else {
         setImportResult({ success: false, message: data.error || 'Import failed' });
@@ -150,10 +160,14 @@ export default function ContactsPage() {
     }
   };
 
-  const filteredContacts = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contact.phone.includes(searchTerm)
-  );
+  const allBatches = [...new Set(contacts.map(c => c.dataName || 'Uncategorized'))].sort();
+
+  const filteredContacts = contacts.filter((contact) => {
+    const matchSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.phone.includes(searchTerm);
+    const matchBatch = filterBatch === 'all' || (contact.dataName || 'Uncategorized') === filterBatch;
+    return matchSearch && matchBatch;
+  });
 
   const uniqueTags = [...new Set(contacts.flatMap((c) => c.tags))];
 
@@ -224,33 +238,45 @@ export default function ContactsPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <div className="p-4 border-b border-gray-200 space-y-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-48">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search contacts..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            {/* Batch filter */}
+            <select
+              value={filterBatch}
+              onChange={e => { setFilterBatch(e.target.value); setSelectedIds(new Set()); setSelectAll(false); }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Batches ({contacts.length})</option>
+              {allBatches.map(b => (
+                <option key={b} value={b}>{b} ({contacts.filter(c => (c.dataName || 'Uncategorized') === b).length})</option>
+              ))}
+            </select>
             {selectedIds.size > 0 && (
-              <button
-                onClick={handleDeleteSelected}
-                disabled={deleting}
+              <button onClick={handleDeleteSelected} disabled={deleting}
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
               >
-                {deleting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4" />
-                )}
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 Delete ({selectedIds.size})
               </button>
             )}
           </div>
+          {filterBatch !== 'all' && (
+            <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg">
+              <Tag className="w-3 h-3" />
+              Showing batch: <strong>{filterBatch}</strong> — {filteredContacts.length} contacts
+              <button onClick={() => setFilterBatch('all')} className="ml-auto text-blue-500 hover:text-blue-700"><X className="w-3 h-3" /></button>
+            </div>
+          )}
         </div>
 
         {contacts.length === 0 ? (
@@ -313,14 +339,14 @@ export default function ContactsPage() {
                       {contact.phone}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex gap-2">
-                        {contact.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full"
-                          >
-                            {tag}
+                      <div className="flex flex-wrap gap-1">
+                        {contact.dataName && (
+                          <span className="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                            {contact.dataName}
                           </span>
+                        )}
+                        {contact.tags.map((tag) => (
+                          <span key={tag} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">{tag}</span>
                         ))}
                       </div>
                     </td>
@@ -350,6 +376,23 @@ export default function ContactsPage() {
               </button>
             </div>
             
+            {/* Batch name — required before upload */}
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Batch Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={dataName}
+                onChange={e => setDataName(e.target.value)}
+                placeholder="e.g. Godrej Leads May 2025, Premium Clients…"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Used to identify this upload in bulk messaging — you can send to this batch in one click.
+              </p>
+            </div>
+
             <div
               className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                 dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'

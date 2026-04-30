@@ -137,6 +137,8 @@ export default function WhatsAppPage() {
   const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
   const [showWebhookPanel, setShowWebhookPanel] = useState(false);
   const [simulatingInbound, setSimulatingInbound] = useState(false);
+  const [batches, setBatches] = useState<{ name: string; count: number }[]>([]);
+  const [selectedBatch, setSelectedBatch] = useState<string>("");
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -511,7 +513,14 @@ export default function WhatsAppPage() {
             </button>
           </div>
           {activeTab === "send" && (
-            <button onClick={() => setShowBulkModal(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+            <button onClick={async () => {
+              setShowBulkModal(true);
+              try {
+                const r = await fetch("/api/contacts?listCategories=true");
+                const d = await r.json();
+                setBatches(d.categories || []);
+              } catch {}
+            }} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
               <Users className="w-4 h-4" /> Bulk Send
             </button>
           )}
@@ -866,7 +875,7 @@ export default function WhatsAppPage() {
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Bulk Send Message</h2>
-              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); }} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); }} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -903,13 +912,40 @@ export default function WhatsAppPage() {
                 <textarea value={bulkMessage} onChange={e => setBulkMessage(e.target.value)} rows={4} placeholder="Type your message..." className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900" />
               </div>
             )}
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm text-gray-600">{selectedContacts.length} contacts selected</span>
+            {/* Batch selector */}
+            {batches.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Send to Batch</label>
+                <select
+                  value={selectedBatch}
+                  onChange={async e => {
+                    const batch = e.target.value;
+                    setSelectedBatch(batch);
+                    if (batch) {
+                      const r = await fetch(`/api/contacts?dataName=${encodeURIComponent(batch)}`);
+                      const d = await r.json();
+                      setSelectedContacts((d.contacts || []).map((c: any) => c.phone));
+                    } else {
+                      setSelectedContacts([]);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800"
+                >
+                  <option value="">-- Select a batch (or choose manually below) --</option>
+                  {batches.map(b => (
+                    <option key={b.name} value={b.name}>{b.name} ({b.count} contacts)</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm text-gray-600 font-medium">{selectedContacts.length} contacts selected</span>
               <button onClick={selectAllFiltered} className="text-sm text-blue-600 hover:text-blue-700">
                 {selectedContacts.length === contacts.length ? "Deselect All" : "Select All"}
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto border rounded-lg mb-4 max-h-64">
+            <div className="flex-1 overflow-y-auto border rounded-lg mb-4 max-h-48">
               {contacts.length === 0 ? (
                 <div className="p-4 text-center text-gray-500">No contacts available</div>
               ) : (
@@ -917,8 +953,8 @@ export default function WhatsAppPage() {
                   <label key={contact.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0">
                     <input type="checkbox" checked={selectedContacts.includes(contact.phone)} onChange={() => toggleContact(contact.phone)} className="w-4 h-4 text-green-600 rounded" />
                     <div className="flex-1">
-                      <p className="font-medium text-gray-900">{contact.name}</p>
-                      <p className="text-sm text-gray-500">{contact.phone}</p>
+                      <p className="font-medium text-gray-900 text-sm">{contact.name}</p>
+                      <p className="text-xs text-gray-500">{contact.phone}{(contact as any).dataName ? ` · ${(contact as any).dataName}` : ''}</p>
                     </div>
                   </label>
                 ))
