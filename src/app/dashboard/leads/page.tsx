@@ -30,19 +30,12 @@ import {
   MessageSquare,
 } from "lucide-react";
 
+// Tokens are server-side only — never expose in NEXT_PUBLIC vars
 const META_ACCOUNTS = [
-  {
-    id: "1",
-    name: "Realhubb Account 1",
-    appId: process.env.NEXT_PUBLIC_META_APP_ID_1 || "1610947413287627",
-    accessToken: process.env.NEXT_PUBLIC_META_ACCESS_TOKEN_1 || "",
-  },
-  {
-    id: "2",
-    name: "Realhubb Account 2",
-    appId: process.env.NEXT_PUBLIC_META_APP_ID_2 || "1750870615884631",
-    accessToken: process.env.NEXT_PUBLIC_META_ACCESS_TOKEN_2 || "",
-  },
+  { id: "all", name: "All Accounts (Combined)" },
+  { id: "1",   name: "Account 1 — Realhubb Main" },
+  { id: "2",   name: "Account 2 — Leads" },
+  { id: "3",   name: "Account 3 — Leads" },
 ];
 
 interface LeadForm {
@@ -169,16 +162,8 @@ export default function LeadsPage() {
     setError(null);
 
     try {
-      const account = META_ACCOUNTS.find((a) => a.id === selectedAccount);
-      const accessToken = account?.accessToken || "";
-
-      if (!accessToken) {
-        setError("No Meta account configured.");
-        setForms([]);
-        return;
-      }
-
-      const url = `/api/meta/leads?access_token=${encodeURIComponent(accessToken)}&account_id=${selectedAccount}`;
+      // Token is resolved server-side — only send the account ID
+      const url = `/api/meta/leads?account_id=${selectedAccount}`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -226,9 +211,8 @@ export default function LeadsPage() {
     setFormLeads([]);
 
     try {
-      const pageToken = form.pageAccessToken || META_ACCOUNTS.find((a) => a.id === selectedAccount)?.accessToken || "";
       
-      const url = `/api/meta/leads/form?access_token=${encodeURIComponent(pageToken)}&form_id=${form.id}`;
+      const url = `/api/meta/leads/form?form_id=${form.id}&account_id=${selectedAccount}`;
       const response = await fetch(url);
       const data = await response.json();
 
@@ -313,7 +297,6 @@ export default function LeadsPage() {
     
     try {
       const account = META_ACCOUNTS.find((a) => a.id === selectedAccount);
-      const accessToken = account?.accessToken || "";
 
       const allRows: any[] = [];
 
@@ -322,7 +305,7 @@ export default function LeadsPage() {
         setExportProgress({ current: i + 1, total: filteredForms.length, currentForm: form.name, leadsCount: allRows.length });
         
         try {
-          const url = `/api/meta/leads/form?form_id=${form.id}&access_token=${encodeURIComponent(accessToken)}`;
+          const url = `/api/meta/leads/form?form_id=${form.id}&account_id=${selectedAccount}`;
           console.log("Fetching CSV leads for form:", form.name, form.id);
           const res = await fetch(url);
           const data = await res.json();
@@ -398,7 +381,6 @@ export default function LeadsPage() {
     
     try {
       const account = META_ACCOUNTS.find((a) => a.id === selectedAccount);
-      const accessToken = account?.accessToken || "";
 
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -420,7 +402,7 @@ export default function LeadsPage() {
         setExportProgress({ current: i + 1, total: filteredForms.length, currentForm: form.name, leadsCount: totalLeads });
         
         try {
-          const url = `/api/meta/leads/form?form_id=${form.id}&access_token=${encodeURIComponent(accessToken)}`;
+          const url = `/api/meta/leads/form?form_id=${form.id}&account_id=${selectedAccount}`;
           console.log("Fetching PDF leads for form:", form.name, form.id);
           const res = await fetch(url);
           const data = await res.json();
@@ -505,8 +487,7 @@ export default function LeadsPage() {
       let leadsToSave = formLeads;
       if (leadsToSave.length === 0) {
         const account = META_ACCOUNTS.find((a) => a.id === selectedAccount);
-        const accessToken = account?.accessToken || "";
-        const res = await fetch(`/api/meta/leads/form?form_id=${selectedForm.id}&access_token=${encodeURIComponent(accessToken)}`);
+        const res = await fetch(`/api/meta/leads/form?form_id=${selectedForm.id}&account_id=${selectedAccount}`);
         const data = await res.json();
         leadsToSave = data.leads || [];
       }
