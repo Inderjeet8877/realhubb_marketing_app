@@ -487,7 +487,7 @@ export default function WhatsAppPage() {
   return (
     <div>
       {/* Top bar */}
-      <div className="mb-6 flex justify-between items-start">
+      <div className="mb-4 flex flex-wrap justify-between items-center gap-2">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">WhatsApp</h1>
           <p className="text-gray-600">Send messages and manage conversations</p>
@@ -529,10 +529,10 @@ export default function WhatsAppPage() {
 
       {/* ===== INBOX ===== */}
       {activeTab === "inbox" && (
-        <div className="flex rounded-xl overflow-hidden shadow-lg border border-gray-200" style={{ height: "calc(100vh - 180px)", minHeight: 560 }}>
+        <div className="flex rounded-xl overflow-hidden shadow-lg border border-gray-200" style={{ height: "calc(100vh - 160px)", minHeight: 500 }}>
 
-          {/* LEFT — conversation list */}
-          <div className="w-80 flex-shrink-0 flex flex-col bg-white border-r border-gray-200">
+          {/* LEFT — conversation list: full width on mobile, fixed 320px on md+ */}
+          <div className={`flex-shrink-0 flex flex-col bg-white border-r border-gray-200 w-full md:w-80 ${selectedConversation ? "hidden md:flex" : "flex"}`}>
             {/* Header */}
             <div className="px-4 py-3 flex items-center justify-between flex-shrink-0" style={{ backgroundColor: "#075e54" }}>
               <div className="flex items-center gap-2">
@@ -630,13 +630,18 @@ export default function WhatsAppPage() {
             </div>
           </div>
 
-          {/* RIGHT — chat */}
-          <div className="flex-1 flex flex-col min-w-0">
+          {/* RIGHT — chat: hidden on mobile when no conversation selected */}
+          <div className={`flex-1 flex flex-col min-w-0 ${!selectedConversation ? "hidden md:flex" : "flex"}`}>
             {selectedConversation ? (
               <>
                 {/* Chat header */}
-                <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0" style={{ backgroundColor: "#075e54" }}>
-                  <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-semibold text-sm" style={{ backgroundColor: "#128c7e" }}>
+                <div className="px-3 py-3 flex items-center gap-2 flex-shrink-0" style={{ backgroundColor: "#075e54" }}>
+                  {/* Back arrow — mobile only */}
+                  <button onClick={() => setSelectedConversation(null)}
+                    className="md:hidden p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-full flex-shrink-0">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+                  </button>
+                  <div className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white font-semibold text-sm" style={{ backgroundColor: "#128c7e" }}>
                     {getInitials(selectedConversation.name, selectedConversation.phone)}
                   </div>
                   <div className="flex-1 min-w-0">

@@ -31,3 +31,32 @@ body {
     text-wrap: balance;
   }
 }
+
+/* ── Global responsive helpers ── */
+
+/* Prevent horizontal page overflow on mobile */
+html, body { overflow-x: hidden; }
+
+/* Smooth scrolling */
+html { scroll-behavior: smooth; }
+
+/* Better tap targets on mobile */
+@media (max-width: 640px) {
+  button, a, select, input[type="checkbox"], input[type="radio"] {
+    min-height: 36px;
+  }
+
+  /* All modals scroll on small screens */
+  .fixed.inset-0 > div {
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+
+  /* Tables always scrollable */
+  table { min-width: 500px; }
+}
+
+/* Safe area padding for bottom nav on notch devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .bottom-safe { padding-bottom: env(safe-area-inset-bottom); }
+}

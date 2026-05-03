@@ -542,9 +542,9 @@ export default function LeadsPage() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Leads</h1>
           <p className="text-gray-600">
             Lead Gen Forms from Meta Ads
             {lastUpdated && (
@@ -555,7 +555,7 @@ export default function LeadsPage() {
           </p>
         </div>
 
-        <div className="flex gap-3 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
           <div className="relative">
             <button
               onClick={() => setShowAccountDropdown(!showAccountDropdown)}
@@ -757,7 +757,7 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden overflow-x-auto">
             {filteredForms.length === 0 && !error ? (
               <div className="p-8 text-center">
                 <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />

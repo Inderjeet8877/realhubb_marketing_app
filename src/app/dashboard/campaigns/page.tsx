@@ -106,12 +106,12 @@ export default function CampaignsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
-          <p className="text-gray-500 text-sm">Last 30 days · {campaigns.length} campaigns across {activeCount} active</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Campaigns</h1>
+          <p className="text-gray-500 text-sm">Last 30 days · {campaigns.length} campaigns · {activeCount} active</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {/* Account selector */}
           <div className="relative">
             <button onClick={() => setShowDropdown(!showDropdown)}
@@ -141,7 +141,7 @@ export default function CampaignsPage() {
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
         {[
           { label: "Campaigns", value: campaigns.length, icon: Megaphone, color: "blue" },
           { label: "Active", value: activeCount, icon: TrendingUp, color: "green" },

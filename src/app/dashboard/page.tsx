@@ -278,12 +278,12 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-center gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-500 text-sm">Meta Ads performance · last 30 days</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <div className="relative">
             <button onClick={() => setShowDropdown(!showDropdown)}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
@@ -346,7 +346,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label="Total Campaigns" value={filtered.length.toString()} sub={`${activeCount} active`} icon={BarChart3} color="bg-blue-100 text-blue-600" />
         <StatCard label="Total Spend"     value={currency(totalSpend)} icon={DollarSign} color="bg-purple-100 text-purple-600" />
         <StatCard label="Impressions"     value={fmt(totalImpr)} icon={Eye} color="bg-orange-100 text-orange-600" />

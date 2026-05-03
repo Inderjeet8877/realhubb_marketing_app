@@ -181,21 +181,21 @@ export default function ContactsPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
-          <p className="text-gray-600">Manage your contacts and tags</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Contacts</h1>
+          <p className="text-gray-600 text-sm">Manage your contacts and batches</p>
         </div>
         <button
           onClick={() => setShowImportModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
         >
           <Upload className="w-4 h-4" />
-          Import CSV
+          Import
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -240,7 +240,7 @@ export default function ContactsPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-200 space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-48">
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
@@ -301,24 +301,16 @@ export default function ContactsPage() {
                       )}
                     </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Phone
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Tags
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Added
-                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Batch / Tags</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Added</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredContacts.map((contact) => (
                   <tr key={contact.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <button onClick={() => toggleSelect(contact.id)} className="p-1 hover:bg-gray-100 rounded">
                         {selectedIds.has(contact.id) ? (
                           <CheckSquare className="w-4 h-4 text-blue-600" />
@@ -327,18 +319,18 @@ export default function ContactsPage() {
                         )}
                       </button>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium mr-3">
-                        {contact.name.charAt(0).toUpperCase()}
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-blue-100 flex-shrink-0 flex items-center justify-center text-blue-600 font-medium text-sm">
+                          {contact.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="font-medium text-gray-900 text-sm">{contact.name}</span>
                       </div>
-                      <span className="font-medium text-gray-900">
-                        {contact.name}
-                      </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-600 text-sm">
                       {contact.phone}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap hidden sm:table-cell">
                       <div className="flex flex-wrap gap-1">
                         {contact.dataName && (
                           <span className="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
@@ -350,7 +342,7 @@ export default function ContactsPage() {
                         ))}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-500">
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-500 text-sm hidden md:table-cell">
                       {new Date(contact.addedAt).toLocaleDateString()}
                     </td>
                   </tr>
