@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BarChart3, Users, TrendingUp, Loader2, Eye, ChevronDown, Target, DollarSign, RefreshCw } from "lucide-react";
+import { BarChart3, Users, TrendingUp, Loader2, Eye, ChevronDown, Target, DollarSign, RefreshCw, Download, FileSpreadsheet, FileText } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 const CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 const ACCOUNT_COLORS: Record<string, { bg: string; text: string; badge: string }> = {
@@ -127,6 +130,145 @@ export default function DashboardPage() {
     filtered.reduce((acc: Record<string, number>, c) => { acc[c.status] = (acc[c.status] || 0) + 1; return acc; }, {})
   ).map(([name, value]) => ({ name, value }));
 
+  const [showDlDropdown, setShowDlDropdown] = useState(false);
+
+  const downloadExcel = () => {
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1 — Summary
+    const summaryData = [
+      ["Realhubb Campaign Report — Last 30 days"],
+      [`Generated: ${new Date().toLocaleString()}`],
+      [],
+      ["KPI", "Value"],
+      ["Total Campaigns", filtered.length],
+      ["Active Campaigns", activeCount],
+      ["Total Spend (₹)", totalSpend.toFixed(2)],
+      ["Total Impressions", totalImpr],
+      ["Total Clicks", totalClicks],
+      ["Total Leads", totalLeadsC],
+      ["Avg CPL (₹)", avgCpl.toFixed(2)],
+      [],
+      ["Account", "Campaigns", "Spend (₹)", "Leads", "CPL (₹)"],
+      ...accountStats.map(a => [a.name, a.camps, a.spend.toFixed(2), a.leads, a.cpl.toFixed(2)]),
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
+    ws1["!cols"] = [{ wch: 28 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(wb, ws1, "Summary");
+
+    // Sheet 2 — Campaigns
+    const headers = ["Campaign", "Account", "Status", "Spend (₹)", "Impressions", "Clicks", "CTR", "Leads", "CPL (₹)"];
+    const rows = reportCamps.map(c => [
+      c.name, c.accountName || "", c.status,
+      (c.insights?.spend || 0).toFixed(2),
+      c.insights?.impressions || 0,
+      c.insights?.clicks || 0,
+      `${(c.insights?.ctr || 0).toFixed(2)}%`,
+      c.insights?.leads || 0,
+      (c.insights?.cpl || 0).toFixed(2),
+    ]);
+    const ws2 = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws2["!cols"] = [{ wch: 45 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws2, "Campaigns");
+
+    XLSX.writeFile(wb, `realhubb-campaign-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    setShowDlDropdown(false);
+  };
+
+  const downloadPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    const pw = doc.internal.pageSize.getWidth();
+
+    // Title
+    doc.setFillColor(7, 94, 84);
+    doc.rect(0, 0, pw, 22, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Realhubb — Campaign Performance Report", 14, 14);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Last 30 days  ·  Generated: ${new Date().toLocaleString()}`, pw - 14, 14, { align: "right" });
+
+    // KPI summary row
+    doc.setTextColor(40, 40, 40);
+    let y = 32;
+    doc.setFontSize(9);
+    const kpis = [
+      ["Campaigns", filtered.length.toString()],
+      ["Active", activeCount.toString()],
+      ["Spend", `₹${totalSpend.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`],
+      ["Leads", totalLeadsC.toString()],
+      ["Avg CPL", `₹${avgCpl.toFixed(0)}`],
+    ];
+    const colW = (pw - 28) / kpis.length;
+    kpis.forEach(([label, val], i) => {
+      const x = 14 + i * colW;
+      doc.setFillColor(245, 247, 250);
+      doc.rect(x, y - 4, colW - 4, 14, "F");
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(8);
+      doc.text(label, x + 4, y + 2);
+      doc.setTextColor(20, 20, 20);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(val, x + 4, y + 10);
+      doc.setFont("helvetica", "normal");
+    });
+
+    // Per-account table
+    y += 22;
+    (doc as any).autoTable({
+      startY: y,
+      head: [["Account", "Campaigns", "Spend (₹)", "Leads", "CPL (₹)"]],
+      body: accountStats.map(a => [
+        a.name, a.camps, `₹${a.spend.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`,
+        a.leads, a.cpl > 0 ? `₹${a.cpl.toFixed(0)}` : "—",
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [7, 94, 84], textColor: 255, fontSize: 9 },
+      bodyStyles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+      tableWidth: "auto",
+    });
+
+    // Campaign detail table
+    const afterAccTable = (doc as any).lastAutoTable.finalY + 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(40, 40, 40);
+    doc.text("Campaign Details", 14, afterAccTable);
+
+    (doc as any).autoTable({
+      startY: afterAccTable + 4,
+      head: [["Campaign", "Account", "Status", "Spend (₹)", "Impressions", "Clicks", "Leads", "CPL (₹)"]],
+      body: reportCamps.map(c => [
+        c.name.length > 40 ? c.name.slice(0, 40) + "…" : c.name,
+        c.accountName || "",
+        c.status,
+        `₹${(c.insights?.spend || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`,
+        (c.insights?.impressions || 0).toLocaleString(),
+        (c.insights?.clicks || 0).toLocaleString(),
+        c.insights?.leads || 0,
+        c.insights?.cpl ? `₹${c.insights.cpl.toFixed(0)}` : "—",
+      ]),
+      theme: "striped",
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontSize: 8 },
+      bodyStyles: { fontSize: 8 },
+      margin: { left: 14, right: 14 },
+      didParseCell: (data: any) => {
+        if (data.section === "body" && data.column.index === 7) {
+          const val = parseFloat(data.cell.raw?.toString().replace("₹", "") || "0");
+          if (val > 0 && val < 300) data.cell.styles.textColor = [22, 163, 74];
+          else if (val >= 600) data.cell.styles.textColor = [220, 38, 38];
+        }
+      },
+    });
+
+    doc.save(`realhubb-campaign-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    setShowDlDropdown(false);
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -163,6 +305,43 @@ export default function DashboardPage() {
             className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
           </button>
+
+          {/* Download dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowDlDropdown(!showDlDropdown)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 font-medium"
+            >
+              <Download className="w-4 h-4" />
+              Download
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {showDlDropdown && (
+              <div className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-lg shadow-xl z-30">
+                <button
+                  onClick={downloadExcel}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-t-lg"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                  <div className="text-left">
+                    <p className="font-medium">Download Excel</p>
+                    <p className="text-xs text-gray-400">Summary + all campaigns</p>
+                  </div>
+                </button>
+                <div className="border-t border-gray-100" />
+                <button
+                  onClick={downloadPDF}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-b-lg"
+                >
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  <div className="text-left">
+                    <p className="font-medium">Download PDF</p>
+                    <p className="text-xs text-gray-400">Formatted report (landscape)</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
