@@ -1,104 +1,124 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
-  const accessToken = request.nextUrl.searchParams.get('access_token');
-  
-  if (!accessToken) {
-    return NextResponse.json(
-      { error: 'No Meta account selected. Please select an account in Settings.' },
-      { status: 401 }
-    );
-  }
-  
-  try {
-    const accountsResponse = await fetch(
-      `https://graph.facebook.com/v21.0/me/adaccounts?` +
-      `access_token=${accessToken}&` +
-      `fields=id,name,account_id,currency`
-    );
-    
-    const accountsData = await accountsResponse.json();
-    
-    if (accountsData.error) {
-      throw new Error(accountsData.error.message);
-    }
-    
-    const accounts = accountsData.data || [];
-    
-    if (accounts.length === 0) {
-      return NextResponse.json({
-        success: true,
-        campaigns: [],
-        message: 'No ad accounts found',
-      });
-    }
-    
-    const allCampaigns: any[] = [];
-    
-    for (const account of accounts.slice(0, 5)) {
-      try {
-        const campaignsResponse = await fetch(
-          `https://graph.facebook.com/v21.0/${account.id}/campaigns?` +
-          `access_token=${accessToken}&` +
-          `fields=id,name,objective,status,start_time,created_time&` +
-          `date_preset=last_30d`
-        );
-        
-        const campaignsData = await campaignsResponse.json();
-        
-        if (campaignsData.data) {
-          for (const campaign of campaignsData.data) {
-            try {
-              const insightsResponse = await fetch(
-                `https://graph.facebook.com/v21.0/${campaign.id}/insights?` +
-                `access_token=${accessToken}&` +
-                `fields=impressions,clicks,spend,ctr,cpc,reach,frequency,cost_per_lead&` +
-                `date_preset=last_30d`
-              );
-              
-              const insightsData = await insightsResponse.json();
-              const insights = insightsData.data?.[0] || {};
-              
-              allCampaigns.push({
-                ...campaign,
-                accountId: account.id,
-                accountName: account.name,
-                insights: {
-                  impressions: parseInt(insights.impressions) || 0,
-                  clicks: parseInt(insights.clicks) || 0,
-                  spend: parseFloat(insights.spend) || 0,
-                  ctr: parseFloat(insights.ctr) || 0,
-                  cpc: parseFloat(insights.cpc) || 0,
-                  cpl: parseFloat(insights.cost_per_lead) || 0,
-                  reach: parseInt(insights.reach) || 0,
-                  frequency: parseFloat(insights.frequency) || 0,
-                },
-              });
-            } catch {
-              allCampaigns.push({
-                ...campaign,
-                accountId: account.id,
-                accountName: account.name,
-                insights: null,
-              });
-            }
-          }
+function getToken(accountId: string): string | null {
+  const map: Record<string, string | undefined> = {
+    '1': process.env.META_ACCESS_TOKEN_1,
+    '2': process.env.META_ACCESS_TOKEN_2,
+    '3': process.env.META_ACCESS_TOKEN_3,
+  };
+  return map[accountId] || null;
+}
+
+const ACCOUNT_NAMES: Record<string, string> = {
+  '1': 'Account 1',
+  '2': 'Account 2',
+  '3': 'Account 3',
+};
+
+async function fetchCampaignsForAccount(accountId: string, token: string): Promise<any[]> {
+  const campaigns: any[] = [];
+
+  // Get ad accounts
+  const accRes = await fetch(
+    `https://graph.facebook.com/v21.0/me/adaccounts?access_token=${token}&fields=id,name,currency`
+  );
+  const accData = await accRes.json();
+  if (accData.error || !accData.data?.length) return campaigns;
+
+  for (const adAccount of (accData.data || []).slice(0, 5)) {
+    try {
+      const campRes = await fetch(
+        `https://graph.facebook.com/v21.0/${adAccount.id}/campaigns?` +
+        `access_token=${token}&` +
+        `fields=id,name,objective,status,start_time,created_time&` +
+        `date_preset=last_30d&limit=50`
+      );
+      const campData = await campRes.json();
+
+      for (const campaign of (campData.data || [])) {
+        try {
+          const insRes = await fetch(
+            `https://graph.facebook.com/v21.0/${campaign.id}/insights?` +
+            `access_token=${token}&` +
+            `fields=impressions,clicks,spend,ctr,cpc,reach,frequency,actions,cost_per_result&` +
+            `date_preset=last_30d`
+          );
+          const insData = await insRes.json();
+          const ins = insData.data?.[0] || {};
+
+          // Extract lead count from actions array
+          const actions: any[] = ins.actions || [];
+          const leadAction = actions.find((a: any) =>
+            a.action_type === 'lead' || a.action_type === 'onsite_conversion.lead_grouped'
+          );
+          const leads = leadAction ? parseInt(leadAction.value) || 0 : 0;
+          const spend = parseFloat(ins.spend) || 0;
+          const cpl = leads > 0 && spend > 0 ? spend / leads : 0;
+
+          campaigns.push({
+            id: campaign.id,
+            name: campaign.name,
+            objective: campaign.objective,
+            status: campaign.status,
+            start_time: campaign.start_time || campaign.created_time,
+            adAccountId: adAccount.id,
+            adAccountName: adAccount.name,
+            currency: adAccount.currency || 'INR',
+            accountId,
+            accountName: ACCOUNT_NAMES[accountId] || `Account ${accountId}`,
+            insights: {
+              impressions: parseInt(ins.impressions) || 0,
+              clicks: parseInt(ins.clicks) || 0,
+              spend,
+              ctr: parseFloat(ins.ctr) || 0,
+              cpc: parseFloat(ins.cpc) || 0,
+              reach: parseInt(ins.reach) || 0,
+              frequency: parseFloat(ins.frequency) || 0,
+              leads,
+              cpl: parseFloat(cpl.toFixed(2)),
+            },
+          });
+        } catch {
+          campaigns.push({
+            id: campaign.id,
+            name: campaign.name,
+            objective: campaign.objective,
+            status: campaign.status,
+            start_time: campaign.start_time,
+            adAccountId: adAccount.id,
+            adAccountName: adAccount.name,
+            accountId,
+            accountName: ACCOUNT_NAMES[accountId] || `Account ${accountId}`,
+            insights: null,
+          });
         }
-      } catch (err) {
-        console.error(`Error fetching campaigns for account ${account.id}:`, err);
       }
+    } catch (e) {
+      console.error(`Campaigns fetch error for ad account ${adAccount.id}:`, e);
     }
-    
-    return NextResponse.json({
-      success: true,
-      campaigns: allCampaigns,
-      accounts: accountsData.data.map((a: any) => ({ id: a.id, name: a.name })),
-    });
-  } catch (error: any) {
-    console.error('Campaigns fetch error:', error);
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
   }
+
+  return campaigns;
+}
+
+export async function GET(request: NextRequest) {
+  const accountId = request.nextUrl.searchParams.get('account_id') || '1';
+  const accountIds = accountId === 'all' ? ['1', '2', '3'] : [accountId];
+
+  const allCampaigns: any[] = [];
+
+  for (const id of accountIds) {
+    const token = getToken(id);
+    if (!token) continue;
+    try {
+      const campaigns = await fetchCampaignsForAccount(id, token);
+      allCampaigns.push(...campaigns);
+    } catch (e: any) {
+      console.error(`Account ${id} campaigns error:`, e);
+    }
+  }
+
+  allCampaigns.sort((a, b) => (b.insights?.spend || 0) - (a.insights?.spend || 0));
+
+  return NextResponse.json({ success: true, campaigns: allCampaigns });
 }
