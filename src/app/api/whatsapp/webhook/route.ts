@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getMessaging } from 'firebase-admin/messaging';
+import { getApps } from 'firebase-admin/app';
 import { adminDb } from '@/lib/firebase-admin';
 
 export async function POST(request: NextRequest) {
@@ -81,6 +83,11 @@ export async function POST(request: NextRequest) {
             msgType: msg.type || 'text',
           });
           console.log(`[Webhook] ✅ Saved inbound from ${phone}: "${messageText.slice(0, 60)}"`);
+
+          // Send push notification to all registered devices
+          sendPushNotification(senderName, messageText).catch(e =>
+            console.error('[Webhook] Push error:', e)
+          );
         } catch (err) {
           console.error(`[Webhook] ❌ Failed to save from ${phone}:`, err);
         }
@@ -89,6 +96,47 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ status: 'ok' });
+}
+
+async function sendPushNotification(senderName: string, body: string) {
+  const snap = await adminDb.collection('fcm_tokens').get();
+  if (snap.empty) return;
+
+  const tokens = snap.docs.map(d => d.data().token as string).filter(Boolean);
+  if (tokens.length === 0) return;
+
+  const app = getApps()[0];
+  if (!app) return;
+
+  const messaging = getMessaging(app);
+
+  const response = await messaging.sendEachForMulticast({
+    tokens,
+    notification: {
+      title: `💬 ${senderName}`,
+      body:  body.slice(0, 120),
+    },
+    webpush: {
+      notification: {
+        icon:    '/favicon.ico',
+        badge:   '/favicon.ico',
+        vibrate: [200, 100, 200],
+        requireInteraction: false,
+      },
+      fcmOptions: { link: '/dashboard/whatsapp' },
+    },
+  });
+
+  // Remove tokens that are no longer valid
+  const stale = response.responses
+    .map((r, i) => (!r.success ? tokens[i] : null))
+    .filter(Boolean) as string[];
+
+  for (const token of stale) {
+    await adminDb.collection('fcm_tokens').doc(token).delete().catch(() => {});
+  }
+
+  console.log(`[FCM] Sent to ${tokens.length} devices, ${stale.length} stale removed`);
 }
 
 export async function GET(request: NextRequest) {

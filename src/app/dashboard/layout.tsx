@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import AuthProvider from "@/components/AuthProvider";
+import NotificationSetup from "@/components/NotificationSetup";
 import {
   LayoutDashboard,
   Megaphone,
@@ -131,10 +132,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       </nav>
 
       {/* ── Page content ── */}
-      {/* pb-20 on mobile so content isn't hidden behind bottom tab bar */}
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-3 sm:px-6 lg:px-8 pb-20 sm:pb-6">
         {children}
       </main>
+
+      {/* Push notifications setup — requests permission & shows toasts */}
+      <NotificationSetup />
 
       {/* ── Bottom tab bar — mobile only (< sm = 640px) ── */}
       <div className="sm:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-40">
