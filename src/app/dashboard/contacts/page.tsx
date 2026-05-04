@@ -1,7 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Users, Upload, Tag, Loader2, Search, X, FileText, CheckCircle, AlertCircle, Trash2, CheckSquare, Square, TriangleAlert, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect, useRef, Component, ReactNode } from "react";
+import { Users, Upload, Tag, Loader2, Search, X, FileText, CheckCircle, Trash2, CheckSquare, Square, TriangleAlert, Plus, ChevronDown, ChevronUp } from "lucide-react";
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(e: Error) { return { error: e.message }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-8 text-center">
+          <p className="text-red-600 font-semibold mb-2">Page error</p>
+          <p className="text-sm text-gray-500 font-mono">{this.state.error}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface Contact {
   id: string;
@@ -275,8 +291,16 @@ export default function ContactsPage() {
       const response = await fetch("/api/contacts");
       if (response.ok) {
         const data = await response.json();
-        setContacts(data.contacts || []);
-        setTotalContacts(data.total || 0);
+        const raw = data.contacts || [];
+        const normalized = raw.map((c: any) => ({
+          ...c,
+          id: c.id || '',
+          name: String(c.name ?? 'Unknown'),
+          phone: String(c.phone ?? ''),
+          tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === 'string' ? c.tags.split(',').filter(Boolean) : []),
+        }));
+        setContacts(normalized);
+        setTotalContacts(data.total || raw.length);
       }
     } catch (error) {
       console.error("Error fetching contacts:", error);
@@ -440,13 +464,18 @@ export default function ContactsPage() {
   const allBatches = [...new Set(contacts.map(c => c.dataName || 'Uncategorized'))].sort();
 
   const filteredContacts = contacts.filter((contact) => {
-    const matchSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.phone.includes(searchTerm);
-    const matchBatch = filterBatch === 'all' || (contact.dataName || 'Uncategorized') === filterBatch;
+    const name  = String(contact.name  ?? '');
+    const phone = String(contact.phone ?? '');
+    const matchSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || phone.includes(searchTerm);
+    const matchBatch  = filterBatch === 'all' || (contact.dataName || 'Uncategorized') === filterBatch;
     return matchSearch && matchBatch;
   });
 
-  const uniqueTags = [...new Set(contacts.flatMap((c) => c.tags))];
+  const uniqueTags = [...new Set(contacts.flatMap((c) => {
+    if (Array.isArray(c.tags)) return c.tags;
+    if (typeof c.tags === 'string') return c.tags.split(',').filter(Boolean);
+    return [];
+  }))];
 
   if (loading) {
     return (
@@ -598,10 +627,10 @@ export default function ContactsPage() {
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-blue-100 flex-shrink-0 flex items-center justify-center text-blue-600 font-medium text-sm">
-                          {contact.name.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="font-medium text-gray-900 text-sm">{contact.name}</span>
+                         <div className="w-7 h-7 rounded-full bg-blue-100 flex-shrink-0 flex items-center justify-center text-blue-600 font-medium text-sm">
+                           {String(contact.name || '?').charAt(0).toUpperCase()}
+                         </div>
+                         <span className="font-medium text-gray-900 text-sm">{String(contact.name || 'Unknown')}</span>
                       </div>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-gray-600 text-sm">
@@ -614,9 +643,15 @@ export default function ContactsPage() {
                             {contact.dataName}
                           </span>
                         )}
-                        {contact.tags.map((tag) => (
-                          <span key={tag} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">{tag}</span>
-                        ))}
+                         {(Array.isArray(contact.tags)
+                           ? contact.tags.map((tag: string) => (
+                               <span key={tag} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">{tag}</span>
+                             ))
+                           : typeof contact.tags === 'string'
+                             ? contact.tags.split(',').filter(Boolean).map((tag: string) => (
+                                 <span key={tag} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">{tag}</span>
+                               ))
+                             : null)}
                       </div>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-gray-500 text-sm hidden md:table-cell">
