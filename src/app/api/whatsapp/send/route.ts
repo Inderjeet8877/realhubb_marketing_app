@@ -86,10 +86,10 @@ async function handleSingleSend(body: SendMessageRequest) {
     );
   }
 
-  const accountNum = accountId === '2' ? '2' : '1';
-  const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`];
-  const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`];
-  const businessAccountId = process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${accountNum}`];
+  const accountNum = (accountId === '2' || accountId === '3') ? accountId : '1';
+  const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`] || process.env.WHATSAPP_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN_1;
+  const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`] || process.env.WHATSAPP_PHONE_NUMBER_ID_1;
+  const businessAccountId = process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${accountNum}`] || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
 
   const useTemplate = isTemplate || templateName;
   console.log(`WhatsApp send - Account: ${accountNum}, PhoneID: ${phoneNumberId}, isTemplate: ${useTemplate}, templateName: ${templateName}, hasMessage: ${!!message}`);
@@ -270,9 +270,9 @@ async function handleBulkSend(body: BulkSendRequest) {
     );
   }
 
-  const accountNum = accountId === '2' ? '2' : '1';
-  const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`];
-  const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`];
+  const accountNum = (accountId === '2' || accountId === '3') ? accountId : '1';
+  const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`] || process.env.WHATSAPP_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN_1;
+  const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`] || process.env.WHATSAPP_PHONE_NUMBER_ID_1;
 
   // Resolve template content once for all contacts (frontend content takes priority)
   const resolvedTemplateContent = message || templateContent || (templateName ? await getTemplateContent(templateName) : '');

@@ -142,7 +142,8 @@ async function sendPushNotification(senderName: string, body: string) {
 export async function GET(request: NextRequest) {
   const mode      = request.nextUrl.searchParams.get('hub.mode');
   const token     = request.nextUrl.searchParams.get('hub.verify_token');
-  const challenge = request.nextUrl.searchParams.get('hub.challenge');
+  const challenge = request.nextUrl.searchParams.get('hub.challenge')   // Meta sends hub.challenge (one 'l')
+                || request.nextUrl.searchParams.get('hub.challenge');  // fallback for old typo
 
   // Health check (no params)
   if (!mode && !token) {
