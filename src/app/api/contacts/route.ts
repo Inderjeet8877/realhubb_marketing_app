@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { FieldValue } from 'firebase-admin/firestore';
-import { adminDb } from '@/lib/firebase-admin';
 import * as XLSX from 'xlsx';
+
+const SHEETS_URL = process.env.GOOGLE_SHEETS_API_URL!;
 
 interface Contact {
   id?: string;
@@ -10,7 +10,7 @@ interface Contact {
   email?: string;
   tags: string[];
   dataName?: string;
-  addedAt?: any;
+  addedAt?: string;
 }
 
 interface CorruptedRow {
@@ -43,7 +43,6 @@ const isPhone = (h: string) => /^(phone|mobile|number|contact|whatsapp)/i.test(n
 const isEmail = (h: string) => /^(email|e-?mail|mail)/i.test(norm(h));
 const isTag   = (h: string) => /^(tags?|labels?)/i.test(norm(h));
 
-// ── Row parser — returns valid contacts + corrupted rows + intra-file dupes ─
 function parseDataRows(data: string[][], dataName: string): ParseResult {
   let ni = -1, pi = -1, ei = -1, ti = -1;
 
@@ -79,14 +78,11 @@ function parseDataRows(data: string[][], dataName: string): ParseResult {
       ? (row[ti] || '').toString().split(/[;,|]/).map(t => t.trim()).filter(Boolean)
       : [];
 
-    // Validate
-    if (!rawName && !rawPhone) continue; // blank row
+    if (!rawName && !rawPhone) continue;
     if (!rawName) { corrupted.push({ row: i + 1, rawName, rawPhone, reason: 'Missing name' }); continue; }
     if (!phone)   { corrupted.push({ row: i + 1, rawName, rawPhone, reason: 'Invalid or missing phone number' }); continue; }
 
-    // Intra-file duplicate
     if (seen.has(phone)) { intraFileDuplicates++; continue; }
-
     seen.add(phone);
     valid.push({ name: rawName, phone, email, tags, dataName });
   }
@@ -107,7 +103,24 @@ function parseCSV(text: string, dataName: string): ParseResult {
     line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map(m => m.replace(/^"|"$/g, '').trim()) ||
     line.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
   );
-  return parseDataRows(rows, dataName);
+  return parseDataRows(rows as string[][], dataName);
+}
+
+// ── Sheets helper ──────────────────────────────────────────────────────────
+async function sheetsGet(params: Record<string, string>) {
+  const url = new URL(SHEETS_URL);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  return res.json();
+}
+
+async function sheetsPost(body: object) {
+  const res = await fetch(SHEETS_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  });
+  return res.json();
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -118,28 +131,18 @@ export async function GET(request: NextRequest) {
 
   try {
     if (listCategories) {
-      const snap = await adminDb.collection('contacts').get();
-      const catMap = new Map<string, number>();
-      snap.docs.forEach(d => {
-        const dn = d.data().dataName || 'Uncategorized';
-        catMap.set(dn, (catMap.get(dn) || 0) + 1);
-      });
-      return NextResponse.json({
-        success: true,
-        categories: Array.from(catMap.entries())
-          .map(([name, count]) => ({ name, count }))
-          .sort((a, b) => b.count - a.count),
-      });
+      const data = await sheetsGet({ action: 'getCategories' });
+      return NextResponse.json({ success: true, categories: data.categories || [] });
     }
 
-    const snap = filterDataName
-      ? await adminDb.collection('contacts').where('dataName', '==', filterDataName).get()
-      : await adminDb.collection('contacts').orderBy('addedAt', 'desc').get();
+    const params: Record<string, string> = { action: 'getAll' };
+    if (filterDataName) params.dataName = filterDataName;
 
+    const data = await sheetsGet(params);
     return NextResponse.json({
-      success: true,
-      contacts: snap.docs.map(d => ({ id: d.id, ...d.data(), addedAt: d.data().addedAt?.toDate?.() || new Date() })),
-      total: snap.size,
+      success:  true,
+      contacts: data.contacts || [],
+      total:    data.total    || 0,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message, contacts: [], total: 0 }, { status: 200 });
@@ -153,7 +156,7 @@ export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get('content-type') || '';
 
-    // ── FILE UPLOAD (parse from form-data) ──────────────────────────────
+    // ── FILE UPLOAD ──────────────────────────────────────────────────────
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const file     = formData.get('file') as File;
@@ -176,28 +179,28 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No data found. Ensure the file has name and phone columns.' }, { status: 400 });
       }
 
-      // Preview mode — return parsed result without saving
       if (preview) {
         return NextResponse.json({
-          success: true,
-          valid:                result.valid,
-          corrupted:            result.corrupted,
-          intraFileDuplicates:  result.intraFileDuplicates,
-          totalRows:            result.valid.length + result.corrupted.length + result.intraFileDuplicates,
+          success:             true,
+          valid:               result.valid,
+          corrupted:           result.corrupted,
+          intraFileDuplicates: result.intraFileDuplicates,
+          totalRows:           result.valid.length + result.corrupted.length + result.intraFileDuplicates,
         });
       }
 
-      // Direct save (legacy path, not used by new UI)
-      return saveBatch(result.valid, 0);
+      // Direct save (legacy path)
+      const data = await sheetsPost({ action: 'addBatch', contacts: result.valid });
+      return NextResponse.json({ success: true, saved: data.saved || 0, dbDuplicates: data.dbDuplicates || 0 });
     }
 
-    // ── BATCH SAVE (JSON array from frontend progress flow) ─────────────
+    // ── BATCH SAVE (JSON) ────────────────────────────────────────────────
     if (contentType.includes('application/json')) {
       const body = await request.json();
 
-      // Single batch save: { contacts: [...] }
       if (Array.isArray(body.contacts)) {
-        return saveBatch(body.contacts, 0);
+        const data = await sheetsPost({ action: 'addBatch', contacts: body.contacts });
+        return NextResponse.json({ success: true, saved: data.saved || 0, dbDuplicates: data.dbDuplicates || 0 });
       }
 
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
@@ -210,66 +213,21 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ── Batch save with duplicate detection ────────────────────────────────────
-async function saveBatch(contacts: Contact[], _offset: number) {
-  if (contacts.length === 0) {
-    return NextResponse.json({ success: true, saved: 0, dbDuplicates: 0 });
-  }
-
-  // Fetch all existing phones (phone field only) — efficient index scan
-  const existingSnap = await adminDb.collection('contacts').select('phone').get();
-  const existingPhones = new Set(existingSnap.docs.map(d => (d.data().phone as string) || ''));
-
-  const batch  = adminDb.batch();
-  let saved    = 0;
-  let dbDups   = 0;
-
-  for (const contact of contacts) {
-    if (!contact.phone || !contact.name) continue;
-    if (existingPhones.has(contact.phone)) { dbDups++; continue; }
-
-    const ref = adminDb.collection('contacts').doc();
-    batch.set(ref, {
-      name:     contact.name,
-      phone:    contact.phone,
-      email:    contact.email || '',
-      tags:     contact.tags  || [],
-      dataName: contact.dataName || 'Unnamed Batch',
-      addedAt:  FieldValue.serverTimestamp(),
-    });
-
-    existingPhones.add(contact.phone); // prevent intra-batch dupes
-    saved++;
-  }
-
-  await batch.commit();
-
-  return NextResponse.json({ success: true, saved, dbDuplicates: dbDups });
-}
-
 export async function DELETE(request: NextRequest) {
   try {
     const { ids, dataName } = await request.json();
 
     if (ids && Array.isArray(ids) && ids.length > 0) {
-      const batch = adminDb.batch();
-      ids.forEach(id => batch.delete(adminDb.collection('contacts').doc(id)));
-      await batch.commit();
+      await sheetsPost({ action: 'deleteByIds', ids });
       return NextResponse.json({ success: true, message: `Deleted ${ids.length} contact(s)` });
     }
 
     if (dataName) {
-      const snap = await adminDb.collection('contacts').where('dataName', '==', dataName).get();
-      const batch = adminDb.batch();
-      snap.docs.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-      return NextResponse.json({ success: true, message: `Deleted batch "${dataName}" (${snap.size} contacts)` });
+      await sheetsPost({ action: 'deleteByDataName', dataName });
+      return NextResponse.json({ success: true, message: `Deleted batch "${dataName}"` });
     }
 
-    const snap = await adminDb.collection('contacts').get();
-    const batch = adminDb.batch();
-    snap.docs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
+    await sheetsPost({ action: 'deleteAll' });
     return NextResponse.json({ success: true, message: 'All contacts deleted' });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
