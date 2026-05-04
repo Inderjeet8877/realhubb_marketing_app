@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 
-const SHEETS_URL = process.env.GOOGLE_SHEETS_API_URL!;
+const SHEETS_URL = process.env.GOOGLE_SHEETS_API_URL || '';
+
+function checkConfig() {
+  if (!SHEETS_URL) throw new Error('GOOGLE_SHEETS_API_URL environment variable is not set');
+}
 
 interface Contact {
   id?: string;
@@ -108,6 +112,7 @@ function parseCSV(text: string, dataName: string): ParseResult {
 
 // ── Sheets helper ──────────────────────────────────────────────────────────
 async function sheetsGet(params: Record<string, string>) {
+  checkConfig();
   const url = new URL(SHEETS_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   const res = await fetch(url.toString());
@@ -115,6 +120,7 @@ async function sheetsGet(params: Record<string, string>) {
 }
 
 async function sheetsPost(body: object) {
+  checkConfig();
   const res = await fetch(SHEETS_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
