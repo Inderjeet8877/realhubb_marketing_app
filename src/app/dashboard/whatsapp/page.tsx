@@ -139,7 +139,7 @@ export default function WhatsAppPage() {
   const [simulatingInbound, setSimulatingInbound] = useState(false);
   const [batches, setBatches] = useState<{ name: string; count: number }[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>("");
-  const [sendLimit, setSendLimit] = useState<number>(0); // 0 = all
+  const [sendRange, setSendRange] = useState<string>("all"); // "all" or "1-100", "101-200", etc.
   const sentPhonesRef = useRef<Set<string>>(new Set());
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -892,7 +892,7 @@ export default function WhatsAppPage() {
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Bulk Send Message</h2>
-              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentPhonesRef.current = new Set(); }} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentPhonesRef.current = new Set(); setSendRange("all"); }} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -938,7 +938,7 @@ export default function WhatsAppPage() {
                   onChange={async e => {
                     const batch = e.target.value;
                     setSelectedBatch(batch);
-                    setSendLimit(0); // reset limit on batch change
+                    setSendRange("all"); // reset range on batch change
                     sentPhonesRef.current = new Set(); // reset sent tracking
                     if (batch) {
                       const r = await fetch(`/api/contacts?dataName=${encodeURIComponent(batch)}`);
@@ -958,30 +958,34 @@ export default function WhatsAppPage() {
                </div>
              )}
 
-             {/* Send limit selector - only show when batch selected and >100 contacts */}
+              {/* Send range selector - dynamic ranges based on contact count */}
              {selectedBatch && selectedContacts.length > 100 && (
                <div className="mb-4">
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Send Limit</label>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Send Range</label>
                  <select
-                   value={sendLimit}
+                   value={sendRange}
                    onChange={e => {
-                     const limit = Number(e.target.value);
-                     setSendLimit(limit);
-                     if (limit > 0) {
-                       setSelectedContacts(prev => prev.slice(0, limit));
-                     } else {
+                     const val = e.target.value;
+                     setSendRange(val);
+                     if (val === 'all') {
                        fetch(`/api/contacts?dataName=${encodeURIComponent(selectedBatch)}`)
                          .then(r => r.json())
                          .then(d => setSelectedContacts((d.contacts || []).map((c: any) => c.phone)));
+                     } else {
+                       const [start, end] = val.split('-').map(Number);
+                       setSelectedContacts(prev => prev.slice(start - 1, end));
                      }
                    }}
                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800"
                  >
-                   <option value={0}>All ({selectedContacts.length})</option>
-                   <option value={100}>First 100</option>
-                   <option value={200}>First 200</option>
-                   <option value={300}>First 300</option>
-                   <option value={400}>First 400</option>
+                   <option value="all">All ({selectedContacts.length})</option>
+                   {Array.from({ length: Math.ceil(selectedContacts.length / 100) }, (_, i) => {
+                     const start = i * 100 + 1;
+                     const end = Math.min((i + 1) * 100, selectedContacts.length);
+                     return (
+                       <option key={start} value={`${start}-${end}`}>{start}-{end} ({end - start + 1} contacts)</option>
+                     );
+                   })}
                  </select>
                </div>
              )}
