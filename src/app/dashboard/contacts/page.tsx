@@ -464,7 +464,8 @@ export default function ContactsPage() {
   const allBatches = [...new Set(contacts.map(c => c.dataName || 'Uncategorized'))].sort();
 
   const filteredContacts = contacts.filter((contact) => {
-    const name  = String(contact.name  ?? '');
+    if (!contact || typeof contact !== 'object') return false;
+    const name  = String(contact.name ?? '');
     const phone = String(contact.phone ?? '');
     const matchSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || phone.includes(searchTerm);
     const matchBatch  = filterBatch === 'all' || (contact.dataName || 'Uncategorized') === filterBatch;
@@ -629,14 +630,14 @@ export default function ContactsPage() {
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                         <div className="w-7 h-7 rounded-full bg-blue-100 flex-shrink-0 flex items-center justify-center text-blue-600 font-medium text-sm">
-                           {String(contact.name || '?').charAt(0).toUpperCase()}
-                         </div>
-                         <span className="font-medium text-gray-900 text-sm">{String(contact.name || 'Unknown')}</span>
+                          <div className="w-7 h-7 rounded-full bg-blue-100 flex-shrink-0 flex items-center justify-center text-blue-600 font-medium text-sm">
+                            {String(contact.name ?? '?').charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-medium text-gray-900 text-sm">{String(contact.name ?? 'Unknown')}</span>
                       </div>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-gray-600 text-sm">
-                      {contact.phone}
+                      {String(contact.phone ?? '—')}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap hidden sm:table-cell">
                       <div className="flex flex-wrap gap-1">
@@ -657,7 +658,7 @@ export default function ContactsPage() {
                       </div>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-gray-500 text-sm hidden md:table-cell">
-                      {contact.addedAt ? new Date(contact.addedAt).toLocaleDateString() : '—'}
+                       {contact.addedAt ? (() => { try { return new Date(contact.addedAt).toLocaleDateString(); } catch { return '—'; } })() : '—'}
                     </td>
                   </tr>
                 ))}
