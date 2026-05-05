@@ -540,7 +540,7 @@ export default function WhatsAppPage() {
                   <Phone className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-white font-semibold text-sm leading-none">realhubb_business</p>
+                  <p className="text-white font-semibold text-sm leading-none">RealHubb Ventures</p>
                   <p className="text-green-200 text-xs mt-0.5">WhatsApp Business</p>
                 </div>
               </div>
@@ -768,7 +768,7 @@ export default function WhatsAppPage() {
             <div className="space-y-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                 <p className="text-sm text-green-800 flex items-center gap-2">
-                  <Phone className="w-4 h-4" /> Sending from: realhubb_business (+91 63649 40394)
+                  <Phone className="w-4 h-4" /> Sending from: RealHubb Ventures (+91 63649 40394)
                 </p>
               </div>
               <div>
@@ -886,7 +886,7 @@ export default function WhatsAppPage() {
             </div>
             <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
               <p className="text-sm text-green-800 flex items-center gap-2">
-                <Phone className="w-4 h-4" /> Using WhatsApp Account: realhubb_business (+91 63649 40394)
+                <Phone className="w-4 h-4" /> Using WhatsApp Account: RealHubb Ventures (+91 63649 40394)
               </p>
             </div>
             <div className="mb-4">

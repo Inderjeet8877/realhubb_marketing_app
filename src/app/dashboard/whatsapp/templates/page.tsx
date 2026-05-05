@@ -344,7 +344,7 @@ export default function WhatsAppTemplatesPage() {
               <div className="flex-1 overflow-y-auto pr-4 space-y-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-sm text-green-800 flex items-center gap-2">
-                    Using WhatsApp Account: realhubb_business (+91 63649 40394)
+                    Using WhatsApp Account: RealHubb Ventures (+91 63649 40394)
                   </p>
                 </div>
 
