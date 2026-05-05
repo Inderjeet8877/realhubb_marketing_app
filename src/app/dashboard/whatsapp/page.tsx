@@ -13,6 +13,7 @@ interface Conversation {
   lastMessageAt?: string;
   lastMessageDirection?: "inbound" | "outbound";
   unreadCount?: number;
+  templates?: string[];
 }
 
 interface ChatMessage {
@@ -109,6 +110,7 @@ function MsgTick({ status }: { status?: string }) {
 export default function WhatsAppPage() {
   const [activeTab, setActiveTab] = useState<"send" | "inbox" | "reports">("send");
   const [replyFilter, setReplyFilter] = useState<{ batchName: string; phones: string[] } | null>(null);
+  const [inboxTemplateFilter, setInboxTemplateFilter] = useState<string>("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -171,6 +173,7 @@ export default function WhatsAppPage() {
         });
         const convMap = new Map<string, Conversation>();
         const nameMap = new Map<string, string>();
+        const tmplMap = new Map<string, Set<string>>();
         for (const doc of sorted) {
           const d = doc.data();
           if (!d.phone) continue;
@@ -184,12 +187,21 @@ export default function WhatsAppPage() {
               lastMessageAt: d.createdAt?.toDate?.()?.toISOString() || null,
               lastMessageDirection: d.direction,
               unreadCount: d.unreadCount || 0,
+              templates: [],
             });
+          }
+          if (d.direction === "outbound" && d.templateName) {
+            if (!tmplMap.has(d.phone)) tmplMap.set(d.phone, new Set());
+            tmplMap.get(d.phone)!.add(d.templateName);
           }
         }
         for (const [phone, name] of nameMap) {
           const c = convMap.get(phone);
           if (c && c.name === phone) c.name = name;
+        }
+        for (const [phone, tmplSet] of tmplMap) {
+          const c = convMap.get(phone);
+          if (c) c.templates = Array.from(tmplSet);
         }
         setConversations(Array.from(convMap.values()));
       },
@@ -613,6 +625,26 @@ export default function WhatsAppPage() {
               </div>
             </div>
 
+            {/* Template filter */}
+            {(() => {
+              const usedTemplates = [...new Set(conversations.flatMap(c => c.templates || []))].sort();
+              if (usedTemplates.length === 0) return null;
+              return (
+                <div className="px-3 py-2 border-b border-gray-100 flex-shrink-0" style={{ backgroundColor: "#f0f2f5" }}>
+                  <select
+                    value={inboxTemplateFilter}
+                    onChange={e => setInboxTemplateFilter(e.target.value)}
+                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-green-300"
+                  >
+                    <option value="">All messages</option>
+                    {usedTemplates.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })()}
+
             {/* Reply filter banner */}
             {replyFilter && (
               <div className="px-3 py-2 bg-blue-50 border-b border-blue-200 flex items-center justify-between gap-2 flex-shrink-0">
@@ -640,9 +672,10 @@ export default function WhatsAppPage() {
               ) : (
                 conversations
                   .filter(c => {
-                    const matchSearch = !searchQuery || c.phone?.includes(searchQuery) || c.name?.toLowerCase().includes(searchQuery.toLowerCase());
-                    const matchReply = !replyFilter || replyFilter.phones.includes(c.phone);
-                    return matchSearch && matchReply;
+                    const matchSearch   = !searchQuery || c.phone?.includes(searchQuery) || c.name?.toLowerCase().includes(searchQuery.toLowerCase());
+                    const matchReply    = !replyFilter || replyFilter.phones.includes(c.phone);
+                    const matchTemplate = !inboxTemplateFilter || (c.templates || []).includes(inboxTemplateFilter);
+                    return matchSearch && matchReply && matchTemplate;
                   })
                   .map(conv => {
                     const isSelected = selectedConversation?.phone === conv.phone;
