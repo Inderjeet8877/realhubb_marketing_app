@@ -472,8 +472,9 @@ export default function ContactsPage() {
   });
 
   const uniqueTags = [...new Set(contacts.flatMap((c) => {
-    if (Array.isArray(c.tags)) return c.tags;
-    if (typeof c.tags === 'string') return c.tags.split(',').filter(Boolean);
+    const t = c.tags as unknown;
+    if (Array.isArray(t)) return t as string[];
+    if (typeof t === 'string') return (t as string).split(',').filter(Boolean);
     return [];
   }))];
 
@@ -486,6 +487,7 @@ export default function ContactsPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div>
       <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <div>
@@ -643,19 +645,19 @@ export default function ContactsPage() {
                             {contact.dataName}
                           </span>
                         )}
-                         {(Array.isArray(contact.tags)
-                           ? contact.tags.map((tag: string) => (
-                               <span key={tag} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">{tag}</span>
-                             ))
-                           : typeof contact.tags === 'string'
-                             ? contact.tags.split(',').filter(Boolean).map((tag: string) => (
-                                 <span key={tag} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">{tag}</span>
-                               ))
-                             : null)}
+                         {(() => {
+                           const t = contact.tags as unknown;
+                           const tags: string[] = Array.isArray(t) ? t as string[]
+                             : typeof t === 'string' ? (t as string).split(',').filter(Boolean)
+                             : [];
+                           return tags.map((tag) => (
+                             <span key={tag} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">{tag}</span>
+                           ));
+                         })()}
                       </div>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-gray-500 text-sm hidden md:table-cell">
-                      {new Date(contact.addedAt).toLocaleDateString()}
+                      {contact.addedAt ? new Date(contact.addedAt).toLocaleDateString() : '—'}
                     </td>
                   </tr>
                 ))}
@@ -684,5 +686,6 @@ export default function ContactsPage() {
         />
       )}
     </div>
+    </ErrorBoundary>
   );
 }
