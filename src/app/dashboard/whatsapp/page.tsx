@@ -140,8 +140,13 @@ export default function WhatsAppPage() {
   const [simulatingInbound, setSimulatingInbound] = useState(false);
   const [batches, setBatches] = useState<{ name: string; count: number }[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>("");
-  const [sendRange, setSendRange] = useState<string>("all"); // "all" or "1-100", "101-200", etc.
-  const sentPhonesRef = useRef<Set<string>>(new Set());
+  const [sendRange, setSendRange] = useState<string>("all");
+  const [rangeFrom, setRangeFrom] = useState<string>("");
+  const [rangeTo, setRangeTo]     = useState<string>("");
+  // key = "phone::templateName" — prevents same template to same number twice
+  const sentKeysRef = useRef<Set<string>>(new Set());
+  // full unsliced contact list for the selected batch
+  const allBatchPhonesRef = useRef<string[]>([]);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -456,13 +461,15 @@ export default function WhatsAppPage() {
     setBulkResult(null);
     try {
       const bulkTemplateObj = templates.find((t: any) => t.name === selectedBulkTemplate);
+      const templateKey = bulkMessageType === "template" ? selectedBulkTemplate : "_text";
       const contactsToSend = selectedContacts.filter(phone => {
-        if (sentPhonesRef.current.has(phone)) return false; // skip already sent
-        sentPhonesRef.current.add(phone);
+        const key = `${phone}::${templateKey}`;
+        if (sentKeysRef.current.has(key)) return false;
+        sentKeysRef.current.add(key);
         return true;
       });
       if (contactsToSend.length === 0) {
-        setBulkResult({ error: "All selected contacts already received a message in this session." });
+        setBulkResult({ error: `All selected contacts already received "${templateKey === "_text" ? "this message" : templateKey}" in this session.` });
         setSendingBulk(false);
         return;
       }
@@ -927,7 +934,7 @@ export default function WhatsAppPage() {
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Bulk Send Message</h2>
-              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentPhonesRef.current = new Set(); setSendRange("all"); }} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); }} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -973,13 +980,17 @@ export default function WhatsAppPage() {
                   onChange={async e => {
                     const batch = e.target.value;
                     setSelectedBatch(batch);
-                    setSendRange("all"); // reset range on batch change
-                    sentPhonesRef.current = new Set(); // reset sent tracking
+                    setSendRange("all");
+                    setRangeFrom(""); setRangeTo("");
+                    sentKeysRef.current = new Set();
                     if (batch) {
                       const r = await fetch(`/api/contacts?dataName=${encodeURIComponent(batch)}`);
                       const d = await r.json();
-                      setSelectedContacts((d.contacts || []).map((c: any) => c.phone));
+                      const phones = (d.contacts || []).map((c: any) => c.phone);
+                      allBatchPhonesRef.current = phones;
+                      setSelectedContacts(phones);
                     } else {
+                      allBatchPhonesRef.current = [];
                       setSelectedContacts([]);
                     }
                   }}
@@ -993,35 +1004,70 @@ export default function WhatsAppPage() {
                </div>
              )}
 
-              {/* Send range selector - dynamic ranges based on contact count */}
-             {selectedBatch && selectedContacts.length > 100 && (
-               <div className="mb-4">
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Send Range</label>
+              {/* Send range selector */}
+             {selectedBatch && (
+               <div className="mb-4 space-y-2">
+                 <label className="block text-sm font-semibold text-gray-700">Send Range</label>
+
+                 {/* Quick preset dropdown */}
                  <select
                    value={sendRange}
                    onChange={e => {
                      const val = e.target.value;
                      setSendRange(val);
+                     const all = allBatchPhonesRef.current;
                      if (val === 'all') {
-                       fetch(`/api/contacts?dataName=${encodeURIComponent(selectedBatch)}`)
-                         .then(r => r.json())
-                         .then(d => setSelectedContacts((d.contacts || []).map((c: any) => c.phone)));
+                       setSelectedContacts(all);
+                       setRangeFrom(""); setRangeTo("");
                      } else {
-                       const [start, end] = val.split('-').map(Number);
-                       setSelectedContacts(prev => prev.slice(start - 1, end));
+                       const [s, en] = val.split('-').map(Number);
+                       setSelectedContacts(all.slice(s - 1, en));
+                       setRangeFrom(String(s)); setRangeTo(String(en));
                      }
                    }}
                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800"
                  >
-                   <option value="all">All ({selectedContacts.length})</option>
-                   {Array.from({ length: Math.ceil(selectedContacts.length / 100) }, (_, i) => {
-                     const start = i * 100 + 1;
-                     const end = Math.min((i + 1) * 100, selectedContacts.length);
-                     return (
-                       <option key={start} value={`${start}-${end}`}>{start}-{end} ({end - start + 1} contacts)</option>
-                     );
+                   <option value="all">All ({allBatchPhonesRef.current.length} contacts)</option>
+                   {Array.from({ length: Math.ceil(allBatchPhonesRef.current.length / 100) }, (_, i) => {
+                     const s = i * 100 + 1;
+                     const en = Math.min((i + 1) * 100, allBatchPhonesRef.current.length);
+                     return <option key={s} value={`${s}-${en}`}>{s} – {en} ({en - s + 1} contacts)</option>;
                    })}
                  </select>
+
+                 {/* Manual range inputs */}
+                 <div className="flex items-center gap-2">
+                   <span className="text-xs text-gray-500 flex-shrink-0">Custom:</span>
+                   <div className="flex items-center gap-1.5 flex-1">
+                     <span className="text-xs text-gray-500">From</span>
+                     <input
+                       type="number" min="1" max={allBatchPhonesRef.current.length}
+                       value={rangeFrom}
+                       onChange={e => setRangeFrom(e.target.value)}
+                       placeholder="1"
+                       className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-800 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                     />
+                     <span className="text-xs text-gray-500">To</span>
+                     <input
+                       type="number" min="1" max={allBatchPhonesRef.current.length}
+                       value={rangeTo}
+                       onChange={e => setRangeTo(e.target.value)}
+                       placeholder={String(allBatchPhonesRef.current.length || 100)}
+                       className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-800 focus:ring-2 focus:ring-green-400 focus:outline-none"
+                     />
+                     <button
+                       onClick={() => {
+                         const from = Math.max(1, parseInt(rangeFrom) || 1);
+                         const to   = Math.min(allBatchPhonesRef.current.length, parseInt(rangeTo) || allBatchPhonesRef.current.length);
+                         setSelectedContacts(allBatchPhonesRef.current.slice(from - 1, to));
+                         setSendRange(`${from}-${to}`);
+                       }}
+                       className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 flex-shrink-0"
+                     >
+                       Apply
+                     </button>
+                   </div>
+                 </div>
                </div>
              )}
 
