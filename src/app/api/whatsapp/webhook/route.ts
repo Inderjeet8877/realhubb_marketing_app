@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       for (const s of value.statuses) {
         if (!s.id || !s.status) continue;
         try {
+          // Update inbox conversation tick
           const snap = await adminDb
             .collection('whatsapp_conversations')
             .where('wamid', '==', s.id)
@@ -35,6 +36,23 @@ export async function POST(request: NextRequest) {
           if (!snap.empty) {
             await snap.docs[0].ref.update({ status: s.status });
             console.log(`[Webhook] ✅ Status ${s.status} → wamid ${s.id}`);
+          }
+
+          // Update broadcast report via wamid_index lookup
+          const idxDoc = await adminDb.collection('wamid_index').doc(s.id).get();
+          if (idxDoc.exists) {
+            const { broadcastId } = idxDoc.data()!;
+            const reportRef = adminDb.collection('bulk_reports').doc(broadcastId);
+            await adminDb.runTransaction(async (tx) => {
+              const report = await tx.get(reportRef);
+              if (!report.exists) return;
+              const contacts: any[] = [...(report.data()!.contacts || [])];
+              const idx = contacts.findIndex((c: any) => c.wamid === s.id);
+              if (idx >= 0) contacts[idx] = { ...contacts[idx], status: s.status };
+              const delivered = contacts.filter((c: any) => c.status === 'delivered' || c.status === 'read').length;
+              const read      = contacts.filter((c: any) => c.status === 'read').length;
+              tx.update(reportRef, { contacts, delivered, read });
+            });
           }
         } catch (err) {
           console.error(`[Webhook] Failed to update status ${s.id}:`, err);

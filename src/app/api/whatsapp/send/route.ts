@@ -36,6 +36,8 @@ interface SendMessageRequest {
 
 interface BulkSendRequest {
   contacts: string[];
+  contactNames?: Record<string, string>; // phone -> name
+  batchName?: string;
   message: string;
   templateContent?: string;
   accountId?: string;
@@ -77,7 +79,7 @@ export async function POST(request: Request) {
 }
 
 async function handleSingleSend(body: SendMessageRequest) {
-  const { phoneNumber, message, templateContent, accountId, templateType = 'text', imageUrl, caption, templateName, languageCode = 'en', templateHeaderType, templateHeaderContent, isTemplate } = body;
+  const { phoneNumber, message, templateContent, accountId, imageUrl, caption, templateName, languageCode = 'en', templateHeaderType, templateHeaderContent, isTemplate } = body;
 
   if (!phoneNumber) {
     return NextResponse.json(
@@ -261,135 +263,104 @@ const cleanPhone = phoneNumber.replace(/\D/g, '');
 }
 
 async function handleBulkSend(body: BulkSendRequest) {
-  const { contacts, message, templateContent, accountId, templateType = 'text', imageUrl, caption, templateName, languageCode = 'en', templateHeaderType, templateHeaderContent, isTemplate } = body;
+  const {
+    contacts, contactNames = {}, batchName = 'Unnamed Batch',
+    message, templateContent, accountId, imageUrl, caption,
+    templateName, languageCode = 'en', templateHeaderType, templateHeaderContent, isTemplate,
+  } = body;
 
   if (!contacts || contacts.length === 0) {
-    return NextResponse.json(
-      { error: 'No contacts provided' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'No contacts provided' }, { status: 400 });
   }
 
-  const accountNum = (accountId === '2' || accountId === '3') ? accountId : '1';
-  const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`] || process.env.WHATSAPP_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN_1;
+  const accountNum   = (accountId === '2' || accountId === '3') ? accountId : '1';
+  const accessToken  = process.env[`META_ACCESS_TOKEN_${accountNum}`] || process.env.META_ACCESS_TOKEN_1;
   const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`] || process.env.WHATSAPP_PHONE_NUMBER_ID_1;
 
-  // Resolve template content once for all contacts (frontend content takes priority)
-  const resolvedTemplateContent = message || templateContent || (templateName ? await getTemplateContent(templateName) : '');
-
   if (!accessToken || !phoneNumberId) {
-    return NextResponse.json(
-      { error: 'WhatsApp not configured. Please check .env.local settings' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'WhatsApp not configured' }, { status: 500 });
   }
 
   const useTemplate = isTemplate || templateName;
-  const results: { phone: string; success: boolean; messageId?: string; error?: string }[] = [];
+  const resolvedTemplateContent = message || templateContent || (templateName ? await getTemplateContent(templateName) : '');
+
+  type ContactResult = { phone: string; name: string; success: boolean; wamid: string | null; status: string; error: string | null };
+  const contactResults: ContactResult[] = [];
 
   for (const phoneNumber of contacts) {
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const cleanPhone    = phoneNumber.replace(/\D/g, '');
     const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+    const contactName   = contactNames[phoneNumber] || contactNames[formattedPhone] || formattedPhone;
 
-    let requestBody: any;
-
+    let waBody: any;
     if (useTemplate) {
-      const bulkTemplateName = (templateName || 'hello_world').trim();
-      const bulkComponents: any[] = [];
-      if (templateHeaderType === 'image' && templateHeaderContent) {
-        bulkComponents.push({ type: 'header', parameters: [{ type: 'image', image: { link: templateHeaderContent } }] });
-      } else if (templateHeaderType === 'video' && templateHeaderContent) {
-        bulkComponents.push({ type: 'header', parameters: [{ type: 'video', video: { link: templateHeaderContent } }] });
-      } else if (templateHeaderType === 'document' && templateHeaderContent) {
-        bulkComponents.push({ type: 'header', parameters: [{ type: 'document', document: { link: templateHeaderContent } }] });
-      }
-      requestBody = {
-        messaging_product: 'whatsapp',
-        to: formattedPhone,
-        type: 'template',
-        template: {
-          name: bulkTemplateName,
-          language: { code: languageCode || 'en' },
-          ...(bulkComponents.length > 0 && { components: bulkComponents }),
-        },
-      };
-    } else if (templateType === 'image' && imageUrl) {
-      requestBody = {
-        messaging_product: 'whatsapp',
-        to: formattedPhone,
-        type: 'image',
-        image: {
-          link: imageUrl,
-          caption: caption || message
-        }
-      };
+      const tName = (templateName || 'hello_world').trim();
+      const components: any[] = [];
+      if (templateHeaderType === 'image'    && templateHeaderContent) components.push({ type: 'header', parameters: [{ type: 'image',    image:    { link: templateHeaderContent } }] });
+      if (templateHeaderType === 'video'    && templateHeaderContent) components.push({ type: 'header', parameters: [{ type: 'video',    video:    { link: templateHeaderContent } }] });
+      if (templateHeaderType === 'document' && templateHeaderContent) components.push({ type: 'header', parameters: [{ type: 'document', document: { link: templateHeaderContent } }] });
+      waBody = { messaging_product: 'whatsapp', to: formattedPhone, type: 'template', template: { name: tName, language: { code: languageCode }, ...(components.length > 0 && { components }) } };
+    } else if (imageUrl) {
+      waBody = { messaging_product: 'whatsapp', to: formattedPhone, type: 'image', image: { link: imageUrl, caption: caption || message } };
     } else {
-      requestBody = {
-        messaging_product: 'whatsapp',
-        to: formattedPhone,
-        type: 'text',
-        text: {
-          body: message || ' '
-        }
-      };
+      waBody = { messaging_product: 'whatsapp', to: formattedPhone, type: 'text', text: { body: message || ' ' } };
     }
 
     try {
-      const response = await fetch(
-        `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
+      const response = await fetch(`${WHATSAPP_API_URL}/${phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(waBody),
+      });
       const data = await response.json();
 
       if (response.ok) {
-        results.push({
-          phone: formattedPhone,
-          success: true,
-          messageId: data.messages?.[0]?.id,
-        });
-
-        await saveMessage({
-          to: formattedPhone,
-          message: resolvedTemplateContent || `[Template: ${templateName || 'unknown'}]`,
-          status: 'sent',
-          wamid: data.messages?.[0]?.id,
-          templateName,
-        });
+        const wamid = data.messages?.[0]?.id || null;
+        contactResults.push({ phone: formattedPhone, name: contactName, success: true, wamid, status: 'sent', error: null });
+        await saveMessage({ to: formattedPhone, message: resolvedTemplateContent || `[Template: ${templateName || 'unknown'}]`, status: 'sent', wamid, templateName });
       } else {
-        results.push({
-          phone: formattedPhone,
-          success: false,
-          error: data.error?.message || 'Failed to send',
-        });
+        contactResults.push({ phone: formattedPhone, name: contactName, success: false, wamid: null, status: 'failed', error: data.error?.message || 'Meta API rejected' });
       }
-    } catch (error: any) {
-      results.push({
-        phone: formattedPhone,
-        success: false,
-        error: error.message,
-      });
+    } catch (err: any) {
+      contactResults.push({ phone: formattedPhone, name: contactName, success: false, wamid: null, status: 'failed', error: err.message });
     }
 
     await new Promise(resolve => setTimeout(resolve, 200));
   }
 
-  const successCount = results.filter(r => r.success).length;
+  const successCount = contactResults.filter(r => r.success).length;
 
-  return NextResponse.json({
-    success: true,
-    total: contacts.length,
-    sent: successCount,
-    failed: contacts.length - successCount,
-    results,
-  });
+  // Save broadcast report + wamid index for delivery tracking
+  try {
+    const reportRef = adminDb.collection('bulk_reports').doc();
+    const broadcastId = reportRef.id;
+
+    await reportRef.set({
+      broadcastId,
+      batchName,
+      templateName: templateName || null,
+      total:    contacts.length,
+      sent:     successCount,
+      failed:   contacts.length - successCount,
+      delivered: 0,
+      read:      0,
+      contacts: contactResults,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    // Index each wamid so the webhook can update delivery status
+    const wamidBatch = adminDb.batch();
+    for (const r of contactResults) {
+      if (r.wamid) {
+        wamidBatch.set(adminDb.collection('wamid_index').doc(r.wamid), { broadcastId, phone: r.phone });
+      }
+    }
+    await wamidBatch.commit();
+  } catch (err) {
+    console.error('[Bulk Send] Failed to save broadcast report:', err);
+  }
+
+  return NextResponse.json({ success: true, total: contacts.length, sent: successCount, failed: contacts.length - successCount });
 }
 
 async function saveMessage(data: {

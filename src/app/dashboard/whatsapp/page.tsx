@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck } from "lucide-react";
+import { MessageSquare, Send, CheckCircle, Loader2, Users, X, Search, Phone, Check, CheckCheck, BarChart3, ChevronDown, ChevronUp, AlertCircle, Clock, Eye, Filter, RefreshCw } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 
@@ -107,7 +107,8 @@ function MsgTick({ status }: { status?: string }) {
 // ---- component ----
 
 export default function WhatsAppPage() {
-  const [activeTab, setActiveTab] = useState<"send" | "inbox">("send");
+  const [activeTab, setActiveTab] = useState<"send" | "inbox" | "reports">("send");
+  const [replyFilter, setReplyFilter] = useState<{ batchName: string; phones: string[] } | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -465,11 +466,16 @@ export default function WhatsAppPage() {
         setSendingBulk(false);
         return;
       }
+      const contactNamesMap: Record<string, string> = {};
+      contacts.forEach(c => { if (c.phone) contactNamesMap[c.phone] = c.name; });
+
       const r = await fetch("/api/whatsapp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contacts: contactsToSend,
+          contactNames: contactNamesMap,
+          batchName: selectedBatch || "Manual Selection",
           message: bulkMessage,
           accountId: waAccountId,
           templateName: bulkMessageType === "template" ? selectedBulkTemplate : undefined,
@@ -490,6 +496,12 @@ export default function WhatsAppPage() {
     }
   };
 
+  const handleViewReplies = (phones: string[], batchName: string) => {
+    setReplyFilter({ batchName, phones });
+    setActiveTab("inbox");
+    fetchConversations();
+  };
+
   const toggleContact = (phone: string) => setSelectedContacts(prev => prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]);
   const selectAllFiltered = () => {
     const phones = contacts.map(c => c.phone);
@@ -504,39 +516,45 @@ export default function WhatsAppPage() {
           <h1 className="text-2xl font-bold text-gray-900">WhatsApp</h1>
           <p className="text-gray-600">Send messages and manage conversations</p>
         </div>
-        <div className="flex gap-2">
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setActiveTab("send")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg ${activeTab === "send" ? "bg-white shadow text-green-600" : "text-gray-600 hover:text-gray-900"}`}
-            >
-              <Send className="w-4 h-4" /> Send
-            </button>
-            <button
-              onClick={() => { setActiveTab("inbox"); fetchConversations(); }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg ${activeTab === "inbox" ? "bg-white shadow text-green-600" : "text-gray-600 hover:text-gray-900"}`}
-            >
-              <MessageSquare className="w-4 h-4" /> Inbox
-              {conversations.filter(c => (c.unreadCount ?? 0) > 0).length > 0 && (
-                <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                  {conversations.filter(c => (c.unreadCount ?? 0) > 0).length}
-                </span>
-              )}
-            </button>
-          </div>
-          {activeTab === "send" && (
-            <button onClick={async () => {
-              setShowBulkModal(true);
-              try {
-                const r = await fetch("/api/contacts?listCategories=true");
-                const d = await r.json();
-                setBatches(d.categories || []);
-              } catch {}
-            }} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-              <Users className="w-4 h-4" /> Bulk Send
-            </button>
-          )}
-        </div>
+         <div className="flex gap-2">
+           <div className="flex bg-gray-100 rounded-lg p-1">
+             <button
+               onClick={() => setActiveTab("send")}
+               className={`flex items-center gap-2 px-4 py-2 rounded-lg ${activeTab === "send" ? "bg-white shadow text-green-600" : "text-gray-600 hover:text-gray-900"}`}
+             >
+               <Send className="w-4 h-4" /> Send
+             </button>
+             <button
+               onClick={() => { setActiveTab("inbox"); fetchConversations(); }}
+               className={`flex items-center gap-2 px-4 py-2 rounded-lg ${activeTab === "inbox" ? "bg-white shadow text-green-600" : "text-gray-600 hover:text-gray-900"}`}
+             >
+               <MessageSquare className="w-4 h-4" /> Inbox
+               {conversations.filter(c => (c.unreadCount ?? 0) > 0).length > 0 && (
+                 <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                   {conversations.filter(c => (c.unreadCount ?? 0) > 0).length}
+                 </span>
+               )}
+             </button>
+           </div>
+           {activeTab === "send" && (
+             <button onClick={async () => {
+               setShowBulkModal(true);
+               try {
+                 const r = await fetch("/api/contacts?listCategories=true");
+                 const d = await r.json();
+                 setBatches(d.categories || []);
+               } catch {}
+             }} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+               <Users className="w-4 h-4" /> Bulk Send
+             </button>
+           )}
+           <button
+             onClick={() => setActiveTab("reports")}
+             className={`flex items-center gap-2 px-4 py-2 rounded-lg ${activeTab === "reports" ? "bg-green-600 text-white shadow" : "bg-gray-100 text-gray-600 hover:text-gray-900"}`}
+           >
+             <BarChart3 className="w-4 h-4" /> Reports
+           </button>
+         </div>
       </div>
 
       {/* ===== INBOX ===== */}
@@ -588,6 +606,19 @@ export default function WhatsAppPage() {
               </div>
             </div>
 
+            {/* Reply filter banner */}
+            {replyFilter && (
+              <div className="px-3 py-2 bg-blue-50 border-b border-blue-200 flex items-center justify-between gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-blue-700 min-w-0">
+                  <Filter className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">Replies from <strong>{replyFilter.batchName}</strong></span>
+                </div>
+                <button onClick={() => setReplyFilter(null)} className="text-blue-500 hover:text-blue-700 flex-shrink-0">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* List */}
             <div className="flex-1 overflow-y-auto">
               {loadingConversations && conversations.length === 0 ? (
@@ -601,7 +632,11 @@ export default function WhatsAppPage() {
                 </div>
               ) : (
                 conversations
-                  .filter(c => !searchQuery || c.phone?.includes(searchQuery) || c.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .filter(c => {
+                    const matchSearch = !searchQuery || c.phone?.includes(searchQuery) || c.name?.toLowerCase().includes(searchQuery.toLowerCase());
+                    const matchReply = !replyFilter || replyFilter.phones.includes(c.phone);
+                    return matchSearch && matchReply;
+                  })
                   .map(conv => {
                     const isSelected = selectedConversation?.phone === conv.phone;
                     return (
@@ -1079,8 +1114,150 @@ export default function WhatsAppPage() {
               <p className="text-yellow-800 text-xs font-medium">After fixing Meta config, click the &quot;Test Reply&quot; button in any chat to verify inbound messages work end-to-end.</p>
             </div>
           </div>
-        </div>
-      )}
+            </div>
+          )}
+        {/* ===== REPORTS TAB ===== */}
+        {activeTab === "reports" && (
+          <BulkReports onViewReplies={handleViewReplies} />
+        )}
+
+    </div>
+  );
+}
+
+function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batchName: string) => void }) {
+  const [broadcasts, setBroadcasts] = useState<any[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [expanded, setExpanded]     = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/whatsapp/broadcasts')
+      .then(r => r.json())
+      .then(d => { setBroadcasts(d.broadcasts || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-green-600" /></div>;
+
+  if (broadcasts.length === 0) {
+    return (
+      <div className="text-center p-12 bg-white rounded-xl border border-gray-200">
+        <BarChart3 className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+        <p className="text-gray-500 font-medium">No broadcasts yet</p>
+        <p className="text-sm text-gray-400 mt-1">Send a bulk message to see reports here</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900">Broadcast Reports</h2>
+        <span className="text-sm text-gray-500">{broadcasts.length} broadcasts</span>
+      </div>
+      {broadcasts.map((b: any) => {
+        const contacts: any[]  = b.contacts || [];
+        const failedList       = contacts.filter((c: any) => !c.success);
+        const isExpanded       = expanded === b.id;
+        const phones           = contacts.map((c: any) => c.phone).filter(Boolean);
+
+        return (
+          <div key={b.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            {/* Header */}
+            <div className="p-4">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-900 truncate">{b.batchName}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {b.templateName ? <>Template: <span className="font-medium text-green-700">{b.templateName}</span></> : 'Custom text'}
+                    {' · '}
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {b.createdAt ? new Date(b.createdAt).toLocaleString() : '—'}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => onViewReplies(phones, b.batchName)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" /> Replies
+                  </button>
+                  <button
+                    onClick={() => setExpanded(isExpanded ? null : b.id)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    Details
+                  </button>
+                </div>
+              </div>
+
+              {/* Stat pills */}
+              <div className="grid grid-cols-5 gap-2 text-center">
+                {[
+                  { label: 'Total',    value: b.total,     color: 'gray' },
+                  { label: 'Sent',     value: b.sent,      color: 'green' },
+                  { label: 'Failed',   value: b.failed,    color: 'red' },
+                  { label: 'Delivered',value: b.delivered, color: 'blue' },
+                  { label: 'Read',     value: b.read,      color: 'purple' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className={`rounded-lg p-2 bg-${color}-50`}>
+                    <p className={`text-lg font-bold text-${color}-700`}>{value ?? 0}</p>
+                    <p className="text-xs text-gray-500 leading-tight">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Expandable contact list */}
+            {isExpanded && (
+              <div className="border-t border-gray-100">
+                {/* Failed rows */}
+                {failedList.length > 0 && (
+                  <div className="p-3 bg-red-50 border-b border-red-100">
+                    <p className="text-xs font-semibold text-red-700 mb-2 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" /> {failedList.length} failed
+                    </p>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {failedList.map((c: any, i: number) => (
+                        <div key={i} className="flex justify-between text-xs bg-white rounded px-2 py-1.5">
+                          <span className="font-medium text-gray-800">{c.name || c.phone}</span>
+                          <span className="text-red-500 truncate ml-2">{c.error || 'Failed'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* All contacts */}
+                <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
+                  {contacts.map((c: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-2 text-xs">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800 truncate">{c.name || c.phone}</p>
+                        <p className="text-gray-400">{c.phone}</p>
+                      </div>
+                      <span className={`flex-shrink-0 px-2 py-0.5 rounded-full font-medium ${
+                        c.status === 'read'      ? 'bg-purple-100 text-purple-700' :
+                        c.status === 'delivered' ? 'bg-blue-100 text-blue-700' :
+                        c.status === 'sent'      ? 'bg-green-100 text-green-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {c.status === 'read' ? <><Eye className="w-3 h-3 inline mr-0.5" />Read</> :
+                         c.status === 'delivered' ? <><CheckCheck className="w-3 h-3 inline mr-0.5" />Delivered</> :
+                         c.status === 'sent' ? <><Check className="w-3 h-3 inline mr-0.5" />Sent</> :
+                         c.error || 'Failed'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
