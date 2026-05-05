@@ -527,6 +527,9 @@ export default function WhatsAppPage() {
     setSelectedContacts(selectedContacts.length === contacts.length ? [] : phones);
   };
 
+  // Stable computed list of templates used in any conversation — drives inbox filter dropdown
+  const inboxTemplates = [...new Set(conversations.flatMap(c => c.templates || []))].sort();
+
   return (
     <div>
       {/* Top bar */}
@@ -626,24 +629,36 @@ export default function WhatsAppPage() {
             </div>
 
             {/* Template filter */}
-            {(() => {
-              const usedTemplates = [...new Set(conversations.flatMap(c => c.templates || []))].sort();
-              if (usedTemplates.length === 0) return null;
-              return (
-                <div className="px-3 py-2 border-b border-gray-100 flex-shrink-0" style={{ backgroundColor: "#f0f2f5" }}>
+            {(inboxTemplates.length > 0 || inboxTemplateFilter) && (
+              <div className="px-3 py-2 border-b border-gray-100 flex-shrink-0" style={{ backgroundColor: "#f0f2f5" }}>
+                <div className="flex items-center gap-1.5">
                   <select
                     value={inboxTemplateFilter}
                     onChange={e => setInboxTemplateFilter(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-green-300"
+                    className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-green-300"
                   >
                     <option value="">All messages</option>
-                    {usedTemplates.map(t => (
+                    {inboxTemplates.map(t => (
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
+                  {inboxTemplateFilter && (
+                    <button
+                      onClick={() => setInboxTemplateFilter("")}
+                      className="p-1 text-gray-400 hover:text-gray-700 flex-shrink-0"
+                      title="Clear filter"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-              );
-            })()}
+                {inboxTemplateFilter && (
+                  <p className="text-[10px] text-green-700 mt-1">
+                    Filtering by template: <strong>{inboxTemplateFilter}</strong>
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Reply filter banner */}
             {replyFilter && (
