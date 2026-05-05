@@ -139,6 +139,8 @@ export default function WhatsAppPage() {
   const [simulatingInbound, setSimulatingInbound] = useState(false);
   const [batches, setBatches] = useState<{ name: string; count: number }[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>("");
+  const [sendLimit, setSendLimit] = useState<number>(0); // 0 = all
+  const sentPhonesRef = useRef<Set<string>>(new Set());
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -453,11 +455,21 @@ export default function WhatsAppPage() {
     setBulkResult(null);
     try {
       const bulkTemplateObj = templates.find((t: any) => t.name === selectedBulkTemplate);
+      const contactsToSend = selectedContacts.filter(phone => {
+        if (sentPhonesRef.current.has(phone)) return false; // skip already sent
+        sentPhonesRef.current.add(phone);
+        return true;
+      });
+      if (contactsToSend.length === 0) {
+        setBulkResult({ error: "All selected contacts already received a message in this session." });
+        setSendingBulk(false);
+        return;
+      }
       const r = await fetch("/api/whatsapp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contacts: selectedContacts,
+          contacts: contactsToSend,
           message: bulkMessage,
           accountId: waAccountId,
           templateName: bulkMessageType === "template" ? selectedBulkTemplate : undefined,
@@ -470,7 +482,7 @@ export default function WhatsAppPage() {
       });
       const data = await r.json();
       setBulkResult(data);
-      if (data.success) { setBulkMessage(""); setSelectedContacts([]); setSelectedBulkTemplate(""); }
+      if (data.success) { setBulkMessage(""); setSelectedBulkTemplate(""); }
     } catch {
       setBulkResult({ error: "Failed to send messages" });
     } finally {
@@ -880,7 +892,7 @@ export default function WhatsAppPage() {
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Bulk Send Message</h2>
-              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); }} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentPhonesRef.current = new Set(); }} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -926,6 +938,8 @@ export default function WhatsAppPage() {
                   onChange={async e => {
                     const batch = e.target.value;
                     setSelectedBatch(batch);
+                    setSendLimit(0); // reset limit on batch change
+                    sentPhonesRef.current = new Set(); // reset sent tracking
                     if (batch) {
                       const r = await fetch(`/api/contacts?dataName=${encodeURIComponent(batch)}`);
                       const d = await r.json();
@@ -940,11 +954,39 @@ export default function WhatsAppPage() {
                   {batches.map(b => (
                     <option key={b.name} value={b.name}>{b.name} ({b.count} contacts)</option>
                   ))}
-                </select>
-              </div>
-            )}
+                 </select>
+               </div>
+             )}
 
-            <div className="mb-3 flex items-center justify-between">
+             {/* Send limit selector - only show when batch selected and >100 contacts */}
+             {selectedBatch && selectedContacts.length > 100 && (
+               <div className="mb-4">
+                 <label className="block text-sm font-medium text-gray-700 mb-1">Send Limit</label>
+                 <select
+                   value={sendLimit}
+                   onChange={e => {
+                     const limit = Number(e.target.value);
+                     setSendLimit(limit);
+                     if (limit > 0) {
+                       setSelectedContacts(prev => prev.slice(0, limit));
+                     } else {
+                       fetch(`/api/contacts?dataName=${encodeURIComponent(selectedBatch)}`)
+                         .then(r => r.json())
+                         .then(d => setSelectedContacts((d.contacts || []).map((c: any) => c.phone)));
+                     }
+                   }}
+                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800"
+                 >
+                   <option value={0}>All ({selectedContacts.length})</option>
+                   <option value={100}>First 100</option>
+                   <option value={200}>First 200</option>
+                   <option value={300}>First 300</option>
+                   <option value={400}>First 400</option>
+                 </select>
+               </div>
+             )}
+
+             <div className="mb-3 flex items-center justify-between">
               <span className="text-sm text-gray-600 font-medium">{selectedContacts.length} contacts selected</span>
               <button onClick={selectAllFiltered} className="text-sm text-blue-600 hover:text-blue-700">
                 {selectedContacts.length === contacts.length ? "Deselect All" : "Select All"}
