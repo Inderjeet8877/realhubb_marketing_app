@@ -34,6 +34,8 @@ interface Contact {
   addedAt?: Date;
 }
 
+// ---- helpers ----
+
 function formatTime(dateStr: string) {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "";
@@ -102,8 +104,10 @@ function MsgTick({ status }: { status?: string }) {
   );
 }
 
+// ---- component ----
+
 export default function WhatsAppPage() {
-  const [activeTab, setActiveTab] = useState<"send" | "inbox" | "reports">("send");
+  const [activeTab, setActiveTab] = useState<"send" | "inbox">("send");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -112,7 +116,6 @@ export default function WhatsAppPage() {
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showRepliesOnly, setShowRepliesOnly] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(false);
@@ -136,19 +139,17 @@ export default function WhatsAppPage() {
   const [simulatingInbound, setSimulatingInbound] = useState(false);
   const [batches, setBatches] = useState<{ name: string; count: number }[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>("");
-  const [sendRange, setSendRange] = useState<string>("all");
+  const [sendRange, setSendRange] = useState<string>("all"); // "all" or "1-100", "101-200", etc.
   const sentPhonesRef = useRef<Set<string>>(new Set());
   const chatContainerRef = useRef<HTMLDivElement>(null);
-
-  const displayedConversations = showRepliesOnly
-    ? conversations.filter(c => c.lastMessageDirection === "inbound" || (c.unreadCount ?? 0) > 0)
-    : conversations;
 
   useEffect(() => {
     fetchContacts();
     fetchTemplates();
   }, []);
 
+  // Real-time conversation list listener
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (activeTab !== "inbox") return;
     setLoadingConversations(true);
@@ -189,13 +190,15 @@ export default function WhatsAppPage() {
       (err) => {
         console.error("Conversations listener error:", err);
         setLoadingConversations(false);
-        fetchConversations();
+        fetchConversations(); // fallback to API
       }
     );
 
     return () => unsub();
   }, [activeTab]);
 
+  // Real-time chat messages listener — fires instantly on status changes (delivered/read)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!selectedConversation) return;
     setLoadingMessages(true);
@@ -224,6 +227,7 @@ export default function WhatsAppPage() {
       },
       async (err) => {
         console.error("Chat listener error (falling back to API):", err);
+        // onSnapshot failed (permission denied etc.) — load via API instead
         try {
           const r = await fetch(`/api/whatsapp/messages?phone=${encodeURIComponent(selectedConversation.phone)}&account_id=${waAccountId}`);
           if (r.ok) {
@@ -236,8 +240,9 @@ export default function WhatsAppPage() {
     );
 
     return () => unsub();
-  }, [selectedConversation?.phone]);
+  }, [selectedConversation?.phone]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Scroll to bottom on new messages
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -299,6 +304,7 @@ export default function WhatsAppPage() {
     setSelectedConversation(conv);
     setChatMessages([]);
     setLoadingMessages(true);
+    // Load all history immediately via API (server-side, bypasses Firestore rules)
     try {
       const r = await fetch(`/api/whatsapp/messages?phone=${encodeURIComponent(conv.phone)}&account_id=${waAccountId}`);
       if (r.ok) {
@@ -310,8 +316,10 @@ export default function WhatsAppPage() {
     } finally {
       setLoadingMessages(false);
     }
+    // onSnapshot (set up by the effect) will push real-time updates on top
   };
 
+  // Simulate an inbound message from the current conversation's customer (for testing)
   const simulateInbound = async () => {
     if (!selectedConversation) return;
     setSimulatingInbound(true);
@@ -330,6 +338,7 @@ export default function WhatsAppPage() {
     }
   };
 
+  // Check if Meta webhook is actually calling us
   const fetchWebhookLogs = async () => {
     try {
       const r = await fetch("/api/whatsapp/simulate-inbound");
@@ -347,14 +356,15 @@ export default function WhatsAppPage() {
       const r = await fetch("/api/whatsapp/test-message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: selectedConversation.phone,
+        body: JSON.stringify({ 
+          phone: selectedConversation.phone, 
           message: '🧪 Direct test message!',
           direction: 'inbound'
         }),
       });
       const data = await r.json();
       alert('Test result: ' + JSON.stringify(data, null, 2));
+      // Refresh conversations
       fetchConversations();
     } catch (error) {
       alert('Test error: ' + error);
@@ -397,9 +407,13 @@ export default function WhatsAppPage() {
 
   const handleSend = async () => {
     if (!phoneNumber) { alert("Please enter phone number"); return; }
+    alert("Button clicked! Starting send...");
     setLoading(true);
+    alert("Loading set to true, making API call...");
     try {
+      alert(`Calling API with: phone=${phoneNumber}, type=${messageType}, template=${selectedTemplate}`);
       const templateObj = templates.find((t: any) => t.name === selectedTemplate);
+      // For image templates: use manually entered URL first, fall back to stored headerContent
       const effectiveImageUrl = templateSendImageUrl.trim() || templateObj?.headerContent || "";
       const response = await fetch("/api/whatsapp/send", {
         method: "POST",
@@ -417,6 +431,7 @@ export default function WhatsAppPage() {
         }),
       });
       const data = await response.json();
+      alert("API response: " + JSON.stringify(data));
       if (data.success) {
         setMessages([{ id: Date.now().toString(), to: phoneNumber, message: messageType === "template" ? `Template: ${selectedTemplate}` : messageText, status: "sent", sentAt: new Date() }, ...messages]);
         setMessageText("");
@@ -441,7 +456,7 @@ export default function WhatsAppPage() {
     try {
       const bulkTemplateObj = templates.find((t: any) => t.name === selectedBulkTemplate);
       const contactsToSend = selectedContacts.filter(phone => {
-        if (sentPhonesRef.current.has(phone)) return false;
+        if (sentPhonesRef.current.has(phone)) return false; // skip already sent
         sentPhonesRef.current.add(phone);
         return true;
       });
@@ -533,7 +548,10 @@ export default function WhatsAppPage() {
       {/* ===== INBOX ===== */}
       {activeTab === "inbox" && (
         <div className="flex rounded-xl overflow-hidden shadow-lg border border-gray-200" style={{ height: "calc(100vh - 160px)", minHeight: 500 }}>
+
+          {/* LEFT — conversation list: full width on mobile, fixed 320px on md+ */}
           <div className={`flex-shrink-0 flex flex-col bg-white border-r border-gray-200 w-full md:w-80 ${selectedConversation ? "hidden md:flex" : "flex"}`}>
+            {/* Header */}
             <div className="px-4 py-3 flex items-center justify-between flex-shrink-0" style={{ backgroundColor: "#075e54" }}>
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
@@ -550,13 +568,6 @@ export default function WhatsAppPage() {
                   Live
                 </span>
                 <button
-                  onClick={() => setShowRepliesOnly(!showRepliesOnly)}
-                  className={`px-2 py-1 text-[10px] rounded border ${showRepliesOnly ? "bg-white/30 text-white border-white/40" : "bg-white/10 text-white/70 border-white/20 hover:bg-white/20"}`}
-                  title="Show only conversations with replies"
-                >
-                  {showRepliesOnly ? "✓ Replies" : "Replies"}
-                </button>
-                <button
                   onClick={fetchWebhookLogs}
                   className="px-1.5 py-0.5 text-[10px] text-white/70 hover:text-white hover:bg-white/10 rounded border border-white/20"
                   title="Check if Meta webhook is delivering messages"
@@ -569,6 +580,7 @@ export default function WhatsAppPage() {
               </div>
             </div>
 
+            {/* Search */}
             <div className="px-3 py-2 flex-shrink-0" style={{ backgroundColor: "#f0f2f5" }}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -582,18 +594,19 @@ export default function WhatsAppPage() {
               </div>
             </div>
 
+            {/* List */}
             <div className="flex-1 overflow-y-auto">
               {loadingConversations && conversations.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-gray-300" />
                 </div>
-              ) : displayedConversations.length === 0 ? (
+              ) : conversations.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">
                   <MessageSquare className="w-10 h-10 mx-auto mb-2 text-gray-200" />
-                  <p className="text-sm">{showRepliesOnly ? "No replies yet" : "No conversations yet"}</p>
+                  <p className="text-sm">No conversations yet</p>
                 </div>
               ) : (
-                displayedConversations
+                conversations
                   .filter(c => !searchQuery || c.phone?.includes(searchQuery) || c.name?.toLowerCase().includes(searchQuery.toLowerCase()))
                   .map(conv => {
                     const isSelected = selectedConversation?.phone === conv.phone;
@@ -603,6 +616,7 @@ export default function WhatsAppPage() {
                         onClick={() => selectConversation(conv)}
                         className={`w-full text-left flex items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors ${isSelected ? "bg-[#f0f2f5]" : "hover:bg-[#f5f6f6]"}`}
                       >
+                        {/* Avatar */}
                         <div className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white font-semibold text-sm" style={{ backgroundColor: "#128c7e" }}>
                           {getInitials(conv.name, conv.phone)}
                         </div>
@@ -634,10 +648,13 @@ export default function WhatsAppPage() {
             </div>
           </div>
 
+          {/* RIGHT — chat: hidden on mobile when no conversation selected */}
           <div className={`flex-1 flex flex-col min-w-0 ${!selectedConversation ? "hidden md:flex" : "flex"}`}>
             {selectedConversation ? (
               <>
+                {/* Chat header */}
                 <div className="px-3 py-3 flex items-center gap-2 flex-shrink-0" style={{ backgroundColor: "#075e54" }}>
+                  {/* Back arrow — mobile only */}
                   <button onClick={() => setSelectedConversation(null)}
                     className="md:hidden p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-full flex-shrink-0">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
@@ -651,6 +668,7 @@ export default function WhatsAppPage() {
                     </p>
                     <p className="text-green-200 text-xs">{selectedConversation.phone}</p>
                   </div>
+                  {/* Test button — simulate a customer reply to verify display works */}
                   <button
                     onClick={simulateInbound}
                     disabled={simulatingInbound}
@@ -659,8 +677,8 @@ export default function WhatsAppPage() {
                   >
                     {simulatingInbound ? "..." : "Test Reply"}
                   </button>
-                  <button
-                    onClick={testDirectSave}
+                  <button 
+                    onClick={testDirectSave} 
                     className="px-2 py-1 text-[10px] bg-blue-600 hover:bg-blue-700 text-white rounded border border-white/20"
                     title="Direct save test - bypass webhook"
                   >
@@ -671,6 +689,7 @@ export default function WhatsAppPage() {
                   </button>
                 </div>
 
+                {/* Messages area */}
                 <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4" style={{ backgroundColor: "#efeae2" }}>
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full">
@@ -724,6 +743,7 @@ export default function WhatsAppPage() {
                   })()}
                 </div>
 
+                {/* Input */}
                 <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0" style={{ backgroundColor: "#f0f2f5" }}>
                   <input
                     type="text"
@@ -790,8 +810,8 @@ export default function WhatsAppPage() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">Select Template</label>
-                    <button
-                      onClick={syncTemplatesFromMeta}
+                    <button 
+                      onClick={syncTemplatesFromMeta} 
                       disabled={syncingTemplates}
                       className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
                     >
@@ -811,6 +831,7 @@ export default function WhatsAppPage() {
                   </select>
                   {templates.length === 0 && <p className="text-xs text-yellow-600 mt-1">No templates. Click Sync from Meta or create at Templates page.</p>}
 
+                  {/* Image URL input — shown when selected template has an image header */}
                   {(() => {
                     const sel = templates.find((t: any) => t.name === selectedTemplate);
                     if (!sel || sel.headerType !== 'image') return null;
@@ -824,7 +845,7 @@ export default function WhatsAppPage() {
                           placeholder="https://your-server.com/image.jpg"
                           className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
                         />
-                        <p className="text-xs text-blue-600 mt-1">Must be a publicly accessible URL (HTTPS).</p>
+                        <p className="text-xs text-blue-600 mt-1">Must be a publicly accessible URL (HTTPS). This image is sent with the template.</p>
                       </div>
                     );
                   })()}
@@ -914,6 +935,7 @@ export default function WhatsAppPage() {
                 <textarea value={bulkMessage} onChange={e => setBulkMessage(e.target.value)} rows={4} placeholder="Type your message..." className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900" />
               </div>
             )}
+            {/* Batch selector */}
             {batches.length > 0 && (
               <div className="mb-4">
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Send to Batch</label>
@@ -922,8 +944,8 @@ export default function WhatsAppPage() {
                   onChange={async e => {
                     const batch = e.target.value;
                     setSelectedBatch(batch);
-                    setSendRange("all");
-                    sentPhonesRef.current = new Set();
+                    setSendRange("all"); // reset range on batch change
+                    sentPhonesRef.current = new Set(); // reset sent tracking
                     if (batch) {
                       const r = await fetch(`/api/contacts?dataName=${encodeURIComponent(batch)}`);
                       const d = await r.json();
@@ -942,6 +964,7 @@ export default function WhatsAppPage() {
                </div>
              )}
 
+              {/* Send range selector - dynamic ranges based on contact count */}
              {selectedBatch && selectedContacts.length > 100 && (
                <div className="mb-4">
                  <label className="block text-sm font-medium text-gray-700 mb-1">Send Range</label>
@@ -1015,7 +1038,6 @@ export default function WhatsAppPage() {
           </div>
         </div>
       )}
-
       {/* ===== WEBHOOK DIAGNOSTIC PANEL ===== */}
       {showWebhookPanel && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -1063,17 +1085,20 @@ export default function WhatsAppPage() {
               <p className="text-yellow-800 text-xs font-medium">After fixing Meta config, click the &quot;Test Reply&quot; button in any chat to verify inbound messages work end-to-end.</p>
             </div>
           </div>
-        </div>
-      )}
+            </div>
+          )}
+        }
 
-      {/* ===== REPORTS TAB ===== */}
-      {activeTab === "reports" && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">Bulk Send Reports</h2>
-          <p className="text-sm text-gray-600">History of bulk messages sent via WhatsApp</p>
-          <BulkReports />
-        </div>
-      )}
+        {/* ===== REPORTS TAB ===== */}
+        {activeTab === "reports" && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">Bulk Send Reports</h2>
+            <p className="text-sm text-gray-600">History of bulk messages sent via WhatsApp</p>
+            <BulkReports />
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
@@ -1083,18 +1108,17 @@ function BulkReports() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onSnapshot(
-      collection(db, "bulk_reports"),
+    return onSnapshot(
+      collection(db, 'bulk_reports'),
       (snap) => {
         const data = snap.docs
-          .map((d: any) => ({ id: d.id, ...d.data() }))
+          .map(d => ({ id: d.id, ...d.data() }))
           .sort((a: any, b: any) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
         setReports(data);
         setLoading(false);
       },
-      (err: any) => { console.error("Reports fetch error:", err); setLoading(false); }
+      (err) => { console.error('Reports fetch error:', err); setLoading(false); }
     );
-    return unsub;
   }, []);
 
   if (loading) {
@@ -1118,13 +1142,13 @@ function BulkReports() {
           <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="font-semibold text-gray-900">{r.batchName || "Unnamed Batch"}</h3>
+                <h3 className="font-semibold text-gray-900">{r.batchName || 'Unnamed Batch'}</h3>
                 <p className="text-xs text-gray-500">
-                  {r.templateName ? `Template: ${r.templateName}` : "Custom text"} ·{" "}
-                  {r.createdAt?.toDate?.()?.toLocaleString?.() || "Unknown date"}
+                  {r.templateName ? `Template: ${r.templateName}` : 'Custom text'} ·{' '}
+                  {r.createdAt?.toDate?.().toLocaleString?.() || 'Unknown date'}
                 </p>
               </div>
-              <span className={`px-2 py-1 text-xs rounded-full font-medium ${failed === 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+              <span className={`px-2 py-1 text-xs rounded-full font-medium ${failed === 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                 {sent} sent · {failed} failed
               </span>
             </div>
@@ -1157,7 +1181,81 @@ function BulkReports() {
                   {failedResults.map((x: any, i: number) => (
                     <div key={i} className="flex justify-between bg-red-50 p-2 rounded">
                       <span className="text-red-700">{x.phone}</span>
-                      <span className="text-red-500">{x.error || "Unknown error"}</span>
+                      <span className="text-red-500">{x.error || 'Unknown error'}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+  if (reports.length === 0) {
+    return <div className="text-center p-8 text-gray-500">No bulk send reports yet.</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {reports.map((r: any) => {
+        const total     = r.total || 0;
+        const sent      = r.sent || 0;
+        const failed    = r.failed || 0;
+        const delivered = r.delivered || 0;
+        const read      = r.read || 0;
+        const results   = r.results || [];
+        const failedResults = results.filter((x: any) => !x.success);
+
+        return (
+          <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-semibold text-gray-900">{r.batchName || 'Unnamed Batch'}</h3>
+                <p className="text-xs text-gray-500">
+                  {r.templateName ? `Template: ${r.templateName}` : 'Custom text'} ·{' '}
+                  {r.createdAt?.toDate?.().toLocaleString?.() || 'Unknown date'}
+                </p>
+              </div>
+              <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                failed === 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}>
+                {sent} sent · {failed} failed
+              </span>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="bg-gray-50 rounded-lg p-2">
+                <p className="text-lg font-bold text-gray-900">{total}</p>
+                <p className="text-xs text-gray-500">Total</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-2">
+                <p className="text-lg font-bold text-green-700">{sent}</p>
+                <p className="text-xs text-gray-500">Sent ✓</p>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-2">
+                <p className="text-lg font-bold text-blue-700">{delivered}</p>
+                <p className="text-xs text-gray-500">Delivered 📬</p>
+              </div>
+              <div className="bg-purple-50 rounded-lg p-2">
+                <p className="text-lg font-bold text-purple-700">{read}</p>
+                <p className="text-xs text-gray-500">Read 👁️</p>
+              </div>
+            </div>
+
+            {/* Failed numbers */}
+            {failedResults.length > 0 && (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-red-600 font-medium">
+                  {failedResults.length} failed — click to view
+                </summary>
+                <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                  {failedResults.map((x: any, i: number) => (
+                    <div key={i} className="flex justify-between bg-red-50 p-2 rounded">
+                      <span className="text-red-700">{x.phone}</span>
+                      <span className="text-red-500">{x.error || 'Unknown error'}</span>
                     </div>
                   ))}
                 </div>

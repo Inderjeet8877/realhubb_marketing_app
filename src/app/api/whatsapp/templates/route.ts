@@ -11,12 +11,19 @@ const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
 /**
  * Upload media to Meta using the Resumable Upload API.
  * Requires META_APP_ID — the App ID (not WABA ID).
+ * Uses per-account META_APP_ID_1, META_APP_ID_2, META_APP_ID_3.
  */
 async function uploadMediaHandle(
   imageUrl: string,
   accessToken: string,
+  accountId: string = '1',
 ): Promise<string | null> {
-  const appId = process.env.META_APP_ID;
+  const appIdMap: Record<string, string | undefined> = {
+    '1': process.env.META_APP_ID,
+    '2': process.env.META_APP_ID_2,
+    '3': process.env.META_APP_ID_3,
+  };
+  const appId = appIdMap[accountId] || appIdMap['1'];
   if (!appId) {
     console.error('META_APP_ID env var missing — cannot upload media handle');
     return null;
@@ -200,8 +207,18 @@ export async function GET(request: Request) {
   }
   
   // GET — Meta is the source of truth; Firestore only provides saved image URLs
-  const accessToken = process.env.META_ACCESS_TOKEN_1;
-  const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
+  const url = new URL(request.url);
+  const accountId = url.searchParams.get('account_id') || '1';
+
+  // Server-side token lookup
+  const tokenMap: Record<string, string | undefined> = {
+    '1': process.env.META_ACCESS_TOKEN_1,
+    '2': process.env.META_ACCESS_TOKEN_2,
+    '3': process.env.META_ACCESS_TOKEN_3,
+  };
+  const accessToken = tokenMap[accountId] || null;
+
+  const businessAccountId = process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${accountId}`] || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
 
   if (!accessToken || !businessAccountId) {
     return NextResponse.json({ error: 'WhatsApp not configured', templates: [] }, { status: 500 });
@@ -309,6 +326,9 @@ export async function POST(request: Request) {
       .toLowerCase()
       .replace(/[^a-z0-9_]/g, '_')
       .replace(/^[^a-z]+/, '');          // strip leading non-alpha chars
+
+    // Use per-account META_APP_ID for media upload
+    const appId = process.env[`META_APP_ID_${accountId}`] || process.env.META_APP_ID;
 
     if (!safeName) {
       return NextResponse.json({ error: 'Template name must start with a letter' }, { status: 400 });

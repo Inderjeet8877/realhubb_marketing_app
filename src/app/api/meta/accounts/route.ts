@@ -4,7 +4,14 @@ export async function GET(request: NextRequest) {
   const queryToken = request.nextUrl.searchParams.get('accessToken');
   const accountNum = request.nextUrl.searchParams.get('account') || '1';
   const cookieToken = request.cookies.get('meta_access_token')?.value;
-  const accessToken = queryToken || cookieToken || process.env[`NEXT_PUBLIC_META_ACCESS_TOKEN_${accountNum}`];
+
+  // Server-side token lookup — never expose tokens in NEXT_PUBLIC_ vars
+  const tokenMap: Record<string, string | undefined> = {
+    '1': process.env.META_ACCESS_TOKEN_1,
+    '2': process.env.META_ACCESS_TOKEN_2,
+    '3': process.env.META_ACCESS_TOKEN_3,
+  };
+  const accessToken = queryToken || cookieToken || tokenMap[accountNum];
   
   if (!accessToken) {
     return NextResponse.json(
