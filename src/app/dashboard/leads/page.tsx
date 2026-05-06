@@ -83,9 +83,11 @@ function formatFieldName(name: string): string {
 
 function getFieldValue(lead: Lead, fieldName: string): string {
   const field = lead.fieldData?.find(
-    (f) => f.name.toLowerCase() === fieldName.toLowerCase()
+    (f) => f.name?.toLowerCase() === fieldName.toLowerCase()
   );
-  return field?.values?.[0] || "-";
+  if (!field) return "-";
+  const val = Array.isArray(field.values) ? field.values[0] : field.values;
+  return val ? String(val) : "-";
 }
 
 function getLeadName(lead: Lead): string {
@@ -214,18 +216,24 @@ export default function LeadsPage() {
     setFormLeads([]);
 
     try {
-      
-      const url = `/api/meta/leads/form?form_id=${form.id}&account_id=${selectedAccount}`;
+      const url = `/api/meta/leads/form?form_id=${encodeURIComponent(form.id)}&account_id=${selectedAccount}`;
       const response = await fetch(url);
       const data = await response.json();
 
-      if (data.error && !data.requiresPermission) {
-        throw new Error(data.error);
+      if (!response.ok || (data.error && !data.leads)) {
+        throw new Error(data.error || `Server error (${response.status})`);
       }
 
-      setFormLeads(data.leads || []);
+      // Ensure each lead has valid fieldData array
+      const safeLeads = (data.leads || []).map((lead: any) => ({
+        ...lead,
+        fieldData: Array.isArray(lead.fieldData) ? lead.fieldData : [],
+      }));
+
+      setFormLeads(safeLeads);
     } catch (err: any) {
       console.error("Error fetching leads:", err);
+      setError(err.message || "Failed to load leads for this form");
     } finally {
       setLoadingFormLeads(false);
     }
@@ -484,15 +492,17 @@ export default function LeadsPage() {
 
   const saveToDatabase = async () => {
     if (!selectedForm) return;
-    
+
     setSavingToDb(true);
     try {
       let leadsToSave = formLeads;
       if (leadsToSave.length === 0) {
-        const account = META_ACCOUNTS.find((a) => a.id === selectedAccount);
-        const res = await fetch(`/api/meta/leads/form?form_id=${selectedForm.id}&account_id=${selectedAccount}`);
+        const res = await fetch(`/api/meta/leads/form?form_id=${encodeURIComponent(selectedForm.id)}&account_id=${selectedAccount}`);
         const data = await res.json();
-        leadsToSave = data.leads || [];
+        leadsToSave = Array.isArray(data.leads) ? data.leads.map((lead: any) => ({
+          ...lead,
+          fieldData: Array.isArray(lead.fieldData) ? lead.fieldData : [],
+        })) : [];
       }
 
       const contacts = leadsToSave.map((lead) => ({
@@ -1031,8 +1041,10 @@ export default function LeadsPage() {
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                             {lead.fieldData.map((field, idx) => (
                               <div key={idx} className="text-sm">
-                                <span className="text-gray-500">{formatFieldName(field.name)}: </span>
-                                <span className="text-gray-900 font-medium">{field.values.join(", ")}</span>
+                                <span className="text-gray-500">{formatFieldName(field?.name || `Field ${idx + 1}`)}: </span>
+                                <span className="text-gray-900 font-medium">
+                                  {Array.isArray(field?.values) ? field.values.join(", ") : String(field?.values || "-")}
+                                </span>
                               </div>
                             ))}
                           </div>
