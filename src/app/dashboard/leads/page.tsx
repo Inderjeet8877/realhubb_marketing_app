@@ -162,18 +162,21 @@ export default function LeadsPage() {
     setError(null);
 
     try {
-      // Token is resolved server-side — only send the account ID
       const url = `/api/meta/leads?account_id=${selectedAccount}`;
       const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch forms");
-      }
-
       const data = await response.json();
 
-      if (data.error) {
-        throw new Error(data.error);
+      if (!response.ok || data.error) {
+        // API returns error in the JSON body even for 401
+        const msg = data.error || `Server error (${response.status})`;
+        // Don't throw for unconfigured accounts — show warning instead
+        if (msg.includes('not configured')) {
+          setError(msg);
+          setForms(data.forms || []);
+          setTotalLeads(data.totalLeads || 0);
+          return;
+        }
+        throw new Error(msg);
       }
 
       setForms(data.forms || []);

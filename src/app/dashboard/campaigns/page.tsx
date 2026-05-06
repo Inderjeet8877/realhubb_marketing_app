@@ -71,7 +71,15 @@ export default function CampaignsPage() {
     try {
       const res = await fetch(`/api/meta/campaigns?account_id=${selectedAccount}`);
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      if (data.error) {
+        // Show warning for unconfigured accounts instead of hard error
+        if (data.error.includes('not configured')) {
+          setError(data.error);
+          setCampaigns(data.campaigns || []);
+          return;
+        }
+        throw new Error(data.error);
+      }
       setCampaigns(data.campaigns || []);
     } catch (e: any) {
       setError(e.message || "Failed to load campaigns");

@@ -207,7 +207,6 @@ export async function GET(request: Request) {
   }
   
   // GET — Meta is the source of truth; Firestore only provides saved image URLs
-  const url = new URL(request.url);
   const accountId = url.searchParams.get('account_id') || '1';
 
   // Server-side token lookup
