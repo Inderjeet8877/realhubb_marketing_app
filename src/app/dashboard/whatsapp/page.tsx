@@ -486,6 +486,7 @@ export default function WhatsAppPage() {
     let totalSent = 0, totalFailed = 0;
     const allContacts: any[] = [];
 
+    let didError = false;
     try {
       for (let i = 0; i < contactsToSend.length; i += BATCH) {
         const batch = contactsToSend.slice(i, i + BATCH);
@@ -500,27 +501,40 @@ export default function WhatsAppPage() {
         allContacts.push(...(d.contacts || []));
         setBulkSentCount(i + batch.length);
       }
-
-      // Save one consolidated broadcast report
-      await fetch("/api/whatsapp/broadcasts", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          batchName:    selectedBatch || "Manual Selection",
-          templateName: bulkMessageType === "template" ? selectedBulkTemplate : null,
-          total:        contactsToSend.length,
-          sent:         totalSent,
-          failed:       totalFailed,
-          contacts:     allContacts,
-        }),
-      });
-
-      setBulkResult({ success: true, sent: totalSent, failed: totalFailed });
-      if (totalSent > 0) { setBulkMessage(""); setSelectedBulkTemplate(""); }
-    } catch {
-      setBulkResult({ error: "Failed to send messages" });
+    } catch (err) {
+      console.error("Bulk send error:", err);
+      didError = true;
     } finally {
       setSendingBulk(false);
+
+      // Always save a report if anything was sent — even on partial failure
+      if (allContacts.length > 0 || totalSent > 0) {
+        try {
+          await fetch("/api/whatsapp/broadcasts", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({
+              batchName:    selectedBatch || "Manual Selection",
+              templateName: bulkMessageType === "template" ? selectedBulkTemplate : null,
+              total:        contactsToSend.length,
+              sent:         totalSent,
+              failed:       totalFailed + (didError ? (contactsToSend.length - allContacts.length) : 0),
+              contacts:     allContacts,
+            }),
+          });
+        } catch (e) {
+          console.error("Failed to save broadcast report:", e);
+        }
+      }
+
+      if (didError) {
+        setBulkResult({
+          error: `Stopped after ${allContacts.length} contacts — ${totalSent} sent, ${totalFailed} failed. Report saved.`,
+        });
+      } else {
+        setBulkResult({ success: true, sent: totalSent, failed: totalFailed });
+        if (totalSent > 0) { setBulkMessage(""); setSelectedBulkTemplate(""); }
+      }
     }
   };
 
