@@ -13,6 +13,8 @@ interface Conversation {
   lastMessageAt?: string;
   lastMessageDirection?: "inbound" | "outbound";
   unreadCount?: number;
+  hasInbound?: boolean;  // true if ANY message from this contact exists
+  templates?: string[];
 }
 
 interface ChatMessage {
@@ -148,7 +150,7 @@ export default function WhatsAppPage() {
   const chatContainerRef   = useRef<HTMLDivElement>(null);
 
   const displayedConversations = conversations
-    .filter(c => !showRepliesOnly || c.lastMessageDirection === "inbound" || (c.unreadCount ?? 0) > 0)
+    .filter(c => !showRepliesOnly || c.hasInbound)
     .filter(c => !broadcastReplyPhones || broadcastReplyPhones.includes(c.phone));
 
   useEffect(() => {
@@ -169,12 +171,20 @@ export default function WhatsAppPage() {
           const bT = b.data().createdAt?.toDate?.()?.getTime() || 0;
           return bT - aT;
         });
-        const convMap = new Map<string, Conversation>();
-        const nameMap = new Map<string, string>();
+        const convMap    = new Map<string, Conversation>();
+        const nameMap    = new Map<string, string>();
+        const inboundSet = new Set<string>();   // phones with ANY inbound message
+        const tmplMap    = new Map<string, Set<string>>();
+
         for (const doc of sorted) {
           const d = doc.data();
           if (!d.phone) continue;
           if (d.name && d.name !== d.phone) nameMap.set(d.phone, d.name);
+          if (d.direction === "inbound")  inboundSet.add(d.phone);
+          if (d.direction === "outbound" && d.templateName) {
+            if (!tmplMap.has(d.phone)) tmplMap.set(d.phone, new Set());
+            tmplMap.get(d.phone)!.add(d.templateName);
+          }
           if (!convMap.has(d.phone)) {
             convMap.set(d.phone, {
               id: doc.id,
@@ -184,12 +194,22 @@ export default function WhatsAppPage() {
               lastMessageAt: d.createdAt?.toDate?.()?.toISOString() || null,
               lastMessageDirection: d.direction,
               unreadCount: d.unreadCount || 0,
+              hasInbound: false,
+              templates: [],
             });
           }
         }
         for (const [phone, name] of nameMap) {
           const c = convMap.get(phone);
           if (c && c.name === phone) c.name = name;
+        }
+        for (const phone of inboundSet) {
+          const c = convMap.get(phone);
+          if (c) c.hasInbound = true;
+        }
+        for (const [phone, tmplSet] of tmplMap) {
+          const c = convMap.get(phone);
+          if (c) c.templates = Array.from(tmplSet);
         }
         setConversations(Array.from(convMap.values()));
       },
@@ -697,7 +717,7 @@ export default function WhatsAppPage() {
               ) : displayedConversations.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">
                   <MessageSquare className="w-10 h-10 mx-auto mb-2 text-gray-200" />
-                  <p className="text-sm">{showRepliesOnly ? "No replies yet" : "No conversations yet"}</p>
+                  <p className="text-sm">{showRepliesOnly ? "No inbound replies yet" : broadcastReplyPhones ? "No replies from this broadcast" : "No conversations yet"}</p>
                 </div>
               ) : (
                 displayedConversations
