@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 
 export async function GET() {
@@ -33,5 +34,30 @@ export async function GET() {
     return NextResponse.json({ success: true, broadcasts });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message, broadcasts: [] });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { batchName, templateName, total, sent, failed, contacts } = await request.json();
+    const reportRef   = adminDb.collection('bulk_reports').doc();
+    const broadcastId = reportRef.id;
+
+    await reportRef.set({
+      broadcastId, batchName, templateName: templateName || null,
+      total, sent, failed, delivered: 0, read: 0,
+      contacts: contacts || [],
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    const wamidBatch = adminDb.batch();
+    for (const c of (contacts || [])) {
+      if (c.wamid) wamidBatch.set(adminDb.collection('wamid_index').doc(c.wamid), { broadcastId, phone: c.phone });
+    }
+    await wamidBatch.commit();
+
+    return NextResponse.json({ success: true, broadcastId });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

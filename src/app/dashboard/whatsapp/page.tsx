@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3 } from "lucide-react";
+import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 
@@ -113,6 +113,8 @@ export default function WhatsAppPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showRepliesOnly, setShowRepliesOnly] = useState(false);
+  const [broadcastReplyPhones, setBroadcastReplyPhones] = useState<string[] | null>(null);
+  const [broadcastReplyLabel, setBroadcastReplyLabel] = useState<string>("");
   const [messages, setMessages] = useState<any[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(false);
@@ -123,6 +125,8 @@ export default function WhatsAppPage() {
   const [bulkMessage, setBulkMessage] = useState("");
   const [sendingBulk, setSendingBulk] = useState(false);
   const [bulkResult, setBulkResult] = useState<any>(null);
+  const [bulkSentCount, setBulkSentCount] = useState(0);
+  const [bulkTotalCount, setBulkTotalCount] = useState(0);
   const [waAccountId] = useState<string>("1");
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
@@ -137,12 +141,15 @@ export default function WhatsAppPage() {
   const [batches, setBatches] = useState<{ name: string; count: number }[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>("");
   const [sendRange, setSendRange] = useState<string>("all");
-  const sentPhonesRef = useRef<Set<string>>(new Set());
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [rangeFrom, setRangeFrom] = useState<string>("");
+  const [rangeTo, setRangeTo]     = useState<string>("");
+  const sentKeysRef        = useRef<Set<string>>(new Set()); // phone::template dedup
+  const allBatchPhonesRef  = useRef<string[]>([]);
+  const chatContainerRef   = useRef<HTMLDivElement>(null);
 
-  const displayedConversations = showRepliesOnly
-    ? conversations.filter(c => c.lastMessageDirection === "inbound" || (c.unreadCount ?? 0) > 0)
-    : conversations;
+  const displayedConversations = conversations
+    .filter(c => !showRepliesOnly || c.lastMessageDirection === "inbound" || (c.unreadCount ?? 0) > 0)
+    .filter(c => !broadcastReplyPhones || broadcastReplyPhones.includes(c.phone));
 
   useEffect(() => {
     fetchContacts();
@@ -436,43 +443,93 @@ export default function WhatsAppPage() {
     if (selectedContacts.length === 0) return;
     if (bulkMessageType === "text" && !bulkMessage) return;
     if (bulkMessageType === "template" && !selectedBulkTemplate) return;
+
+    const bulkTemplateObj = templates.find((t: any) => t.name === selectedBulkTemplate);
+    const templateKey     = bulkMessageType === "template" ? selectedBulkTemplate : "_text";
+
+    // Deduplicate by phone::template
+    const contactsToSend = selectedContacts.filter(phone => {
+      const key = `${phone}::${templateKey}`;
+      if (sentKeysRef.current.has(key)) return false;
+      sentKeysRef.current.add(key);
+      return true;
+    });
+
+    if (contactsToSend.length === 0) {
+      setBulkResult({ error: `All selected contacts already received "${templateKey === "_text" ? "this message" : templateKey}" in this session.` });
+      return;
+    }
+
+    const contactNamesMap: Record<string, string> = {};
+    contacts.forEach(c => { if (c.phone) contactNamesMap[c.phone] = c.name; });
+
+    const sharedPayload = {
+      contactNames:        contactNamesMap,
+      batchName:           selectedBatch || "Manual Selection",
+      message:             bulkMessage,
+      accountId:           waAccountId,
+      templateName:        bulkMessageType === "template" ? selectedBulkTemplate : undefined,
+      templateContent:     bulkMessageType === "template" ? (bulkTemplateObj?.content || "") : undefined,
+      languageCode:        bulkMessageType === "template" ? (bulkTemplateObj?.language || "en") : undefined,
+      templateHeaderType:  bulkMessageType === "template" ? (bulkTemplateObj?.headerType || "") : undefined,
+      templateHeaderContent: bulkMessageType === "template" ? (bulkTemplateObj?.headerContent || "") : undefined,
+      isTemplate:          bulkMessageType === "template",
+      skipReport:          true,
+    };
+
     setSendingBulk(true);
     setBulkResult(null);
+    setBulkTotalCount(contactsToSend.length);
+    setBulkSentCount(0);
+
+    const BATCH = 10;
+    let totalSent = 0, totalFailed = 0;
+    const allContacts: any[] = [];
+
     try {
-      const bulkTemplateObj = templates.find((t: any) => t.name === selectedBulkTemplate);
-      const contactsToSend = selectedContacts.filter(phone => {
-        if (sentPhonesRef.current.has(phone)) return false;
-        sentPhonesRef.current.add(phone);
-        return true;
-      });
-      if (contactsToSend.length === 0) {
-        setBulkResult({ error: "All selected contacts already received a message in this session." });
-        setSendingBulk(false);
-        return;
+      for (let i = 0; i < contactsToSend.length; i += BATCH) {
+        const batch = contactsToSend.slice(i, i + BATCH);
+        const r     = await fetch("/api/whatsapp/send", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ ...sharedPayload, contacts: batch }),
+        });
+        const d = await r.json();
+        totalSent   += d.sent   || 0;
+        totalFailed += d.failed || 0;
+        allContacts.push(...(d.contacts || []));
+        setBulkSentCount(i + batch.length);
       }
-      const r = await fetch("/api/whatsapp/send", {
-        method: "POST",
+
+      // Save one consolidated broadcast report
+      await fetch("/api/whatsapp/broadcasts", {
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contacts: contactsToSend,
-          message: bulkMessage,
-          accountId: waAccountId,
-          templateName: bulkMessageType === "template" ? selectedBulkTemplate : undefined,
-          templateContent: bulkMessageType === "template" ? (bulkTemplateObj?.content || "") : undefined,
-          languageCode: bulkMessageType === "template" ? (bulkTemplateObj?.language || "en") : undefined,
-          templateHeaderType: bulkMessageType === "template" ? (bulkTemplateObj?.headerType || "") : undefined,
-          templateHeaderContent: bulkMessageType === "template" ? (bulkTemplateObj?.headerContent || "") : undefined,
-          isTemplate: bulkMessageType === "template",
+        body:    JSON.stringify({
+          batchName:    selectedBatch || "Manual Selection",
+          templateName: bulkMessageType === "template" ? selectedBulkTemplate : null,
+          total:        contactsToSend.length,
+          sent:         totalSent,
+          failed:       totalFailed,
+          contacts:     allContacts,
         }),
       });
-      const data = await r.json();
-      setBulkResult(data);
-      if (data.success) { setBulkMessage(""); setSelectedBulkTemplate(""); }
+
+      setBulkResult({ success: true, sent: totalSent, failed: totalFailed });
+      if (totalSent > 0) { setBulkMessage(""); setSelectedBulkTemplate(""); }
     } catch {
       setBulkResult({ error: "Failed to send messages" });
     } finally {
       setSendingBulk(false);
     }
+  };
+
+  const handleViewReplies = (phones: string[], batchName: string) => {
+    setBroadcastReplyPhones(phones);
+    setBroadcastReplyLabel(batchName);
+    setShowRepliesOnly(false);
+    setActiveTab("inbox");
+    fetchConversations();
   };
 
   const toggleContact = (phone: string) => setSelectedContacts(prev => prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]);
@@ -581,6 +638,19 @@ export default function WhatsAppPage() {
                 />
               </div>
             </div>
+
+            {/* Broadcast reply filter banner */}
+            {broadcastReplyPhones && (
+              <div className="px-3 py-2 bg-green-50 border-b border-green-200 flex items-center justify-between gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-green-800 min-w-0">
+                  <Filter className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">Replies from <strong>{broadcastReplyLabel}</strong></span>
+                </div>
+                <button onClick={() => { setBroadcastReplyPhones(null); setBroadcastReplyLabel(""); }} className="text-green-600 hover:text-green-800 flex-shrink-0">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto">
               {loadingConversations && conversations.length === 0 ? (
@@ -877,7 +947,7 @@ export default function WhatsAppPage() {
           <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Bulk Send Message</h2>
-              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentPhonesRef.current = new Set(); setSendRange("all"); }} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); }} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -923,12 +993,16 @@ export default function WhatsAppPage() {
                     const batch = e.target.value;
                     setSelectedBatch(batch);
                     setSendRange("all");
-                    sentPhonesRef.current = new Set();
+                    setRangeFrom(""); setRangeTo("");
+                    sentKeysRef.current = new Set();
                     if (batch) {
                       const r = await fetch(`/api/contacts?dataName=${encodeURIComponent(batch)}`);
                       const d = await r.json();
-                      setSelectedContacts((d.contacts || []).map((c: any) => c.phone));
+                      const phones = (d.contacts || []).map((c: any) => c.phone);
+                      allBatchPhonesRef.current = phones;
+                      setSelectedContacts(phones);
                     } else {
+                      allBatchPhonesRef.current = [];
                       setSelectedContacts([]);
                     }
                   }}
@@ -942,34 +1016,52 @@ export default function WhatsAppPage() {
                </div>
              )}
 
-             {selectedBatch && selectedContacts.length > 100 && (
-               <div className="mb-4">
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Send Range</label>
+             {/* Send Range */}
+             {selectedBatch && (
+               <div className="mb-4 space-y-2">
+                 <label className="block text-sm font-semibold text-gray-700">Send Range</label>
                  <select
                    value={sendRange}
                    onChange={e => {
                      const val = e.target.value;
                      setSendRange(val);
+                     const all = allBatchPhonesRef.current;
                      if (val === 'all') {
-                       fetch(`/api/contacts?dataName=${encodeURIComponent(selectedBatch)}`)
-                         .then(r => r.json())
-                         .then(d => setSelectedContacts((d.contacts || []).map((c: any) => c.phone)));
+                       setSelectedContacts(all);
+                       setRangeFrom(""); setRangeTo("");
                      } else {
-                       const [start, end] = val.split('-').map(Number);
-                       setSelectedContacts(prev => prev.slice(start - 1, end));
+                       const [s, en] = val.split('-').map(Number);
+                       setSelectedContacts(all.slice(s - 1, en));
+                       setRangeFrom(String(s)); setRangeTo(String(en));
                      }
                    }}
                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800"
                  >
-                   <option value="all">All ({selectedContacts.length})</option>
-                   {Array.from({ length: Math.ceil(selectedContacts.length / 100) }, (_, i) => {
-                     const start = i * 100 + 1;
-                     const end = Math.min((i + 1) * 100, selectedContacts.length);
-                     return (
-                       <option key={start} value={`${start}-${end}`}>{start}-{end} ({end - start + 1} contacts)</option>
-                     );
+                   <option value="all">All ({allBatchPhonesRef.current.length} contacts)</option>
+                   {Array.from({ length: Math.ceil(allBatchPhonesRef.current.length / 100) }, (_, i) => {
+                     const s = i * 100 + 1;
+                     const en = Math.min((i + 1) * 100, allBatchPhonesRef.current.length);
+                     return <option key={s} value={`${s}-${en}`}>{s} – {en} ({en - s + 1} contacts)</option>;
                    })}
                  </select>
+                 <div className="flex items-center gap-2">
+                   <span className="text-xs text-gray-500 flex-shrink-0">Custom:</span>
+                   <span className="text-xs text-gray-500">From</span>
+                   <input type="number" min="1" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
+                     placeholder="1" className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-800 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+                   <span className="text-xs text-gray-500">To</span>
+                   <input type="number" min="1" value={rangeTo} onChange={e => setRangeTo(e.target.value)}
+                     placeholder={String(allBatchPhonesRef.current.length || "")}
+                     className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-800 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+                   <button onClick={() => {
+                     const from = Math.max(1, parseInt(rangeFrom) || 1);
+                     const to   = Math.min(allBatchPhonesRef.current.length, parseInt(rangeTo) || allBatchPhonesRef.current.length);
+                     setSelectedContacts(allBatchPhonesRef.current.slice(from - 1, to));
+                     setSendRange(`${from}-${to}`);
+                   }} className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 flex-shrink-0">
+                     Apply
+                   </button>
+                 </div>
                </div>
              )}
 
@@ -994,23 +1086,43 @@ export default function WhatsAppPage() {
                 ))
               )}
             </div>
-            {bulkResult && (
+
+            {/* Progress bar — shown while sending */}
+            {sendingBulk && (
+              <div className="mb-4 space-y-2">
+                <div className="flex justify-between text-sm font-medium text-gray-700">
+                  <span className="flex items-center gap-1.5"><Loader2 className="w-4 h-4 animate-spin text-green-600" /> Sending…</span>
+                  <span className="tabular-nums">{bulkSentCount} / {bulkTotalCount}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <div className="bg-green-600 h-3 rounded-full transition-all duration-300"
+                    style={{ width: bulkTotalCount > 0 ? `${Math.round((bulkSentCount / bulkTotalCount) * 100)}%` : "0%" }} />
+                </div>
+                <p className="text-xs text-gray-500 text-right">
+                  {bulkTotalCount > 0 ? Math.round((bulkSentCount / bulkTotalCount) * 100) : 0}% complete
+                </p>
+              </div>
+            )}
+
+            {/* Result */}
+            {!sendingBulk && bulkResult && (
               <div className={`mb-4 p-4 rounded-lg ${bulkResult.error ? "bg-red-50" : "bg-green-50"}`}>
                 {bulkResult.error ? <p className="text-red-700">{bulkResult.error}</p> : (
                   <div className="text-green-700">
-                    <p className="font-medium">Send Complete!</p>
-                    <p className="text-sm">Sent: {bulkResult.sent} | Failed: {bulkResult.failed}</p>
+                    <p className="font-semibold">Send Complete!</p>
+                    <p className="text-sm mt-0.5">✅ {bulkResult.sent} sent &nbsp;·&nbsp; ❌ {bulkResult.failed} failed</p>
                   </div>
                 )}
               </div>
             )}
+
             <button
               onClick={handleBulkSend}
               disabled={sendingBulk || selectedContacts.length === 0 || (bulkMessageType === "text" && !bulkMessage) || (bulkMessageType === "template" && !selectedBulkTemplate)}
               className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {sendingBulk ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-              {sendingBulk ? `Sending to ${selectedContacts.length} contacts...` : `Send to ${selectedContacts.length} Contacts`}
+              <Send className="w-5 h-5" />
+              Send to {selectedContacts.length} Contacts
             </button>
           </div>
         </div>
@@ -1068,100 +1180,127 @@ export default function WhatsAppPage() {
 
       {/* ===== REPORTS TAB ===== */}
       {activeTab === "reports" && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">Bulk Send Reports</h2>
-          <p className="text-sm text-gray-600">History of bulk messages sent via WhatsApp</p>
-          <BulkReports />
-        </div>
+        <BulkReports onViewReplies={handleViewReplies} />
       )}
     </div>
   );
 }
 
-function BulkReports() {
-  const [reports, setReports] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batchName: string) => void }) {
+  const [reports, setReports]   = useState<any[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsub = onSnapshot(
-      collection(db, "bulk_reports"),
-      (snap) => {
-        const data = snap.docs
-          .map((d: any) => ({ id: d.id, ...d.data() }))
-          .sort((a: any, b: any) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
-        setReports(data);
-        setLoading(false);
-      },
-      (err: any) => { console.error("Reports fetch error:", err); setLoading(false); }
-    );
-    return unsub;
+    fetch("/api/whatsapp/broadcasts")
+      .then(r => r.json())
+      .then(d => { setReports(d.broadcasts || []); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-green-600" /></div>;
-  }
+  if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-green-600" /></div>;
   if (reports.length === 0) {
-    return <div className="text-center p-8 text-gray-500">No bulk send reports yet.</div>;
+    return (
+      <div className="text-center p-12 bg-white rounded-xl border border-gray-200">
+        <BarChart3 className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+        <p className="text-gray-500 font-medium">No broadcasts yet</p>
+        <p className="text-sm text-gray-400 mt-1">Send a bulk message to see reports here</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-gray-900">Broadcast Reports</h2>
+        <span className="text-sm text-gray-500">{reports.length} broadcasts</span>
+      </div>
       {reports.map((r: any) => {
-        const total      = r.total || 0;
-        const sent       = r.sent || 0;
-        const failed     = r.failed || 0;
-        const delivered  = r.delivered || 0;
-        const read       = r.read || 0;
-        const failedResults = (r.results || []).filter((x: any) => !x.success);
+        const contacts: any[] = r.contacts || [];
+        const failedList      = contacts.filter((c: any) => !c.success);
+        const isExpanded      = expanded === r.id;
+        const phones          = contacts.map((c: any) => c.phone).filter(Boolean);
 
         return (
-          <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-semibold text-gray-900">{r.batchName || "Unnamed Batch"}</h3>
-                <p className="text-xs text-gray-500">
-                  {r.templateName ? `Template: ${r.templateName}` : "Custom text"} ·{" "}
-                  {r.createdAt?.toDate?.()?.toLocaleString?.() || "Unknown date"}
-                </p>
+          <div key={r.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="p-4">
+              {/* Header row */}
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-900 truncate">{r.batchName}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {r.templateName ? <span>Template: <span className="font-medium text-green-700">{r.templateName}</span></span> : "Custom text"}
+                    {" · "}{r.createdAt ? new Date(r.createdAt).toLocaleString() : "—"}
+                  </p>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => onViewReplies(phones, r.batchName)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" /> Replies
+                  </button>
+                  <button
+                    onClick={() => setExpanded(isExpanded ? null : r.id)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Details
+                  </button>
+                </div>
               </div>
-              <span className={`px-2 py-1 text-xs rounded-full font-medium ${failed === 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                {sent} sent · {failed} failed
-              </span>
+
+              {/* Stats */}
+              <div className="grid grid-cols-5 gap-2 text-center">
+                {[
+                  { label: "Total",     value: r.total,     bg: "bg-gray-50",   text: "text-gray-900"   },
+                  { label: "Sent",      value: r.sent,      bg: "bg-green-50",  text: "text-green-700"  },
+                  { label: "Failed",    value: r.failed,    bg: "bg-red-50",    text: "text-red-700"    },
+                  { label: "Delivered", value: r.delivered, bg: "bg-blue-50",   text: "text-blue-700"   },
+                  { label: "Read",      value: r.read,      bg: "bg-purple-50", text: "text-purple-700" },
+                ].map(({ label, value, bg, text }) => (
+                  <div key={label} className={`${bg} rounded-lg p-2`}>
+                    <p className={`text-lg font-bold ${text}`}>{value ?? 0}</p>
+                    <p className="text-xs text-gray-500 leading-tight">{label}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="text-lg font-bold text-gray-900">{total}</p>
-                <p className="text-xs text-gray-500">Total</p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-2">
-                <p className="text-lg font-bold text-green-700">{sent}</p>
-                <p className="text-xs text-gray-500">Sent ✓</p>
-              </div>
-              <div className="bg-blue-50 rounded-lg p-2">
-                <p className="text-lg font-bold text-blue-700">{delivered}</p>
-                <p className="text-xs text-gray-500">Delivered 📬</p>
-              </div>
-              <div className="bg-purple-50 rounded-lg p-2">
-                <p className="text-lg font-bold text-purple-700">{read}</p>
-                <p className="text-xs text-gray-500">Read 👁️</p>
-              </div>
-            </div>
-
-            {failedResults.length > 0 && (
-              <details className="text-xs">
-                <summary className="cursor-pointer text-red-600 font-medium">
-                  {failedResults.length} failed — click to view
-                </summary>
-                <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                  {failedResults.map((x: any, i: number) => (
-                    <div key={i} className="flex justify-between bg-red-50 p-2 rounded">
-                      <span className="text-red-700">{x.phone}</span>
-                      <span className="text-red-500">{x.error || "Unknown error"}</span>
+            {/* Expandable contact list */}
+            {isExpanded && (
+              <div className="border-t border-gray-100">
+                {failedList.length > 0 && (
+                  <div className="p-3 bg-red-50 border-b border-red-100">
+                    <p className="text-xs font-semibold text-red-700 mb-2">{failedList.length} failed</p>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {failedList.map((c: any, i: number) => (
+                        <div key={i} className="flex justify-between text-xs bg-white rounded px-2 py-1.5">
+                          <span className="font-medium text-gray-800">{c.name || c.phone}</span>
+                          <span className="text-red-500 truncate ml-2">{c.error || "Failed"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
+                  {contacts.map((c: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-2 text-xs">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800 truncate">{c.name || c.phone}</p>
+                        <p className="text-gray-400">{c.phone}</p>
+                      </div>
+                      <span className={`flex-shrink-0 px-2 py-0.5 rounded-full font-medium ${
+                        c.status === "read"      ? "bg-purple-100 text-purple-700" :
+                        c.status === "delivered" ? "bg-blue-100 text-blue-700" :
+                        c.status === "sent"      ? "bg-green-100 text-green-700" :
+                        "bg-red-100 text-red-700"
+                      }`}>
+                        {c.status === "read" ? "Read" : c.status === "delivered" ? "Delivered" : c.status === "sent" ? "Sent" : c.error || "Failed"}
+                      </span>
                     </div>
                   ))}
                 </div>
-              </details>
+              </div>
             )}
           </div>
         );

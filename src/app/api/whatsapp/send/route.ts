@@ -36,12 +36,11 @@ interface SendMessageRequest {
 
 interface BulkSendRequest {
   contacts: string[];
-  contactNames?: Record<string, string>; // phone -> name
+  contactNames?: Record<string, string>;
   batchName?: string;
   message: string;
   templateContent?: string;
   accountId?: string;
-  templateType?: 'text' | 'image';
   imageUrl?: string;
   caption?: string;
   templateName?: string;
@@ -49,6 +48,7 @@ interface BulkSendRequest {
   templateHeaderType?: string;
   templateHeaderContent?: string;
   isTemplate?: boolean;
+  skipReport?: boolean; // true when frontend batches and saves report itself
 }
 
 export async function POST(request: Request) {
@@ -267,6 +267,7 @@ async function handleBulkSend(body: BulkSendRequest) {
     contacts, contactNames = {}, batchName = 'Unnamed Batch',
     message, templateContent, accountId, imageUrl, caption,
     templateName, languageCode = 'en', templateHeaderType, templateHeaderContent, isTemplate,
+    skipReport = false,
   } = body;
 
   if (!contacts || contacts.length === 0) {
@@ -331,36 +332,33 @@ async function handleBulkSend(body: BulkSendRequest) {
   const successCount = contactResults.filter(r => r.success).length;
 
   // Save broadcast report + wamid index for delivery tracking
-  try {
-    const reportRef = adminDb.collection('bulk_reports').doc();
-    const broadcastId = reportRef.id;
-
-    await reportRef.set({
-      broadcastId,
-      batchName,
-      templateName: templateName || null,
-      total:    contacts.length,
-      sent:     successCount,
-      failed:   contacts.length - successCount,
-      delivered: 0,
-      read:      0,
-      contacts: contactResults,
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
-    // Index each wamid so the webhook can update delivery status
-    const wamidBatch = adminDb.batch();
-    for (const r of contactResults) {
-      if (r.wamid) {
-        wamidBatch.set(adminDb.collection('wamid_index').doc(r.wamid), { broadcastId, phone: r.phone });
+  if (!skipReport) {
+    try {
+      const reportRef  = adminDb.collection('bulk_reports').doc();
+      const broadcastId = reportRef.id;
+      await reportRef.set({
+        broadcastId, batchName, templateName: templateName || null,
+        total: contacts.length, sent: successCount,
+        failed: contacts.length - successCount, delivered: 0, read: 0,
+        contacts: contactResults, createdAt: FieldValue.serverTimestamp(),
+      });
+      const wamidBatch = adminDb.batch();
+      for (const r of contactResults) {
+        if (r.wamid) wamidBatch.set(adminDb.collection('wamid_index').doc(r.wamid), { broadcastId, phone: r.phone });
       }
+      await wamidBatch.commit();
+    } catch (err) {
+      console.error('[Bulk Send] Failed to save broadcast report:', err);
     }
-    await wamidBatch.commit();
-  } catch (err) {
-    console.error('[Bulk Send] Failed to save broadcast report:', err);
   }
 
-  return NextResponse.json({ success: true, total: contacts.length, sent: successCount, failed: contacts.length - successCount });
+  return NextResponse.json({
+    success: true,
+    total:   contacts.length,
+    sent:    successCount,
+    failed:  contacts.length - successCount,
+    contacts: contactResults,   // always returned so frontend can consolidate
+  });
 }
 
 async function saveMessage(data: {
