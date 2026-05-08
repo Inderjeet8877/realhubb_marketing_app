@@ -490,47 +490,70 @@ export default function WhatsAppPage() {
     try {
       for (let i = 0; i < contactsToSend.length; i += BATCH) {
         const batch = contactsToSend.slice(i, i + BATCH);
-        const r     = await fetch("/api/whatsapp/send", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ ...sharedPayload, contacts: batch }),
-        });
-        const d = await r.json();
+        let d: any = {};
+        try {
+          const r = await fetch("/api/whatsapp/send", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ ...sharedPayload, contacts: batch }),
+          });
+          d = await r.json();
+        } catch (batchErr) {
+          console.error(`Batch ${i / BATCH + 1} failed:`, batchErr);
+          // Mark all contacts in this batch as failed
+          batch.forEach(phone => {
+            const clean = phone.replace(/\D/g, '');
+            const fmt   = clean.startsWith('91') ? clean : `91${clean}`;
+            allContacts.push({ phone: fmt, name: contactNamesMap[phone] || phone, success: false, wamid: null, status: 'failed', error: 'Batch request failed' });
+          });
+          totalFailed += batch.length;
+          setBulkSentCount(i + batch.length);
+          didError = true;
+          continue; // keep going with next batch
+        }
         totalSent   += d.sent   || 0;
         totalFailed += d.failed || 0;
         allContacts.push(...(d.contacts || []));
         setBulkSentCount(i + batch.length);
       }
     } catch (err) {
-      console.error("Bulk send error:", err);
+      console.error("Bulk send loop error:", err);
       didError = true;
     } finally {
       setSendingBulk(false);
 
-      // Always save a report if anything was sent — even on partial failure
-      if (allContacts.length > 0 || totalSent > 0) {
-        try {
-          await fetch("/api/whatsapp/broadcasts", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({
-              batchName:    selectedBatch || "Manual Selection",
-              templateName: bulkMessageType === "template" ? selectedBulkTemplate : null,
-              total:        contactsToSend.length,
-              sent:         totalSent,
-              failed:       totalFailed + (didError ? (contactsToSend.length - allContacts.length) : 0),
-              contacts:     allContacts,
-            }),
-          });
-        } catch (e) {
-          console.error("Failed to save broadcast report:", e);
+      // Fill in any contacts that were never attempted (loop exited early)
+      const processedPhones = new Set(allContacts.map((c: any) => c.phone));
+      contactsToSend.forEach(phone => {
+        const clean = phone.replace(/\D/g, '');
+        const fmt   = clean.startsWith('91') ? clean : `91${clean}`;
+        if (!processedPhones.has(fmt) && !processedPhones.has(clean)) {
+          allContacts.push({ phone: fmt, name: contactNamesMap[phone] || phone, success: false, wamid: null, status: 'failed', error: 'Not attempted' });
+          totalFailed++;
+          processedPhones.add(fmt);
         }
+      });
+
+      // Always save the report — even if 0 were sent
+      try {
+        await fetch("/api/whatsapp/broadcasts", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            batchName:    selectedBatch || "Manual Selection",
+            templateName: bulkMessageType === "template" ? selectedBulkTemplate : null,
+            total:        contactsToSend.length,
+            sent:         totalSent,
+            failed:       totalFailed,
+            contacts:     allContacts,
+          }),
+        });
+      } catch (e) {
+        console.error("Failed to save broadcast report:", e);
       }
 
       if (didError) {
-        setBulkResult({
-          error: `Stopped after ${allContacts.length} contacts — ${totalSent} sent, ${totalFailed} failed. Report saved.`,
-        });
+        setBulkResult({ error: `Completed with errors — ${totalSent} sent, ${totalFailed} failed out of ${contactsToSend.length}. Report saved.` });
       } else {
         setBulkResult({ success: true, sent: totalSent, failed: totalFailed });
         if (totalSent > 0) { setBulkMessage(""); setSelectedBulkTemplate(""); }
