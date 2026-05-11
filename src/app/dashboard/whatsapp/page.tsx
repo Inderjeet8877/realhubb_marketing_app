@@ -612,7 +612,7 @@ export default function WhatsAppPage() {
                <Send className="w-4 h-4" /> Send
              </button>
              <button
-               onClick={() => { setActiveTab("inbox"); fetchConversations(); }}
+               onClick={() => setActiveTab("inbox")}
                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${activeTab === "inbox" ? "bg-white shadow text-green-600" : "text-gray-600 hover:text-gray-900"}`}
              >
                <MessageSquare className="w-4 h-4" /> Inbox

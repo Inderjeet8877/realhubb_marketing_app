@@ -30,17 +30,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, messages });
     }
 
-    // Conversation list — latest message per phone
-    const snap = await adminDb
-      .collection('whatsapp_conversations')
-      .orderBy('createdAt', 'desc')
-      .limit(500)
-      .get();
+    // ── Conversation list ─────────────────────────────────────────────────
+    // Fetch recent docs (any direction) to build the conversation list
+    const [recentSnap, inboundSnap] = await Promise.all([
+      adminDb
+        .collection('whatsapp_conversations')
+        .orderBy('createdAt', 'desc')
+        .limit(2000)
+        .get(),
+      // Separate query for ALL inbound messages so hasInbound is always correct
+      // even after a large outbound blast pushes inbound docs beyond the limit above
+      adminDb
+        .collection('whatsapp_conversations')
+        .where('direction', '==', 'inbound')
+        .select('phone', 'templateName')
+        .get(),
+    ]);
+
+    // Build set of phones that have ANY inbound message
+    const inboundPhones = new Set<string>();
+    for (const doc of inboundSnap.docs) {
+      const d = doc.data();
+      if (d.phone) inboundPhones.add(d.phone);
+    }
+
+    // Build template map from outbound messages
+    const tmplMap = new Map<string, Set<string>>();
+    for (const doc of recentSnap.docs) {
+      const d = doc.data();
+      if (!d.phone) continue;
+      if (d.direction === 'outbound' && d.templateName) {
+        if (!tmplMap.has(d.phone)) tmplMap.set(d.phone, new Set());
+        tmplMap.get(d.phone)!.add(d.templateName);
+      }
+    }
 
     const convMap = new Map<string, any>();
     const nameMap = new Map<string, string>();
 
-    for (const doc of snap.docs) {
+    for (const doc of recentSnap.docs) {
       const d = doc.data();
       if (!d.phone) continue;
       if (d.name && d.name !== d.phone) nameMap.set(d.phone, d.name);
@@ -53,6 +81,8 @@ export async function GET(request: NextRequest) {
           lastMessageAt: d.createdAt?.toDate?.()?.toISOString() || null,
           lastMessageDirection: d.direction,
           unreadCount: d.unreadCount || 0,
+          hasInbound: false,
+          templates: [],
         });
       }
     }
@@ -61,8 +91,36 @@ export async function GET(request: NextRequest) {
       const c = convMap.get(phone);
       if (c && c.name === phone) c.name = name;
     }
+    for (const phone of inboundPhones) {
+      // Contact may have replied but not be in our 2000 recent docs if they
+      // only have old messages — add a minimal entry so they appear
+      if (!convMap.has(phone)) {
+        convMap.set(phone, {
+          id: phone,
+          phone,
+          name: phone,
+          lastMessage: '',
+          lastMessageAt: null,
+          lastMessageDirection: 'inbound' as const,
+          unreadCount: 0,
+          hasInbound: true,
+          templates: [],
+        });
+      } else {
+        const c = convMap.get(phone)!;
+        c.hasInbound = true;
+      }
+    }
+    for (const [phone, tmplSet] of tmplMap) {
+      const c = convMap.get(phone);
+      if (c) c.templates = Array.from(tmplSet);
+    }
 
-    return NextResponse.json({ success: true, conversations: Array.from(convMap.values()) });
+
+    const conversations = Array.from(convMap.values())
+      .sort((a, b) => (b.lastMessageAt || '').localeCompare(a.lastMessageAt || ''));
+
+    return NextResponse.json({ success: true, conversations });
   } catch (error: any) {
     console.error('Messages API error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
