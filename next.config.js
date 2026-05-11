@@ -5,9 +5,7 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
   register: true,
   reloadOnOnline: true,
-  workboxOptions: {
-    disableDevLogs: true,
-  },
+  disableDevLogs: true,
 });
 
 const nextConfig = {
