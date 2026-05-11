@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher, metaSwrConfig } from "@/lib/swr";
+// removed: useEffect, useCallback — replaced by useSWR
 import { BarChart3, Users, TrendingUp, Loader2, Eye, ChevronDown, Target, DollarSign, RefreshCw, Download, FileSpreadsheet, FileText } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -59,40 +62,21 @@ function CplBadge({ cpl }: { cpl: number }) {
 }
 
 export default function DashboardPage() {
-  const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([]);
-  const [totalLeads, setTotalLeads] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState("all");
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeReport, setActiveReport] = useState<"all" | "1" | "2" | "3">("all");
 
-  const fetchAllData = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      // Fetch campaigns (all 3 accounts)
-      const [campRes, leadsRes] = await Promise.allSettled([
-        fetch("/api/meta/campaigns?account_id=all"),
-        fetch("/api/meta/leads?account_id=all"),
-      ]);
+  const { data: campData, isLoading: campLoading, isValidating: campValidating, mutate: campMutate } =
+    useSWR("/api/meta/campaigns?account_id=all", fetcher, metaSwrConfig);
+  const { data: leadsData, isValidating: leadsValidating, mutate: leadsMutate } =
+    useSWR("/api/meta/leads?account_id=all", fetcher, metaSwrConfig);
 
-      if (campRes.status === "fulfilled" && campRes.value.ok) {
-        const d = await campRes.value.json();
-        setAllCampaigns(d.campaigns || []);
-      }
-      if (leadsRes.status === "fulfilled" && leadsRes.value.ok) {
-        const d = await leadsRes.value.json();
-        setTotalLeads(d.totalLeads || 0);
-      }
-    } catch (e) {
-      console.error("Dashboard fetch error:", e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+  const allCampaigns: Campaign[] = campData?.campaigns || [];
+  const totalLeads: number        = leadsData?.totalLeads  || 0;
+  const loading    = campLoading && allCampaigns.length === 0;
+  const refreshing = campValidating || leadsValidating;
 
-  useEffect(() => { fetchAllData(); }, [fetchAllData]);
+  const fetchAllData = () => { campMutate(); leadsMutate(); };
 
   const filtered = selectedAccount === "all"
     ? allCampaigns

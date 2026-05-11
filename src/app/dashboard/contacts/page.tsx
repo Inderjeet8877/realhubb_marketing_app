@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, Component, ReactNode } from "react";
+import useSWR from "swr";
+import { fetcher, swrConfig } from "@/lib/swr";
 import { Users, Upload, Tag, Loader2, Search, X, FileText, CheckCircle, Trash2, CheckSquare, Square, TriangleAlert, Plus, ChevronDown, ChevronUp } from "lucide-react";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
@@ -252,9 +254,19 @@ function ImportModal({
 }
 
 export default function ContactsPage() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [totalContacts, setTotalContacts] = useState(0);
+  const { data: contactsData, isLoading: contactsLoading, mutate: reloadContacts } =
+    useSWR("/api/contacts", fetcher, swrConfig);
+
+  const contacts: Contact[] = (contactsData?.contacts || []).map((c: any) => ({
+    ...c,
+    id:    c.id    || '',
+    name:  String(c.name  ?? 'Unknown'),
+    phone: String(c.phone ?? ''),
+    tags:  Array.isArray(c.tags) ? c.tags
+           : typeof c.tags === 'string' ? c.tags.split(',').filter(Boolean) : [],
+  }));
+  const totalContacts = contactsData?.total || contacts.length;
+  const loading = contactsLoading && contacts.length === 0;
   const [searchTerm, setSearchTerm] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -273,9 +285,7 @@ export default function ContactsPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetchContacts();
-  }, []);
+  // SWR handles initial load — no useEffect needed
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -285,29 +295,7 @@ export default function ContactsPage() {
     }
   }, [searchTerm]);
 
-  const fetchContacts = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/contacts");
-      if (response.ok) {
-        const data = await response.json();
-        const raw = data.contacts || [];
-        const normalized = raw.map((c: any) => ({
-          ...c,
-          id: c.id || '',
-          name: String(c.name ?? 'Unknown'),
-          phone: String(c.phone ?? ''),
-          tags: Array.isArray(c.tags) ? c.tags : (typeof c.tags === 'string' ? c.tags.split(',').filter(Boolean) : []),
-        }));
-        setContacts(normalized);
-        setTotalContacts(data.total || raw.length);
-      }
-    } catch (error) {
-      console.error("Error fetching contacts:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchContacts = () => reloadContacts();
 
   const resetUpload = () => {
     setUploadPhase("idle");

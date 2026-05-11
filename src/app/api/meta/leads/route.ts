@@ -89,28 +89,36 @@ export async function GET(request: NextRequest) {
 
   const accountIds = accountId === 'all' ? ['1', '2', '3'] : [accountId];
 
+  // Single-account mode: keep original error response
+  if (accountId !== 'all') {
+    const token = getAccountToken(accountId);
+    if (!token) {
+      return NextResponse.json(
+        { error: `Account ${accountId} not configured. Add META_ACCESS_TOKEN_${accountId} to environment variables.`, forms: [], totalLeads: 0 },
+        { status: 401 }
+      );
+    }
+  }
+
   const allForms: any[] = [];
   const errors: string[] = [];
 
-  for (const id of accountIds) {
-    const token = getAccountToken(id);
-    if (!token) {
-      if (accountId !== 'all') {
-        return NextResponse.json(
-          { error: `Account ${id} not configured. Add META_ACCESS_TOKEN_${id} to environment variables.`, forms: [], totalLeads: 0 },
-          { status: 401 }
-        );
-      }
-      continue; // skip unconfigured accounts in "all" mode
-    }
+  // Fetch ALL accounts in PARALLEL
+  const results = await Promise.allSettled(
+    accountIds.map(id => {
+      const token = getAccountToken(id);
+      if (!token) return Promise.resolve([] as any[]);
+      return fetchFormsForAccount(id, token);
+    })
+  );
 
-    try {
-      const forms = await fetchFormsForAccount(id, token);
-      allForms.push(...forms);
-    } catch (e: any) {
-      errors.push(`Account ${id}: ${e.message}`);
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') {
+      allForms.push(...r.value);
+    } else {
+      errors.push(`Account ${accountIds[i]}: ${r.reason?.message || 'unknown error'}`);
     }
-  }
+  });
 
   // Deduplicate by form id across accounts
   const seen = new Set<string>();

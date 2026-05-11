@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher, metaSwrConfig } from "@/lib/swr";
 import { Megaphone, TrendingUp, RefreshCw, Eye, Loader2, ChevronDown, Target, DollarSign, Users } from "lucide-react";
 
 const ACCOUNTS = [
@@ -57,40 +59,19 @@ const OBJ: Record<string, string> = {
 };
 
 export default function CampaignsPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedAccount, setSelectedAccount] = useState("all");
   const [showDropdown, setShowDropdown] = useState(false);
   const [sortBy, setSortBy] = useState<"spend" | "cpl" | "leads">("spend");
 
-  const fetchCampaigns = async () => {
-    setRefreshing(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/meta/campaigns?account_id=${selectedAccount}`);
-      const data = await res.json();
-      if (data.error) {
-        // Show warning for unconfigured accounts instead of hard error
-        if (data.error.includes('not configured')) {
-          setError(data.error);
-          setCampaigns(data.campaigns || []);
-          return;
-        }
-        throw new Error(data.error);
-      }
-      setCampaigns(data.campaigns || []);
-    } catch (e: any) {
-      setError(e.message || "Failed to load campaigns");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const { data, isLoading, isValidating, mutate, error: swrErr } =
+    useSWR(`/api/meta/campaigns?account_id=${selectedAccount}`, fetcher, metaSwrConfig);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchCampaigns(); }, [selectedAccount]);
+  const campaigns: Campaign[] = data?.campaigns || [];
+  const loading    = isLoading && campaigns.length === 0;
+  const refreshing = isValidating;
+  const error: string | null = swrErr?.message || (data?.error ?? null);
+
+  const fetchCampaigns = () => mutate();
 
   const sorted = [...campaigns].sort((a, b) => {
     if (sortBy === "cpl") return (b.insights?.cpl || 0) - (a.insights?.cpl || 0);

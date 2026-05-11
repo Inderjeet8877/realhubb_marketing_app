@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import useSWR from "swr";
+import { fetcher, metaSwrConfig } from "@/lib/swr";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -127,17 +129,25 @@ function getLeadCity(lead: Lead): string {
 }
 
 export default function LeadsPage() {
-  const [forms, setForms] = useState<LeadForm[]>([]);
-  const [totalLeads, setTotalLeads] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<string>("1");
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPage, setSelectedPage] = useState<string>("all");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
+
+  const { data, isLoading, isValidating, mutate, error: swrErr } = useSWR(
+    `/api/meta/leads?account_id=${selectedAccount}`,
+    fetcher,
+    { ...metaSwrConfig, refreshInterval: autoRefresh ? 30_000 : 0 }
+  );
+
+  const [localError, setError] = useState<string | null>(null);
+  const forms: LeadForm[]    = data?.forms      || [];
+  const totalLeads: number   = data?.totalLeads  || 0;
+  const loading    = isLoading && forms.length === 0;
+  const refreshing = isValidating;
+  const error: string | null = localError || swrErr?.message || (data?.error ?? null);
   const [activeTab, setActiveTab] = useState<"forms" | "summary">("forms");
   const [selectedForm, setSelectedForm] = useState<LeadForm | null>(null);
   const [formLeads, setFormLeads] = useState<Lead[]>([]);
@@ -159,50 +169,12 @@ export default function LeadsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const fetchForms = useCallback(async () => {
-    setRefreshing(true);
-    setError(null);
-
-    try {
-      const url = `/api/meta/leads?account_id=${selectedAccount}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        // API returns error in the JSON body even for 401
-        const msg = data.error || `Server error (${response.status})`;
-        // Don't throw for unconfigured accounts — show warning instead
-        if (msg.includes('not configured')) {
-          setError(msg);
-          setForms(data.forms || []);
-          setTotalLeads(data.totalLeads || 0);
-          return;
-        }
-        throw new Error(msg);
-      }
-
-      setForms(data.forms || []);
-      setTotalLeads(data.totalLeads || 0);
-      setLastUpdated(new Date());
-    } catch (err: any) {
-      console.error("Error fetching forms:", err);
-      setError(err.message || "Failed to load forms");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [selectedAccount]);
-
+  // Update lastUpdated whenever fresh data arrives
   useEffect(() => {
-    fetchForms();
-  }, [fetchForms]);
+    if (data && !isValidating) setLastUpdated(new Date());
+  }, [data, isValidating]);
 
-  useEffect(() => {
-    if (autoRefresh) {
-      const interval = setInterval(fetchForms, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, fetchForms]);
+  const fetchForms = () => mutate();
 
   const handleAccountChange = (accountId: string) => {
     setSelectedAccount(accountId);
