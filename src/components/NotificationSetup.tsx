@@ -75,6 +75,8 @@ export default function NotificationSetup() {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [showBanner, setShowBanner] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
   const addToast = useCallback((name: string, body: string, phone: string) => {
     const id = Date.now();
@@ -210,6 +212,35 @@ export default function NotificationSetup() {
       .catch(() => {});
   }, [backgroundPushEnabled]);
 
+  // ── PWA Install Prompt ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setTimeout(() => setShowInstallPrompt(true), 2000);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setDeferredPrompt(null);
+      setShowInstallPrompt(false);
+    }
+  };
+
+  const dismissInstallPrompt = () => {
+    setShowInstallPrompt(false);
+    localStorage.setItem("pwa_install_dismissed", "1");
+  };
+
   const handleEnable = async () => {
     setShowBanner(false);
     const result = await Notification.requestPermission();
@@ -251,6 +282,34 @@ export default function NotificationSetup() {
             </div>
           </div>
           <button onClick={dismissBanner} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ── PWA Install Prompt ── */}
+      {showInstallPrompt && !localStorage.getItem("pwa_install_dismissed") && (
+        <div className="fixed bottom-20 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 bg-white border border-blue-200 rounded-xl shadow-xl p-4 flex items-start gap-3">
+          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <MessageSquare className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">Install Realhubb</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Add to your home screen for faster access and better notifications on mobile.
+            </p>
+            <div className="flex gap-2 mt-3">
+              <button onClick={handleInstallApp}
+                className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">
+                Install
+              </button>
+              <button onClick={dismissInstallPrompt}
+                className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700">
+                Not now
+              </button>
+            </div>
+          </div>
+          <button onClick={dismissInstallPrompt} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
             <X className="w-4 h-4" />
           </button>
         </div>
