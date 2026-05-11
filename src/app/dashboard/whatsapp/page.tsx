@@ -330,7 +330,26 @@ export default function WhatsAppPage() {
       const r = await fetch(`/api/whatsapp/messages?phone=${encodeURIComponent(conv.phone)}&account_id=${waAccountId}`);
       if (r.ok) {
         const d = await r.json();
-        setChatMessages(d.messages || []);
+        const msgs: ChatMessage[] = d.messages || [];
+        setChatMessages(msgs);
+
+        // Mark all inbound messages as read — sends blue ticks to the sender
+        const inboundWamids = msgs
+          .filter(m => m.direction === "inbound" && m.wamid)
+          .map(m => m.wamid as string);
+
+        if (inboundWamids.length > 0 || (conv.unreadCount ?? 0) > 0) {
+          fetch("/api/whatsapp/mark-read", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ phone: conv.phone, wamids: inboundWamids }),
+          }).catch(() => {});
+
+          // Clear unread badge locally immediately
+          setConversations(prev =>
+            prev.map(c => c.phone === conv.phone ? { ...c, unreadCount: 0 } : c)
+          );
+        }
       }
     } catch (e) {
       console.error("Failed to load messages via API:", e);
