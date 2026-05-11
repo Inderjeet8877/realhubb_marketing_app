@@ -1,84 +1,192 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Bell, BellOff, X, MessageSquare } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Bell, X, MessageSquare } from "lucide-react";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { useRouter } from "next/navigation";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface ToastMsg {
-  id: number;
-  title: string;
-  body: string;
+  id:    number;
+  name:  string;
+  body:  string;
+  phone: string;
+}
+
+// ── Web Audio ping (no audio file needed) ─────────────────────────────────
+function playPing() {
+  try {
+    const ac   = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const now  = ac.currentTime;
+
+    function tone(freq: number, start: number, duration: number, vol: number) {
+      const osc  = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(vol, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+      osc.start(start);
+      osc.stop(start + duration);
+    }
+
+    tone(880,  now,       0.35, 0.35); // first ping
+    tone(1100, now + 0.18, 0.35, 0.3); // second ping (brighter)
+    setTimeout(() => ac.close(), 800);
+  } catch {}
+}
+
+// ── Fire a browser notification (works when tab not focused) ─────────────
+function fireBrowserNotification(name: string, body: string, phone: string) {
+  if (typeof Notification === "undefined") return;
+  if (Notification.permission !== "granted") return;
+
+  const notif = new Notification(`💬 ${name}`, {
+    body,
+    icon:              "/favicon.ico",
+    badge:             "/favicon.ico",
+    tag:               `wa-${phone}`,      // collapses duplicate notifs per contact
+    requireInteraction: false,
+    silent:            true,               // we play our own sound
+  });
+
+  // Click → focus tab and navigate to inbox
+  notif.onclick = () => {
+    window.focus();
+    window.location.href = "/dashboard/whatsapp";
+  };
+
+  // Auto-close after 8 s
+  setTimeout(() => notif.close(), 8000);
 }
 
 export default function NotificationSetup() {
+  const router              = useRouter();
+  const { incrementUnread } = useNotifications();
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [showBanner, setShowBanner] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
 
-  const addToast = useCallback((title: string, body: string) => {
+  const addToast = useCallback((name: string, body: string, phone: string) => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, title, body }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 6000);
+    setToasts(prev => [...prev, { id, name, body, phone }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 7000);
   }, []);
 
-  const registerToken = useCallback(async () => {
+  const removeToast = useCallback((id: number) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  // ── FCM registration (background push when app is closed) ────────────
+  const registerFCM = useCallback(async () => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
     try {
       const { getMessaging, getToken, onMessage } = await import("firebase/messaging");
       const { app } = await import("@/lib/firebase");
-
-      const sw = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+      const sw      = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
       const messaging = getMessaging(app);
-
-      const token = await getToken(messaging, {
+      const token   = await getToken(messaging, {
         vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
         serviceWorkerRegistration: sw,
       });
-
       if (token) {
         await fetch("/api/notifications/register", {
-          method: "POST",
+          method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
+          body:    JSON.stringify({ token }),
         });
         localStorage.setItem("fcm_registered", "1");
-        console.log("[FCM] Token registered");
       }
-
-      // Foreground message handler
+      // FCM foreground handler — fires when tab is in foreground and FCM delivers
       onMessage(messaging, (payload) => {
-        const title = payload.notification?.title || "New WhatsApp Message";
-        const body  = payload.notification?.body  || "";
-        addToast(title, body);
+        const name = payload.notification?.title?.replace("💬 ", "") || "WhatsApp";
+        const body = payload.notification?.body || "";
+        // Only show if we haven't already shown via Firestore listener
+        // (FCM and Firestore may both fire for the same message)
+        addToast(name, body, "fcm");
       });
     } catch (err) {
-      console.error("[FCM] Setup error:", err);
+      console.error("[FCM] setup error:", err);
     }
   }, [addToast]);
 
+  // ── Primary: Firestore real-time listener ─────────────────────────────
+  // Fires the instant the webhook writes a new inbound message to Firestore.
+  // This is more reliable than FCM when the app tab is open.
   useEffect(() => {
-    // FCM only works in browsers that support it
-    if (typeof Notification === "undefined" || typeof navigator === "undefined") {
+    if (typeof window === "undefined") return;
+
+    const initialized = { done: false };
+
+    const q    = query(
+      collection(db, "whatsapp_conversations"),
+      orderBy("createdAt", "desc"),
+      limit(20)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      // Skip the very first snapshot (that's all existing messages, not new ones)
+      if (!initialized.done) {
+        initialized.done = true;
+        return;
+      }
+
+      snap.docChanges().forEach((change) => {
+        if (change.type !== "added") return;
+        const d = change.doc.data();
+        if (d.direction !== "inbound") return;
+
+        const name = (d.name && d.name !== d.phone) ? d.name : d.phone;
+        const body = d.message || "[New message]";
+        const phone = d.phone || "";
+
+        // 1. In-app toast
+        addToast(name, body, phone);
+
+        // 2. Browser notification (works even on a different tab)
+        fireBrowserNotification(name, body, phone);
+
+        // 3. Sound
+        playPing();
+
+        // 4. Increment global unread badge
+        incrementUnread();
+
+        console.log(`[Notification] New inbound from ${name}: ${body.slice(0, 60)}`);
+      });
+    }, (err) => {
+      console.error("[Notification] Firestore listener error:", err);
+    });
+
+    return () => unsub();
+  }, [addToast, incrementUnread]);
+
+  // ── Permission & FCM setup ─────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof Notification === "undefined") {
       setPermission("unsupported");
       return;
     }
-
     const current = Notification.permission;
     setPermission(current);
 
     if (current === "granted") {
-      // Already granted — re-register silently (token can rotate)
-      registerToken();
+      registerFCM();
     } else if (current === "default" && !localStorage.getItem("notif_banner_dismissed")) {
-      // Show the banner once
       setShowBanner(true);
     }
-  }, [registerToken]);
+  }, [registerFCM]);
 
   const handleEnable = async () => {
     setShowBanner(false);
     const result = await Notification.requestPermission();
     setPermission(result);
     if (result === "granted") {
-      await registerToken();
+      await registerFCM();
     } else {
       localStorage.setItem("notif_banner_dismissed", "1");
     }
@@ -91,28 +199,24 @@ export default function NotificationSetup() {
 
   return (
     <>
-      {/* Permission banner — shown once when permission is "default" */}
+      {/* ── Permission banner ── */}
       {showBanner && permission === "default" && (
-        <div className="fixed bottom-20 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-4 flex items-start gap-3 animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-20 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-4 flex items-start gap-3">
           <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
             <Bell className="w-5 h-5 text-green-600" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900">Enable notifications</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Get notified instantly when a customer replies on WhatsApp — even when the app is closed.
+              Get notified instantly when a customer replies on WhatsApp.
             </p>
             <div className="flex gap-2 mt-3">
-              <button
-                onClick={handleEnable}
-                className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700"
-              >
+              <button onClick={handleEnable}
+                className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700">
                 Enable
               </button>
-              <button
-                onClick={dismissBanner}
-                className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700"
-              >
+              <button onClick={dismissBanner}
+                className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700">
                 Not now
               </button>
             </div>
@@ -123,19 +227,27 @@ export default function NotificationSetup() {
         </div>
       )}
 
-      {/* In-app toast stack */}
+      {/* ── In-app toast stack ── */}
       <div className="fixed bottom-20 sm:bottom-4 right-3 sm:right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none">
         {toasts.map(t => (
-          <div key={t.id} className="pointer-events-auto bg-white border border-gray-200 rounded-xl shadow-xl p-3 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#25d366" }}>
-              <MessageSquare className="w-4 h-4 text-white" />
+          <div
+            key={t.id}
+            className="pointer-events-auto bg-white border border-gray-200 rounded-xl shadow-xl p-3 flex items-start gap-3 cursor-pointer hover:shadow-2xl transition-shadow"
+            onClick={() => { removeToast(t.id); router.push("/dashboard/whatsapp"); }}
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-white text-sm"
+              style={{ backgroundColor: "#25d366" }}>
+              {t.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-gray-900 truncate">{t.title}</p>
-              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{t.body}</p>
+              <p className="text-xs font-bold text-gray-900 truncate">{t.name}</p>
+              <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{t.body}</p>
+              <p className="text-[10px] text-green-600 mt-1 font-medium">Tap to open inbox →</p>
             </div>
-            <button onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}
-              className="text-gray-300 hover:text-gray-500 flex-shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); removeToast(t.id); }}
+              className="text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5"
+            >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
