@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { User, Bell, CheckCircle, XCircle, Loader2, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface MetaAccountCredentials {
   id: string;
@@ -131,6 +132,15 @@ function SettingsContent() {
 
   const selectedAccountId = localStorage.getItem('selected_account');
   const selectedAccount = metaAccounts.find(a => a.id === selectedAccountId);
+
+  const {
+    browserNotificationsEnabled,
+    soundEnabled,
+    backgroundPushEnabled,
+    toggleBrowserNotifications,
+    toggleSound,
+    toggleBackgroundPush,
+  } = useNotifications();
 
   if (!user) {
     return (
@@ -352,15 +362,37 @@ function SettingsContent() {
               <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
             </div>
             <div className="space-y-4">
-              <label className="flex items-center justify-between">
-                <span className="text-gray-700">Email notifications</span>
-                <input type="checkbox" className="w-5 h-5 text-blue-600" defaultChecked />
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-gray-700">Browser notifications</span>
+                <input
+                  type="checkbox"
+                  checked={browserNotificationsEnabled}
+                  onChange={toggleBrowserNotifications}
+                  className="w-5 h-5 text-blue-600"
+                />
               </label>
-              <label className="flex items-center justify-between">
-                <span className="text-gray-700">Campaign updates</span>
-                <input type="checkbox" className="w-5 h-5 text-blue-600" defaultChecked />
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-gray-700">Sound alerts</span>
+                <input
+                  type="checkbox"
+                  checked={soundEnabled}
+                  onChange={toggleSound}
+                  className="w-5 h-5 text-blue-600"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-gray-700">Background push (FCM)</span>
+                <input
+                  type="checkbox"
+                  checked={backgroundPushEnabled}
+                  onChange={toggleBackgroundPush}
+                  className="w-5 h-5 text-blue-600"
+                />
               </label>
             </div>
+            <p className="text-sm text-gray-500 mt-3">
+              Browser notifications work when the app is open in a browser tab. Background push is the fallback for when the browser is closed.
+            </p>
           </div>
         </div>
       </div>

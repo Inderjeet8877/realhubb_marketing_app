@@ -66,7 +66,12 @@ function fireBrowserNotification(name: string, body: string, phone: string) {
 
 export default function NotificationSetup() {
   const router              = useRouter();
-  const { incrementUnread } = useNotifications();
+  const {
+    incrementUnread,
+    browserNotificationsEnabled,
+    soundEnabled,
+    backgroundPushEnabled,
+  } = useNotifications();
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [showBanner, setShowBanner] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
@@ -100,6 +105,7 @@ export default function NotificationSetup() {
           body:    JSON.stringify({ token }),
         });
         localStorage.setItem("fcm_registered", "1");
+        localStorage.setItem("fcm_device_token", token);
       }
       // FCM foreground handler — fires when tab is in foreground and FCM delivers
       onMessage(messaging, (payload) => {
@@ -148,10 +154,14 @@ export default function NotificationSetup() {
         addToast(name, body, phone);
 
         // 2. Browser notification (works even on a different tab)
-        fireBrowserNotification(name, body, phone);
+        if (browserNotificationsEnabled) {
+          fireBrowserNotification(name, body, phone);
+        }
 
         // 3. Sound
-        playPing();
+        if (soundEnabled) {
+          playPing();
+        }
 
         // 4. Increment global unread badge
         incrementUnread();
@@ -163,7 +173,7 @@ export default function NotificationSetup() {
     });
 
     return () => unsub();
-  }, [addToast, incrementUnread]);
+  }, [addToast, incrementUnread, browserNotificationsEnabled, soundEnabled]);
 
   // ── Permission & FCM setup ─────────────────────────────────────────────
   useEffect(() => {
@@ -174,12 +184,31 @@ export default function NotificationSetup() {
     const current = Notification.permission;
     setPermission(current);
 
-    if (current === "granted") {
+    if (current === "granted" && backgroundPushEnabled) {
       registerFCM();
-    } else if (current === "default" && !localStorage.getItem("notif_banner_dismissed")) {
+    } else if (current === "default" && browserNotificationsEnabled && !localStorage.getItem("notif_banner_dismissed")) {
       setShowBanner(true);
     }
-  }, [registerFCM]);
+  }, [registerFCM, backgroundPushEnabled, browserNotificationsEnabled]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    if (backgroundPushEnabled) return;
+
+    const token = localStorage.getItem("fcm_device_token");
+    if (!token) return;
+
+    fetch("/api/notifications/register", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    }).catch(() => {});
+
+    localStorage.removeItem("fcm_device_token");
+    navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js")
+      .then((registration) => registration?.unregister())
+      .catch(() => {});
+  }, [backgroundPushEnabled]);
 
   const handleEnable = async () => {
     setShowBanner(false);
