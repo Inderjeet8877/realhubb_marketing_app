@@ -993,7 +993,7 @@ export default function WhatsAppPage() {
                     if (!sel) return null;
                     return (
                       <div className="mt-3 flex flex-col sm:flex-row gap-4 items-start">
-                        <div className="w-full max-w-[220px] mx-auto sm:mx-0 shrink-0">
+                        <div className="w-full max-w-[260px] mx-auto sm:mx-0 shrink-0">
                           <TemplatePreviewPhone
                             compact
                             businessName="Realhubb Ventures"
@@ -1131,7 +1131,7 @@ export default function WhatsAppPage() {
                   const missingHeaderMedia = ['image', 'video', 'document'].includes(sel.headerType) && !sel.headerContent;
                   return (
                     <div className="mt-3 flex flex-col sm:flex-row gap-4 items-start">
-                      <div className="w-full max-w-[220px] mx-auto sm:mx-0 shrink-0">
+                      <div className="w-full max-w-[260px] mx-auto sm:mx-0 shrink-0">
                         <TemplatePreviewPhone
                           compact
                           businessName="Realhubb Ventures"

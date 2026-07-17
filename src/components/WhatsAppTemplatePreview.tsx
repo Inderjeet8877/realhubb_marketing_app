@@ -33,10 +33,10 @@ export function TemplatePreviewPhone({
   return (
     <div
       className={`w-full mx-auto rounded-[1.75rem] bg-gray-900 shadow-xl overflow-hidden select-none ${
-        compact ? "max-w-[220px] border-[4px]" : "max-w-[280px] border-[6px] border-gray-900"
+        compact ? "max-w-[260px] border-[5px]" : "max-w-[280px] border-[6px] border-gray-900"
       }`}
     >
-      <div className={compact ? "h-3 bg-gray-900" : "h-5 bg-gray-900"} />
+      <div className={compact ? "h-4 bg-gray-900" : "h-5 bg-gray-900"} />
 
       {/* WhatsApp app header */}
       <div className="bg-[#075E54] px-2.5 py-2 flex items-center gap-2">
@@ -58,9 +58,11 @@ export function TemplatePreviewPhone({
       </div>
 
       {/* Chat area — capped height with internal scroll so long template bodies never
-          blow up the surrounding layout (modal, dropdown, card) */}
+          blow up the surrounding layout (modal, dropdown, card). Content starts at the
+          top (not bottom-anchored) since this previews a single message, not a thread —
+          bottom-anchoring hid the header image/opening lines above the fold. */}
       <div
-        className={`p-2.5 overflow-y-auto flex flex-col justify-end ${compact ? "h-[260px]" : "h-[400px]"}`}
+        className={`p-2.5 overflow-y-auto ${compact ? "h-[340px]" : "h-[400px]"}`}
         style={{
           backgroundColor: "#e5ddd5",
           backgroundImage: "radial-gradient(circle at 8px 8px, rgba(0,0,0,0.035) 1px, transparent 0)",
