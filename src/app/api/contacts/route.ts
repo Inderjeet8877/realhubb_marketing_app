@@ -111,17 +111,39 @@ function parseCSV(text: string, dataName: string): ParseResult {
 }
 
 // ── Sheets helper ──────────────────────────────────────────────────────────
+// Apps Script web apps can be slow (they re-scan the whole sheet per request) and
+// occasionally drop the connection (ECONNRESET) with no fault of the caller — retry
+// transient network failures a few times before giving up.
+async function fetchWithRetry(url: string, init: RequestInit | undefined, attempts = 3): Promise<Response> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45_000);
+      try {
+        return await fetch(url, { ...init, signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 async function sheetsGet(params: Record<string, string>) {
   checkConfig();
   const url = new URL(SHEETS_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString());
+  const res = await fetchWithRetry(url.toString(), undefined);
   return res.json();
 }
 
 async function sheetsPost(body: object) {
   checkConfig();
-  const res = await fetch(SHEETS_URL, {
+  const res = await fetchWithRetry(SHEETS_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(body),
@@ -207,6 +229,41 @@ export async function POST(request: NextRequest) {
       if (Array.isArray(body.contacts)) {
         const data = await sheetsPost({ action: 'addBatch', contacts: body.contacts });
         return NextResponse.json({ success: true, saved: data.saved || 0, dbDuplicates: data.dbDuplicates || 0 });
+      }
+
+      // ── DEDUPE — same-phone rows within one batch, e.g. from a retried upload.
+      // Done entirely on our side (fetch all, pick survivors, delete the rest) so it
+      // doesn't depend on whatever duplicate-detection the Apps Script does or doesn't do.
+      if (body.action === 'dedupe' && body.dataName) {
+        const listData = await sheetsGet({ action: 'getAll', dataName: body.dataName });
+        const contacts: Contact[] = listData.contacts || [];
+
+        // Keep the first occurrence of each phone number (sheet/array order), delete the rest.
+        const seenPhones = new Set<string>();
+        const idsToDelete: string[] = [];
+        for (const c of contacts) {
+          if (seenPhones.has(c.phone)) {
+            if (c.id) idsToDelete.push(c.id);
+          } else {
+            seenPhones.add(c.phone);
+          }
+        }
+
+        const duplicates = contacts.filter(c => c.id && idsToDelete.includes(c.id));
+
+        if (!body.dryRun && idsToDelete.length > 0) {
+          await sheetsPost({ action: 'deleteByIds', ids: idsToDelete });
+        }
+
+        return NextResponse.json({
+          success: true,
+          dryRun: !!body.dryRun,
+          totalBefore: contacts.length,
+          duplicatesRemoved: body.dryRun ? 0 : idsToDelete.length,
+          duplicatesFound: idsToDelete.length,
+          remaining: contacts.length - (body.dryRun ? 0 : idsToDelete.length),
+          duplicateContacts: duplicates.map(c => ({ id: c.id, name: c.name, phone: c.phone })),
+        });
       }
 
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });

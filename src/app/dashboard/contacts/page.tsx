@@ -37,6 +37,8 @@ interface UploadSummary {
   intraFileDuplicates: number;
   corrupted: number;
   corruptedRows: { row: number; rawName: string; rawPhone: string; reason: string }[];
+  failedBatches: number;
+  failedContacts: number;
 }
 
 type UploadPhase = "idle" | "parsing" | "uploading" | "done";
@@ -113,10 +115,28 @@ function ImportModal({
         {uploadPhase === "done" && uploadSummary && (
           <div className="space-y-3">
             {/* Success banner */}
-            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-              <p className="text-sm font-semibold text-green-800">Upload complete!</p>
+            <div className={`flex items-center gap-2 p-3 border rounded-lg ${
+              uploadSummary.failedBatches > 0 ? "bg-yellow-50 border-yellow-200" : "bg-green-50 border-green-200"
+            }`}>
+              {uploadSummary.failedBatches > 0 ? (
+                <TriangleAlert className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+              ) : (
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+              )}
+              <p className={`text-sm font-semibold ${uploadSummary.failedBatches > 0 ? "text-yellow-800" : "text-green-800"}`}>
+                {uploadSummary.failedBatches > 0
+                  ? `Upload finished with issues — ${uploadSummary.failedContacts} contact(s) couldn't be saved`
+                  : "Upload complete!"}
+              </p>
             </div>
+
+            {uploadSummary.failedBatches > 0 && (
+              <p className="text-xs text-yellow-700 -mt-2">
+                {uploadSummary.failedBatches} batch(es) failed after retrying (network issue reaching the sheet). Re-upload the same
+                file to retry just the missing rows — already-saved contacts won&apos;t be duplicated as long as duplicate
+                checking on the destination is working; if you do end up with duplicates, use the batch&apos;s duplicate cleanup below.
+              </p>
+            )}
 
             {/* Stat pills */}
             <div className="grid grid-cols-3 gap-2">
@@ -273,6 +293,7 @@ export default function ContactsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deduping, setDeduping] = useState(false);
   const [dataName, setDataName] = useState("");
   const [filterBatch, setFilterBatch] = useState("all");
 
@@ -353,20 +374,39 @@ export default function ContactsPage() {
         batches.push(validContacts.slice(i, i + BATCH_SIZE));
       }
 
-      let totalSaved  = 0;
-      let totalDbDups = 0;
-      let done        = 0;
+      let totalSaved     = 0;
+      let totalDbDups    = 0;
+      let done           = 0;
+      let failedBatches  = 0;
+      let failedContacts = 0;
 
+      // One flaky batch shouldn't sink the rest of the file — retry it a few times,
+      // and if it still fails, record it and move on to the remaining batches instead
+      // of aborting the whole upload (which used to silently drop everything after
+      // the failure point, while making it look like the upload just "failed").
       for (let b = 0; b < batches.length; b++) {
-        const res = await fetch('/api/contacts', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ contacts: batches[b] }),
-        });
-        const d = await res.json();
-        totalSaved  += d.saved        || 0;
-        totalDbDups += d.dbDuplicates || 0;
-        done        += batches[b].length;
+        let succeeded = false;
+        for (let attempt = 0; attempt < 3 && !succeeded; attempt++) {
+          try {
+            const res = await fetch('/api/contacts', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify({ contacts: batches[b] }),
+            });
+            const d = await res.json();
+            if (!res.ok) throw new Error(d.error || 'Batch upload failed');
+            totalSaved  += d.saved        || 0;
+            totalDbDups += d.dbDuplicates || 0;
+            succeeded = true;
+          } catch {
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+          }
+        }
+        if (!succeeded) {
+          failedBatches++;
+          failedContacts += batches[b].length;
+        }
+        done += batches[b].length;
         setUploadedCount(done);
         setUploadProgress(Math.round((done / validContacts.length) * 100));
       }
@@ -378,6 +418,8 @@ export default function ContactsPage() {
         intraFileDuplicates: intraFileDups,
         corrupted:           corrupted.length,
         corruptedRows:       corrupted.slice(0, 20),
+        failedBatches,
+        failedContacts,
       });
       setUploadPhase("done");
       setDataName("");
@@ -385,6 +427,31 @@ export default function ContactsPage() {
     } catch (err: any) {
       alert('Upload failed: ' + (err.message || 'Network error'));
       resetUpload();
+    }
+  };
+
+  const handleDedupe = async (batchName: string) => {
+    if (!confirm(`Scan "${batchName}" for contacts with the same phone number and delete the extra copies (keeping the first of each)?`)) return;
+    setDeduping(true);
+    try {
+      const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'dedupe', dataName: batchName }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.success) {
+        alert(d.error || 'Failed to remove duplicates');
+        return;
+      }
+      alert(d.duplicatesRemoved > 0
+        ? `Removed ${d.duplicatesRemoved} duplicate contact(s). ${d.remaining} remain in this batch.`
+        : 'No duplicates found in this batch.');
+      fetchContacts();
+    } catch (err: any) {
+      alert('Failed to remove duplicates: ' + (err.message || 'Network error'));
+    } finally {
+      setDeduping(false);
     }
   };
 
@@ -571,7 +638,15 @@ export default function ContactsPage() {
             <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg">
               <Tag className="w-3 h-3" />
               Showing batch: <strong>{filterBatch}</strong> — {filteredContacts.length} contacts
-              <button onClick={() => setFilterBatch('all')} className="ml-auto text-blue-500 hover:text-blue-700"><X className="w-3 h-3" /></button>
+              <button
+                onClick={() => handleDedupe(filterBatch)}
+                disabled={deduping}
+                className="ml-auto text-blue-700 hover:text-blue-900 font-medium disabled:opacity-50 flex items-center gap-1"
+              >
+                {deduping && <Loader2 className="w-3 h-3 animate-spin" />}
+                Remove duplicates
+              </button>
+              <button onClick={() => setFilterBatch('all')} className="text-blue-500 hover:text-blue-700"><X className="w-3 h-3" /></button>
             </div>
           )}
         </div>
