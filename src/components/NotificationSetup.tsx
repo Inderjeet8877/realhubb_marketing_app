@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Bell, X, MessageSquare } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
@@ -90,7 +90,53 @@ export default function NotificationSetup() {
 
   // ── FCM registration (background push when app is closed) ────────────
   const registerFCM = useCallback(async () => {
-    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    if (typeof navigator === "undefined") return;
+
+    // Inside the Capacitor native app shell — use native push instead of the web
+    // Notification/serviceWorker APIs. Native push works even when the app is fully
+    // closed; web push in an embedded WebView is not reliably delivered in that state,
+    // which defeats the whole point of wrapping this as an app (never miss a lead reply).
+    const isNative = typeof window !== "undefined" && (window as any).Capacitor?.isNativePlatform?.();
+    if (isNative) {
+      try {
+        const { PushNotifications } = await import("@capacitor/push-notifications");
+        const perm = await PushNotifications.requestPermissions();
+        if (perm.receive !== "granted") return;
+
+        await PushNotifications.register();
+
+        PushNotifications.addListener("registration", async (token) => {
+          await fetch("/api/notifications/register", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ token: token.value }),
+          });
+          localStorage.setItem("fcm_registered", "1");
+          localStorage.setItem("fcm_device_token", token.value);
+        });
+
+        PushNotifications.addListener("registrationError", (err) => {
+          console.error("[Native Push] registration error:", err);
+        });
+
+        // Foreground handler — background delivery is handled by the OS/FCM directly.
+        PushNotifications.addListener("pushNotificationReceived", (notification) => {
+          const name = notification.title?.replace("💬 ", "") || "WhatsApp";
+          const body = notification.body || "";
+          addToast(name, body, "native");
+        });
+
+        // Tapping the notification (from background/killed state) should open the inbox.
+        PushNotifications.addListener("pushNotificationActionPerformed", () => {
+          router.push("/dashboard/whatsapp");
+        });
+      } catch (err) {
+        console.error("[Native Push] setup error:", err);
+      }
+      return;
+    }
+
+    if (!("serviceWorker" in navigator)) return;
     try {
       const { getMessaging, getToken, onMessage } = await import("firebase/messaging");
       const { app } = await import("@/lib/firebase");
@@ -120,7 +166,7 @@ export default function NotificationSetup() {
     } catch (err) {
       console.error("[FCM] setup error:", err);
     }
-  }, [addToast]);
+  }, [addToast, router]);
 
   // ── Primary: Firestore real-time listener ─────────────────────────────
   // Fires the instant the webhook writes a new inbound message to Firestore.
