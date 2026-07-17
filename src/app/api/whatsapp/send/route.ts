@@ -119,6 +119,30 @@ const cleanPhone = phoneNumber.replace(/\D/g, '');
     const templateToUse = (templateName || 'hello_world').trim();
     const templateLang = languageCode || 'en';
 
+    // A template approved with a media header REQUIRES that header parameter on every
+    // send. Meta will silently accept the call and never deliver it if it's missing —
+    // there's no error, no webhook, nothing. So refuse to send rather than fail silently.
+    if (['image', 'video', 'document'].includes(templateHeaderType || '')) {
+      if (!templateHeaderContent) {
+        return NextResponse.json(
+          {
+            error: `Template "${templateToUse}" has a ${templateHeaderType} header but no media URL was provided. ` +
+              `Attach the ${templateHeaderType} on the Templates page (or provide one here) before sending — ` +
+              `otherwise Meta accepts the call but never delivers the message.`,
+          },
+          { status: 400 }
+        );
+      }
+      try {
+        new URL(templateHeaderContent);
+      } catch {
+        return NextResponse.json(
+          { error: `The ${templateHeaderType} header value "${templateHeaderContent}" is not a valid URL.` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Build header component if template has a media header (image/video/document)
     const components: any[] = [];
     if (templateHeaderType === 'image' && templateHeaderContent) {
@@ -284,6 +308,29 @@ async function handleBulkSend(body: BulkSendRequest) {
 
   const useTemplate = isTemplate || templateName;
   const resolvedTemplateContent = message || templateContent || (templateName ? await getTemplateContent(templateName) : '');
+
+  // Same template header applies to every recipient in this batch — if the media is
+  // missing, every single send would be accepted by Meta and silently never delivered.
+  // Reject the whole batch up front instead of burning it on broken sends.
+  if (useTemplate && ['image', 'video', 'document'].includes(templateHeaderType || '')) {
+    if (!templateHeaderContent) {
+      return NextResponse.json(
+        {
+          error: `Template "${templateName}" has a ${templateHeaderType} header but no media URL was provided. ` +
+            `Attach the ${templateHeaderType} on the Templates page before sending this batch.`,
+        },
+        { status: 400 }
+      );
+    }
+    try {
+      new URL(templateHeaderContent);
+    } catch {
+      return NextResponse.json(
+        { error: `The ${templateHeaderType} header value "${templateHeaderContent}" is not a valid URL.` },
+        { status: 400 }
+      );
+    }
+  }
 
   type ContactResult = { phone: string; name: string; success: boolean; wamid: string | null; status: string; error: string | null };
   const contactResults: ContactResult[] = [];

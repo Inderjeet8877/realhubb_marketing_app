@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, CheckCircle, Clock, XCircle, Send, Image, FileText, Eye, Loader2, X, Phone, Globe, Upload, Cloud } from "lucide-react";
+import {
+  Plus, Trash2, CheckCircle, Clock, XCircle, Send, FileText, Eye,
+  Loader2, X, Cloud,
+} from "lucide-react";
+import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 
 interface Template {
   id: string;
@@ -21,6 +25,16 @@ interface Template {
 export default function WhatsAppTemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyMediaUrl = (id: string, url: string) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((current) => (current === id ? null : current)), 1500);
+    });
+  };
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState("1");
@@ -37,23 +51,49 @@ export default function WhatsAppTemplatesPage() {
   const [content, setContent] = useState("");
   const [footerContent, setFooterContent] = useState("");
   const [buttons, setButtons] = useState<{ type: string; text: string; url?: string; phone_number?: string }[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+  const [accountLabel, setAccountLabel] = useState("");
 
   useEffect(() => {
     fetchTemplates();
   }, []);
 
+  useEffect(() => {
+    fetch(`/api/whatsapp/account-info?account_id=${selectedAccount}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setAccountLabel(`${d.verifiedName} (${d.displayPhoneNumber})`.trim());
+      })
+      .catch(() => {});
+  }, [selectedAccount]);
+
+  // Live status: while any template is still under Meta review, keep polling
+  // so an approval/rejection shows up without the user manually reloading.
+  useEffect(() => {
+    const hasPending = templates.some((t) => t.approvalStatus === "pending");
+    if (!hasPending) return;
+    const interval = setInterval(() => fetchTemplates(), 20000);
+    return () => clearInterval(interval);
+  }, [templates]);
+
   const fetchTemplates = async () => {
+    setRefreshing(true);
     try {
       const response = await fetch("/api/whatsapp/templates");
+      const data = await response.json();
       if (response.ok) {
-        const data = await response.json();
         setTemplates(data.templates || []);
+        setFetchError(null);
+      } else {
+        setTemplates([]);
+        setFetchError(data.error || "Failed to load templates from Meta");
       }
     } catch (error) {
       console.error("Error fetching templates:", error);
+      setFetchError("Could not reach the server to load templates");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -204,7 +244,6 @@ export default function WhatsAppTemplatesPage() {
     setContent("");
     setFooterContent("");
     setButtons([]);
-    setShowPreview(false);
   };
 
   const addButton = (type: string) => {
@@ -260,20 +299,47 @@ export default function WhatsAppTemplatesPage() {
           <h1 className="text-2xl font-bold text-gray-900">WhatsApp Templates</h1>
           <p className="text-gray-600">Create and manage message templates</p>
         </div>
-        <button
-          onClick={() => { resetForm(); setShowModal(true); }}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-        >
-          <Plus className="w-4 h-4" />
-          Create Template
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchTemplates()}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            title="Re-fetch live approval status from Meta"
+          >
+            <Loader2 className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh Status"}
+          </button>
+          <button
+            onClick={() => { resetForm(); setShowModal(true); }}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            <Plus className="w-4 h-4" />
+            Create Template
+          </button>
+        </div>
       </div>
+
+      {templates.some((t) => t.approvalStatus === "pending") && (
+        <p className="text-xs text-gray-400 -mt-6 mb-6">
+          Auto-checking Meta every 20s while templates are pending review.
+        </p>
+      )}
+
+      {fetchError && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+          <XCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-red-800">Couldn&apos;t load templates from Meta</p>
+            <p className="text-sm text-red-700 mt-0.5">{fetchError}</p>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-green-600" />
         </div>
-      ) : templates.length === 0 ? (
+      ) : templates.length === 0 && !fetchError ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
           <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500">No templates created yet</p>
@@ -294,7 +360,7 @@ export default function WhatsAppTemplatesPage() {
               </div>
               
               <div className="bg-gray-50 rounded-lg p-3 mb-3 text-sm text-gray-700 max-h-24 overflow-y-auto">
-                {template.headerType !== 'none' && template.headerContent && (
+                {template.headerType === 'text' && template.headerContent && (
                   <p className="font-medium mb-1">{template.headerContent}</p>
                 )}
                 {template.content}
@@ -303,9 +369,36 @@ export default function WhatsAppTemplatesPage() {
                 )}
               </div>
 
+              {['image', 'video', 'document'].includes(template.headerType) && (
+                template.headerContent ? (
+                  <div className="mb-3 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
+                    <p className="flex-1 text-xs text-blue-800 truncate" title={template.headerContent}>
+                      {template.headerContent}
+                    </p>
+                    <button
+                      onClick={() => copyMediaUrl(template.id, template.headerContent)}
+                      className="text-xs font-medium text-blue-700 hover:text-blue-900 shrink-0"
+                    >
+                      {copiedId === template.id ? "Copied!" : "Copy URL"}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mb-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+                    No {template.headerType} attached — edit this template to add one before sending.
+                  </p>
+                )
+              )}
+
               <div className="flex items-center justify-between">
                 {getStatusLabel(template.approvalStatus)}
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => setPreviewTemplate(template)}
+                    className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg"
+                    title="Preview"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => handleEditTemplate(template)}
                     className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
@@ -344,7 +437,7 @@ export default function WhatsAppTemplatesPage() {
               <div className="flex-1 overflow-y-auto pr-4 space-y-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-sm text-green-800 flex items-center gap-2">
-                    Using WhatsApp Account: RealHubb Ventures (+91 63649 40394)
+                    Using WhatsApp Account: {accountLabel || "Loading account..."}
                   </p>
                 </div>
 
@@ -564,49 +657,23 @@ export default function WhatsAppTemplatesPage() {
                 </div>
               </div>
 
-              {/* Preview Section */}
-              <div className="w-80 bg-gray-50 rounded-xl p-4 flex flex-col">
+              {/* Preview Section — live WhatsApp phone mockup */}
+              <div className="w-80 shrink-0 flex flex-col">
                 <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <Eye className="w-4 h-4" />
-                  Preview
+                  Live Preview
                 </h3>
-                
-                <div className="bg-white rounded-lg shadow-sm p-3 flex-1 overflow-y-auto">
-                  {headerType === 'text' && headerContent && (
-                    <p className="font-bold text-gray-900 mb-2">{headerContent}</p>
-                  )}
-                  {headerType === 'image' && headerContent && (
-                    <img src={headerContent} alt="Header" className="w-full h-auto rounded-lg mb-2" />
-                  )}
-                  {headerType === 'video' && headerContent && (
-                    <video src={headerContent} controls className="w-full h-auto rounded-lg mb-2" />
-                  )}
-                  
-                  <p className="text-gray-800 whitespace-pre-wrap">{content || 'Your message will appear here...'}</p>
-                  
-                  {footerContent && (
-                    <p className="text-gray-400 text-xs mt-2">{footerContent}</p>
-                  )}
-                  
-                  {buttons.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {buttons.map((btn, idx) => (
-                        <button
-                          key={idx}
-                          className={`w-full py-2 px-3 rounded-lg text-sm font-medium ${
-                            btn.type === 'URL' ? 'bg-blue-100 text-blue-700' :
-                            btn.type === 'PHONE' ? 'bg-green-100 text-green-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          {btn.type === 'URL' && <Globe className="w-4 h-4 inline mr-1" />}
-                          {btn.type === 'PHONE' && <Phone className="w-4 h-4 inline mr-1" />}
-                          {btn.text}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <TemplatePreviewPhone
+                  businessName="Realhubb Ventures"
+                  headerType={headerType}
+                  headerContent={headerContent}
+                  content={content}
+                  footerContent={footerContent}
+                  buttons={buttons}
+                />
+                <p className="text-xs text-gray-400 mt-2 text-center">
+                  Approximate rendering — actual appearance may vary slightly by device
+                </p>
               </div>
             </div>
 
@@ -640,6 +707,39 @@ export default function WhatsAppTemplatesPage() {
                 {saving ? 'Submitting...' : editingTemplate ? 'Create on Meta' : 'Create Template'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {previewTemplate && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setPreviewTemplate(null)}
+        >
+          <div
+            className="bg-white rounded-xl p-5 max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">{previewTemplate.name}</h2>
+                <p className="text-xs text-gray-500">
+                  {previewTemplate.language} • {previewTemplate.category} •{" "}
+                  {getStatusLabel(previewTemplate.approvalStatus)}
+                </p>
+              </div>
+              <button onClick={() => setPreviewTemplate(null)} className="p-1 hover:bg-gray-100 rounded">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <TemplatePreviewPhone
+              businessName="Realhubb Ventures"
+              headerType={previewTemplate.headerType}
+              headerContent={previewTemplate.headerContent}
+              content={previewTemplate.content}
+              footerContent={previewTemplate.footerContent}
+              buttons={previewTemplate.buttons}
+            />
           </div>
         </div>
       )}

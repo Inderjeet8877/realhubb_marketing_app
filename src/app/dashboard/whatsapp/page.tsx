@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 
 interface Conversation {
   id: string;
@@ -130,6 +131,7 @@ export default function WhatsAppPage() {
   const [bulkSentCount, setBulkSentCount] = useState(0);
   const [bulkTotalCount, setBulkTotalCount] = useState(0);
   const [waAccountId] = useState<string>("1");
+  const [accountLabel, setAccountLabel] = useState<string>("");
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [templateSendImageUrl, setTemplateSendImageUrl] = useState<string>("");
@@ -156,7 +158,18 @@ export default function WhatsAppPage() {
   useEffect(() => {
     fetchContacts();
     fetchTemplates();
+    fetchAccountInfo();
   }, []);
+
+  const fetchAccountInfo = async () => {
+    try {
+      const r = await fetch(`/api/whatsapp/account-info?account_id=${waAccountId}`);
+      const d = await r.json();
+      if (d.success) {
+        setAccountLabel(`${d.verifiedName} (${d.displayPhoneNumber})`.trim());
+      }
+    } catch {}
+  };
 
   useEffect(() => {
     if (activeTab !== "inbox") return;
@@ -271,12 +284,23 @@ export default function WhatsAppPage() {
     }
   }, [chatMessages]);
 
+  // Templates (esp. header media URLs) can change on the Templates page in another
+  // tab — refetch right before the user picks one here instead of trusting the
+  // list fetched once at mount, which caused a stale/invalid image link to be sent.
+  useEffect(() => {
+    if (activeTab === "send") fetchTemplates();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (showBulkModal) fetchTemplates();
+  }, [showBulkModal]);
+
   const fetchTemplates = async () => {
     try {
       const r = await fetch("/api/whatsapp/templates");
       if (r.ok) {
         const d = await r.json();
-        setTemplates((d.templates || []).filter((t: any) => t.approvalStatus === "approved" || t.approvalStatus === "none"));
+        setTemplates((d.templates || []).filter((t: any) => t.approvalStatus === "approved"));
       }
     } catch {}
   };
@@ -446,7 +470,7 @@ export default function WhatsAppPage() {
     setLoading(true);
     try {
       const templateObj = templates.find((t: any) => t.name === selectedTemplate);
-      const effectiveImageUrl = templateSendImageUrl.trim() || templateObj?.headerContent || "";
+      const effectiveImageUrl = templateSendImageUrl.trim();
       const response = await fetch("/api/whatsapp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -912,7 +936,7 @@ export default function WhatsAppPage() {
             <div className="space-y-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                 <p className="text-sm text-green-800 flex items-center gap-2">
-                  <Phone className="w-4 h-4" /> Sending from: RealHubb Ventures (+91 63649 40394)
+                  <Phone className="w-4 h-4" /> Sending from: {accountLabel || "Loading account..."}
                 </p>
               </div>
               <div>
@@ -946,7 +970,14 @@ export default function WhatsAppPage() {
                   </div>
                   <select
                     value={selectedTemplate}
-                    onChange={e => { setSelectedTemplate(e.target.value); setTemplateSendImageUrl(""); }}
+                    onChange={e => {
+                      setSelectedTemplate(e.target.value);
+                      const picked = templates.find((t: any) => t.name === e.target.value);
+                      // Seed from the freshly-fetched template's real stored URL — never leave
+                      // this field showing a value that isn't actually in state (that mismatch
+                      // is what let a stale/invalid image link slip into a real send before).
+                      setTemplateSendImageUrl(picked?.headerContent || "");
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
                   >
                     <option value="">Select a template...</option>
@@ -959,18 +990,32 @@ export default function WhatsAppPage() {
 
                   {(() => {
                     const sel = templates.find((t: any) => t.name === selectedTemplate);
-                    if (!sel || sel.headerType !== 'image') return null;
+                    if (!sel) return null;
                     return (
-                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <label className="block text-xs font-semibold text-blue-800 mb-1">🖼 Image URL (required for this template)</label>
-                        <input
-                          type="text"
-                          value={templateSendImageUrl || sel.headerContent || ""}
-                          onChange={e => setTemplateSendImageUrl(e.target.value)}
-                          placeholder="https://your-server.com/image.jpg"
-                          className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        />
-                        <p className="text-xs text-blue-600 mt-1">Must be a publicly accessible URL (HTTPS).</p>
+                      <div className="mt-3 flex gap-4 items-start">
+                        <div className="w-56 shrink-0">
+                          <TemplatePreviewPhone
+                            businessName="Realhubb Ventures"
+                            headerType={sel.headerType}
+                            headerContent={sel.headerType === 'image' ? templateSendImageUrl : sel.headerContent}
+                            content={sel.content}
+                            footerContent={sel.footerContent}
+                            buttons={sel.buttons || []}
+                          />
+                        </div>
+                        {sel.headerType === 'image' && (
+                          <div className="flex-1 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <label className="block text-xs font-semibold text-blue-800 mb-1">🖼 Image URL (required for this template)</label>
+                            <input
+                              type="text"
+                              value={templateSendImageUrl}
+                              onChange={e => setTemplateSendImageUrl(e.target.value)}
+                              placeholder="https://your-server.com/image.jpg"
+                              className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            />
+                            <p className="text-xs text-blue-600 mt-1">Must be a publicly accessible URL (HTTPS).</p>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -983,10 +1028,29 @@ export default function WhatsAppPage() {
                   <textarea value={messageText} onChange={e => setMessageText(e.target.value)} rows={4} placeholder="Type your custom message..." className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900" />
                 </div>
               )}
-              <button onClick={handleSend} disabled={loading} className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                {loading ? "Sending..." : "Send Message"}
-              </button>
+              {(() => {
+                const sel = templates.find((t: any) => t.name === selectedTemplate);
+                const missingMedia = messageType === "template" && !!sel &&
+                  ['image', 'video', 'document'].includes(sel.headerType) &&
+                  !templateSendImageUrl.trim();
+                return (
+                  <>
+                    {missingMedia && (
+                      <p className="text-xs text-red-600 mb-2">
+                        This template needs a {sel.headerType} URL before it can be sent — Meta accepts the call but never delivers it otherwise.
+                      </p>
+                    )}
+                    <button
+                      onClick={handleSend}
+                      disabled={loading || missingMedia}
+                      className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                      {loading ? "Sending..." : "Send Message"}
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -1029,7 +1093,7 @@ export default function WhatsAppPage() {
             </div>
             <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
               <p className="text-sm text-green-800 flex items-center gap-2">
-                <Phone className="w-4 h-4" /> Using WhatsApp Account: RealHubb Ventures (+91 63649 40394)
+                <Phone className="w-4 h-4" /> Using WhatsApp Account: {accountLabel || "Loading account..."}
               </p>
             </div>
             <div className="mb-4">
@@ -1050,8 +1114,40 @@ export default function WhatsAppPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Select Template</label>
                 <select value={selectedBulkTemplate} onChange={e => setSelectedBulkTemplate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900">
                   <option value="">Select a template...</option>
-                  {templates.map(t => <option key={t.id} value={t.name}>{t.name} ({t.approvalStatus === "approved" ? "Approved" : "Pending"})</option>)}
+                  {templates.map(t => {
+                    const icon = t.headerType === 'image' ? '🖼 ' : t.headerType === 'video' ? '🎥 ' : t.headerType === 'document' ? '📄 ' : '';
+                    return <option key={t.id} value={t.name}>{icon}{t.name} ({t.approvalStatus === "approved" ? "Approved" : "Pending"})</option>;
+                  })}
                 </select>
+                {templates.length === 0 && (
+                  <p className="text-xs text-yellow-600 mt-1">No approved templates. Click Sync from Meta or create one at the Templates page.</p>
+                )}
+
+                {(() => {
+                  const sel = templates.find((t: any) => t.name === selectedBulkTemplate);
+                  if (!sel) return null;
+                  const missingHeaderMedia = ['image', 'video', 'document'].includes(sel.headerType) && !sel.headerContent;
+                  return (
+                    <div className="mt-3 flex gap-4 items-start">
+                      <div className="w-56 shrink-0">
+                        <TemplatePreviewPhone
+                          businessName="Realhubb Ventures"
+                          headerType={sel.headerType}
+                          headerContent={sel.headerContent}
+                          content={sel.content}
+                          footerContent={sel.footerContent}
+                          buttons={sel.buttons || []}
+                        />
+                      </div>
+                      {missingHeaderMedia && (
+                        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 flex-1">
+                          This template has a {sel.headerType} header but no media is attached — Meta will reject every send.
+                          Edit it on the Templates page and re-attach the {sel.headerType}.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
             {bulkMessageType === "text" && (
@@ -1192,14 +1288,26 @@ export default function WhatsAppPage() {
               </div>
             )}
 
-            <button
-              onClick={handleBulkSend}
-              disabled={sendingBulk || selectedContacts.length === 0 || (bulkMessageType === "text" && !bulkMessage) || (bulkMessageType === "template" && !selectedBulkTemplate)}
-              className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <Send className="w-5 h-5" />
-              Send to {selectedContacts.length} Contacts
-            </button>
+            {(() => {
+              const bulkSel = templates.find((t: any) => t.name === selectedBulkTemplate);
+              const bulkMissingMedia = bulkMessageType === "template" && !!bulkSel &&
+                ['image', 'video', 'document'].includes(bulkSel.headerType) && !bulkSel.headerContent;
+              return (
+                <button
+                  onClick={handleBulkSend}
+                  disabled={
+                    sendingBulk || selectedContacts.length === 0 ||
+                    (bulkMessageType === "text" && !bulkMessage) ||
+                    (bulkMessageType === "template" && !selectedBulkTemplate) ||
+                    bulkMissingMedia
+                  }
+                  className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Send className="w-5 h-5" />
+                  {bulkMissingMedia ? "Attach the template's media first" : `Send to ${selectedContacts.length} Contacts`}
+                </button>
+              );
+            })()}
           </div>
         </div>
       )}

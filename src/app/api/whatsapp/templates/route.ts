@@ -13,11 +13,16 @@ const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
  * Requires META_APP_ID — the App ID (not WABA ID).
  * Uses per-account META_APP_ID_1, META_APP_ID_2, META_APP_ID_3.
  */
+interface MediaHandleResult {
+  handle: string | null;
+  error: string | null;
+}
+
 async function uploadMediaHandle(
   imageUrl: string,
   accessToken: string,
   accountId: string = '1',
-): Promise<string | null> {
+): Promise<MediaHandleResult> {
   const appIdMap: Record<string, string | undefined> = {
     '1': process.env.META_APP_ID,
     '2': process.env.META_APP_ID_2,
@@ -25,16 +30,14 @@ async function uploadMediaHandle(
   };
   const appId = appIdMap[accountId] || appIdMap['1'];
   if (!appId) {
-    console.error('META_APP_ID env var missing — cannot upload media handle');
-    return null;
+    return { handle: null, error: 'META_APP_ID is not configured for this account — cannot upload header media.' };
   }
 
   try {
     // 1. Download the image from its public URL
     const fileRes = await fetch(imageUrl);
     if (!fileRes.ok) {
-      console.error('Failed to download image:', fileRes.status, imageUrl);
-      return null;
+      return { handle: null, error: `Could not download the header image from ${imageUrl} (HTTP ${fileRes.status}).` };
     }
     const buffer    = Buffer.from(await fileRes.arrayBuffer());
     const mimeType  = fileRes.headers.get('content-type') || 'image/jpeg';
@@ -50,7 +53,10 @@ async function uploadMediaHandle(
     const sessionData = await sessionRes.json();
     console.log('[upload] session:', JSON.stringify(sessionData));
     const uploadId: string = sessionData.id; // "upload:XXXXX"
-    if (!uploadId) return null;
+    if (!uploadId) {
+      const metaMsg = sessionData?.error?.message || JSON.stringify(sessionData);
+      return { handle: null, error: `Meta rejected the upload session: ${metaMsg}` };
+    }
 
     // 3. Upload binary  →  POST /{upload-id}
     const uploadRes  = await fetch(`${WHATSAPP_API_URL}/${uploadId}`, {
@@ -64,11 +70,42 @@ async function uploadMediaHandle(
     });
     const uploadData = await uploadRes.json();
     console.log('[upload] result:', JSON.stringify(uploadData));
-    return uploadData.h || null; // "4::aGFz..."
-  } catch (err) {
-    console.error('[upload] error:', err);
-    return null;
+    if (!uploadData.h) {
+      const metaMsg = uploadData?.error?.message || JSON.stringify(uploadData);
+      return { handle: null, error: `Meta rejected the media upload: ${metaMsg}` };
+    }
+    return { handle: uploadData.h, error: null }; // "4::aGFz..."
+  } catch (err: any) {
+    return { handle: null, error: `Header media upload failed: ${err.message || err}` };
   }
+}
+
+const EXPECTED_CONTENT_TYPE: Record<string, string> = {
+  image: 'image/',
+  video: 'video/',
+};
+
+// A header media URL that isn't a real, publicly-fetchable file causes the exact
+// failure mode this app kept hitting: Meta's send API accepts the call (returns a
+// wamid) and then never delivers it, with no error anywhere. Catch that at save
+// time instead — e.g. a Cloudinary *console* thumbnail link (res-console.cloudinary.com)
+// looks like a URL but 401s for anyone without a logged-in session, Meta included.
+async function validateHeaderMediaUrl(url: string, headerType: string): Promise<string | null> {
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+  } catch (err: any) {
+    return `Could not reach ${url}: ${err.message || err}`;
+  }
+  if (!res.ok && res.status !== 206) {
+    return `${url} returned HTTP ${res.status} — it must be a public, direct file URL (not a login-gated dashboard/console link).`;
+  }
+  const contentType = res.headers.get('content-type') || '';
+  const expected = EXPECTED_CONTENT_TYPE[headerType];
+  if (expected && !contentType.startsWith(expected)) {
+    return `${url} did not return a ${headerType} file (got content-type "${contentType}"). Use the "Upload to Cloudinary" button instead of pasting a URL copied from a dashboard.`;
+  }
+  return null;
 }
 
 function normalizePhoneNumber(phone: string): string | null {
@@ -232,6 +269,17 @@ export async function GET(request: Request) {
     while (nextUrl) {
       const res: Response = await fetch(nextUrl);
       const data: any = await res.json();
+      if (data.error) {
+        const metaError = data.error;
+        console.error('[Templates GET] Meta error:', metaError);
+        return NextResponse.json(
+          {
+            error: `Meta error (${metaError.code}): ${metaError.message}`,
+            templates: [],
+          },
+          { status: 502 }
+        );
+      }
       if (data.data) metaTemplates = [...metaTemplates, ...data.data];
       nextUrl = data.paging?.next || null;
     }
@@ -309,7 +357,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const accountNum = accountId === '2' ? '2' : '1';
+    const accountNum = (accountId === '2' || accountId === '3') ? accountId : '1';
     const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`];
     const businessAccountId = process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${accountNum}`];
 
@@ -326,9 +374,6 @@ export async function POST(request: Request) {
       .replace(/[^a-z0-9_]/g, '_')
       .replace(/^[^a-z]+/, '');          // strip leading non-alpha chars
 
-    // Use per-account META_APP_ID for media upload
-    const appId = process.env[`META_APP_ID_${accountId}`] || process.env.META_APP_ID;
-
     if (!safeName) {
       return NextResponse.json({ error: 'Template name must start with a letter' }, { status: 400 });
     }
@@ -336,21 +381,24 @@ export async function POST(request: Request) {
     // ── Build components ────────────────────────────────────────────────
 const components: any[] = [];
 
-    // HEADER — IMAGE header requires header_handle from Meta's upload API
-    // We can't upload to Meta, so just send format only (no example)
+    // HEADER — IMAGE/VIDEO/DOCUMENT headers require a header_handle from Meta's upload API
     if (headerType && headerType !== 'none') {
       const headerUpper = headerType.toUpperCase();
-      
+
       if ((headerUpper === 'IMAGE' || headerUpper === 'VIDEO' || headerUpper === 'DOCUMENT') && headerContent) {
-        const handle = await uploadMediaHandle(headerContent, accessToken);
-        if (handle) {
-          components.push({
-            type: 'HEADER',
-            format: headerUpper,
-            example: { header_handle: [handle] },
-          });
+        const { handle, error: uploadError } = await uploadMediaHandle(headerContent, accessToken, accountNum);
+        if (!handle) {
+          // Don't silently create a headerless template — the user explicitly chose a media header.
+          return NextResponse.json(
+            { error: `Header ${headerType} upload failed: ${uploadError || 'unknown error'}` },
+            { status: 502 }
+          );
         }
-        // If handle is null, skip the header entirely — don't send format without example
+        components.push({
+          type: 'HEADER',
+          format: headerUpper,
+          example: { header_handle: [handle] },
+        });
       } else if (headerUpper === 'TEXT' && headerContent) {
         components.push({ 
           type: 'HEADER', 
@@ -521,7 +569,21 @@ export async function PUT(request: Request) {
 
     if (!id) return NextResponse.json({ error: 'Template ID required' }, { status: 400 });
 
-    await adminDb.collection('whatsapp_templates').doc(id).update({
+    if (headerContent && ['image', 'video', 'document'].includes(headerType)) {
+      const validationError = await validateHeaderMediaUrl(headerContent, headerType);
+      if (validationError) {
+        return NextResponse.json({ error: validationError }, { status: 400 });
+      }
+    }
+
+    // Templates fetched live from Meta (never created through this app) have no
+    // Firestore doc yet — their "id" is Meta's template id. Upsert instead of
+    // update() so attaching a header image to one of these doesn't 404.
+    const docRef = adminDb.collection('whatsapp_templates').doc(id);
+    const existing = await docRef.get();
+    const metaTemplateId = existing.exists ? (existing.data()?.metaTemplateId || id) : id;
+
+    await docRef.set({
       name: (name || '').toLowerCase().replace(/[^a-z0-9_]/g, '_'),
       language: language || 'en',
       category: category || 'MARKETING',
@@ -530,8 +592,9 @@ export async function PUT(request: Request) {
       headerContent: headerContent || '',
       footerContent: footerContent || '',
       buttons: buttons || [],
+      metaTemplateId,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    }, { merge: true });
 
     return NextResponse.json({ success: true, message: 'Template updated successfully' });
   } catch (error: any) {
