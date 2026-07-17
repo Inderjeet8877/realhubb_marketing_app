@@ -992,9 +992,10 @@ export default function WhatsAppPage() {
                     const sel = templates.find((t: any) => t.name === selectedTemplate);
                     if (!sel) return null;
                     return (
-                      <div className="mt-3 flex gap-4 items-start">
-                        <div className="w-56 shrink-0">
+                      <div className="mt-3 flex flex-col sm:flex-row gap-4 items-start">
+                        <div className="w-full max-w-[220px] mx-auto sm:mx-0 shrink-0">
                           <TemplatePreviewPhone
+                            compact
                             businessName="Realhubb Ventures"
                             headerType={sel.headerType}
                             headerContent={sel.headerType === 'image' ? templateSendImageUrl : sel.headerContent}
@@ -1004,7 +1005,7 @@ export default function WhatsAppPage() {
                           />
                         </div>
                         {sel.headerType === 'image' && (
-                          <div className="flex-1 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="w-full flex-1 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                             <label className="block text-xs font-semibold text-blue-800 mb-1">🖼 Image URL (required for this template)</label>
                             <input
                               type="text"
@@ -1083,14 +1084,15 @@ export default function WhatsAppPage() {
 
       {/* ===== BULK MODAL ===== */}
       {showBulkModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-4 sm:p-6 pb-4 border-b border-gray-100 shrink-0">
               <h2 className="text-xl font-bold text-gray-900">Bulk Send Message</h2>
               <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); }} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
               <p className="text-sm text-green-800 flex items-center gap-2">
                 <Phone className="w-4 h-4" /> Using WhatsApp Account: {accountLabel || "Loading account..."}
@@ -1128,9 +1130,10 @@ export default function WhatsAppPage() {
                   if (!sel) return null;
                   const missingHeaderMedia = ['image', 'video', 'document'].includes(sel.headerType) && !sel.headerContent;
                   return (
-                    <div className="mt-3 flex gap-4 items-start">
-                      <div className="w-56 shrink-0">
+                    <div className="mt-3 flex flex-col sm:flex-row gap-4 items-start">
+                      <div className="w-full max-w-[220px] mx-auto sm:mx-0 shrink-0">
                         <TemplatePreviewPhone
+                          compact
                           businessName="Realhubb Ventures"
                           headerType={sel.headerType}
                           headerContent={sel.headerContent}
@@ -1140,7 +1143,7 @@ export default function WhatsAppPage() {
                         />
                       </div>
                       {missingHeaderMedia && (
-                        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 flex-1">
+                        <p className="w-full text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 flex-1">
                           This template has a {sel.headerType} header but no media is attached — Meta will reject every send.
                           Edit it on the Templates page and re-attach the {sel.headerType}.
                         </p>
@@ -1287,27 +1290,30 @@ export default function WhatsAppPage() {
                 )}
               </div>
             )}
+            </div>
 
-            {(() => {
-              const bulkSel = templates.find((t: any) => t.name === selectedBulkTemplate);
-              const bulkMissingMedia = bulkMessageType === "template" && !!bulkSel &&
-                ['image', 'video', 'document'].includes(bulkSel.headerType) && !bulkSel.headerContent;
-              return (
-                <button
-                  onClick={handleBulkSend}
-                  disabled={
-                    sendingBulk || selectedContacts.length === 0 ||
-                    (bulkMessageType === "text" && !bulkMessage) ||
-                    (bulkMessageType === "template" && !selectedBulkTemplate) ||
-                    bulkMissingMedia
-                  }
-                  className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Send className="w-5 h-5" />
-                  {bulkMissingMedia ? "Attach the template's media first" : `Send to ${selectedContacts.length} Contacts`}
-                </button>
-              );
-            })()}
+            <div className="p-4 sm:p-6 pt-4 border-t border-gray-100 shrink-0">
+              {(() => {
+                const bulkSel = templates.find((t: any) => t.name === selectedBulkTemplate);
+                const bulkMissingMedia = bulkMessageType === "template" && !!bulkSel &&
+                  ['image', 'video', 'document'].includes(bulkSel.headerType) && !bulkSel.headerContent;
+                return (
+                  <button
+                    onClick={handleBulkSend}
+                    disabled={
+                      sendingBulk || selectedContacts.length === 0 ||
+                      (bulkMessageType === "text" && !bulkMessage) ||
+                      (bulkMessageType === "template" && !selectedBulkTemplate) ||
+                      bulkMissingMedia
+                    }
+                    className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-5 h-5" />
+                    {bulkMissingMedia ? "Attach the template's media first" : `Send to ${selectedContacts.length} Contacts`}
+                  </button>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}

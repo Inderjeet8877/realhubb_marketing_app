@@ -294,12 +294,12 @@ export default function WhatsAppTemplatesPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">WhatsApp Templates</h1>
           <p className="text-gray-600">Create and manage message templates</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => fetchTemplates()}
             disabled={refreshing}
@@ -421,9 +421,9 @@ export default function WhatsAppTemplatesPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center mb-4 shrink-0">
               <h2 className="text-xl font-bold text-gray-900">
                 {editingTemplate ? `Edit: ${editingTemplate.name}` : "Create Template"}
               </h2>
@@ -432,9 +432,9 @@ export default function WhatsAppTemplatesPage() {
               </button>
             </div>
 
-            <div className="flex gap-4 flex-1 overflow-hidden">
+            <div className="flex flex-col lg:flex-row gap-4 flex-1 overflow-hidden">
               {/* Form Section */}
-              <div className="flex-1 overflow-y-auto pr-4 space-y-4">
+              <div className="flex-1 overflow-y-auto lg:pr-4 space-y-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-sm text-green-800 flex items-center gap-2">
                     Using WhatsApp Account: {accountLabel || "Loading account..."}
@@ -658,19 +658,21 @@ export default function WhatsAppTemplatesPage() {
               </div>
 
               {/* Preview Section — live WhatsApp phone mockup */}
-              <div className="w-80 shrink-0 flex flex-col">
+              <div className="w-full lg:w-72 shrink-0 flex flex-col lg:overflow-y-auto lg:border-l lg:border-gray-100 lg:pl-4">
                 <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <Eye className="w-4 h-4" />
                   Live Preview
                 </h3>
-                <TemplatePreviewPhone
-                  businessName="Realhubb Ventures"
-                  headerType={headerType}
-                  headerContent={headerContent}
-                  content={content}
-                  footerContent={footerContent}
-                  buttons={buttons}
-                />
+                <div className="max-w-[240px] mx-auto lg:mx-0 w-full">
+                  <TemplatePreviewPhone
+                    businessName="Realhubb Ventures"
+                    headerType={headerType}
+                    headerContent={headerContent}
+                    content={content}
+                    footerContent={footerContent}
+                    buttons={buttons}
+                  />
+                </div>
                 <p className="text-xs text-gray-400 mt-2 text-center">
                   Approximate rendering — actual appearance may vary slightly by device
                 </p>
@@ -713,11 +715,11 @@ export default function WhatsAppTemplatesPage() {
 
       {previewTemplate && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
           onClick={() => setPreviewTemplate(null)}
         >
           <div
-            className="bg-white rounded-xl p-5 max-w-sm w-full mx-4"
+            className="bg-white rounded-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
