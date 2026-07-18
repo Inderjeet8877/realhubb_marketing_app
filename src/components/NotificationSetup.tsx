@@ -187,6 +187,9 @@ export default function NotificationSetup() {
     if (typeof window === "undefined") return;
 
     const initialized = { done: false };
+    const LAST_SEEN_KEY = "whatsapp_last_seen_ts";
+    const lastSeenTs = Number(localStorage.getItem(LAST_SEEN_KEY) || 0);
+    let maxSeenTs = lastSeenTs;
 
     const q    = query(
       collection(db, "whatsapp_conversations"),
@@ -195,9 +198,40 @@ export default function NotificationSetup() {
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      // Skip the very first snapshot (that's all existing messages, not new ones)
       if (!initialized.done) {
         initialized.done = true;
+
+        // Previously this first snapshot was unconditionally skipped (it looks
+        // identical to "existing old data" vs. "arrived while we were away").
+        // That silently swallowed replies that came in while the app was closed
+        // AND the push notification also failed to show (e.g. the OS freezing
+        // the process before FCM could display one) — a double miss with zero
+        // trace. Now anything newer than the last time this listener was alive
+        // gets surfaced as soon as the app reopens.
+        if (lastSeenTs > 0) {
+          const missed = snap.docs
+            .map((doc) => doc.data())
+            .filter((d) => d.direction === "inbound" && (d.createdAt?.toDate?.().getTime() || 0) > lastSeenTs)
+            .sort((a, b) => (a.createdAt?.toDate?.().getTime() || 0) - (b.createdAt?.toDate?.().getTime() || 0));
+
+          missed.slice(0, 5).forEach((d) => {
+            const name = (d.name && d.name !== d.phone) ? d.name : d.phone;
+            addToast(name, d.message || "[New message]", d.phone || "");
+          });
+          if (missed.length > 5) {
+            addToast("WhatsApp", `+${missed.length - 5} more message(s) while you were away`, "summary");
+          }
+          if (missed.length > 0) {
+            incrementUnread();
+            if (soundEnabled) playPing();
+          }
+        }
+
+        for (const doc of snap.docs) {
+          const ts = doc.data().createdAt?.toDate?.().getTime() || 0;
+          if (ts > maxSeenTs) maxSeenTs = ts;
+        }
+        if (maxSeenTs > lastSeenTs) localStorage.setItem(LAST_SEEN_KEY, String(maxSeenTs));
         return;
       }
 
@@ -225,6 +259,13 @@ export default function NotificationSetup() {
 
         // 4. Increment global unread badge
         incrementUnread();
+
+        // 5. Keep "last seen" current so a later reopen doesn't re-surface this
+        const ts = d.createdAt?.toDate?.().getTime() || 0;
+        if (ts > maxSeenTs) {
+          maxSeenTs = ts;
+          localStorage.setItem(LAST_SEEN_KEY, String(maxSeenTs));
+        }
 
         console.log(`[Notification] New inbound from ${name}: ${body.slice(0, 60)}`);
       });
