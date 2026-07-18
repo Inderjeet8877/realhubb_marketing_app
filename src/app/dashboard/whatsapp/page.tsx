@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 
 interface Conversation {
@@ -175,8 +175,12 @@ export default function WhatsAppPage() {
     if (activeTab !== "inbox") return;
     setLoadingConversations(true);
 
+    // Unbounded before — this billed a read for every message document ever stored,
+    // on every listener attach and every new message anywhere. Capped to the most
+    // recent 500 messages, which comfortably covers active conversations while
+    // keeping this from scaling read costs with the entire lifetime message history.
     const unsub = onSnapshot(
-      query(collection(db, "whatsapp_conversations")),
+      query(collection(db, "whatsapp_conversations"), orderBy("createdAt", "desc"), limit(500)),
       (snap) => {
         setLoadingConversations(false);
         const sorted = snap.docs.slice().sort((a, b) => {

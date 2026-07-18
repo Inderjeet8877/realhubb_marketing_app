@@ -67,15 +67,6 @@ export default function WhatsAppTemplatesPage() {
       .catch(() => {});
   }, [selectedAccount]);
 
-  // Live status: while any template is still under Meta review, keep polling
-  // so an approval/rejection shows up without the user manually reloading.
-  useEffect(() => {
-    const hasPending = templates.some((t) => t.approvalStatus === "pending");
-    if (!hasPending) return;
-    const interval = setInterval(() => fetchTemplates(), 20000);
-    return () => clearInterval(interval);
-  }, [templates]);
-
   const fetchTemplates = async () => {
     setRefreshing(true);
     try {
@@ -321,7 +312,7 @@ export default function WhatsAppTemplatesPage() {
 
       {templates.some((t) => t.approvalStatus === "pending") && (
         <p className="text-xs text-gray-400 -mt-6 mb-6">
-          Auto-checking Meta every 20s while templates are pending review.
+          Some templates are still pending Meta review — click &quot;Refresh Status&quot; above to check for updates.
         </p>
       )}
 
