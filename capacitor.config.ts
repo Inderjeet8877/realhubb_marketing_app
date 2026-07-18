@@ -9,7 +9,9 @@ const config: CapacitorConfig = {
   // just loads the live deployed site, same as opening it in a browser but wrapped as
   // an installable app with native push notifications.
   server: {
-    url: 'https://www.realhubb.co.in',
+    // Skip the marketing landing page ("/") — the app shell is for logged-in
+    // operators, not new visitors, so go straight to the sign-in screen.
+    url: 'https://www.realhubb.co.in/auth/login',
     androidScheme: 'https',
   },
 };
