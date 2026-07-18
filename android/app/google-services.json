@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "752245781085",
+    "project_id": "realhubb-marketing-app",
+    "storage_bucket": "realhubb-marketing-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:752245781085:android:f314fa8dec12e916a9d3b4",
+        "android_client_info": {
+          "package_name": "com.realhubb.marketing"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "752245781085-59g7rc9q9qjv09a6aeb3gbi5q45ta2nf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCcxqts2oxrWaWP8zo9np_kwtm0gai8AtU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "752245781085-59g7rc9q9qjv09a6aeb3gbi5q45ta2nf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

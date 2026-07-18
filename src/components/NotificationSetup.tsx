@@ -224,7 +224,32 @@ export default function NotificationSetup() {
   }, [addToast, incrementUnread, browserNotificationsEnabled, soundEnabled]);
 
   // ── Permission & FCM setup ─────────────────────────────────────────────
+  // The web `Notification.permission` API does not reflect real state inside a
+  // Capacitor WebView (it's frequently stuck on "default"/unsupported there), so
+  // registerFCM() was never being triggered on native — check native permission
+  // via the Capacitor plugin instead when running inside the app shell.
   useEffect(() => {
+    const isNative = typeof window !== "undefined" && (window as any).Capacitor?.isNativePlatform?.();
+
+    if (isNative) {
+      (async () => {
+        try {
+          const { PushNotifications } = await import("@capacitor/push-notifications");
+          const status = await PushNotifications.checkPermissions();
+          setPermission(status.receive === "granted" ? "granted" : status.receive === "denied" ? "denied" : "default");
+
+          if (status.receive === "granted" && backgroundPushEnabled) {
+            registerFCM();
+          } else if (status.receive === "prompt" && browserNotificationsEnabled && !localStorage.getItem("notif_banner_dismissed")) {
+            setShowBanner(true);
+          }
+        } catch (err) {
+          console.error("[Native Push] permission check error:", err);
+        }
+      })();
+      return;
+    }
+
     if (typeof Notification === "undefined") {
       setPermission("unsupported");
       return;
@@ -289,6 +314,25 @@ export default function NotificationSetup() {
 
   const handleEnable = async () => {
     setShowBanner(false);
+
+    const isNative = typeof window !== "undefined" && (window as any).Capacitor?.isNativePlatform?.();
+    if (isNative) {
+      try {
+        const { PushNotifications } = await import("@capacitor/push-notifications");
+        const status = await PushNotifications.requestPermissions();
+        const granted = status.receive === "granted";
+        setPermission(granted ? "granted" : "denied");
+        if (granted) {
+          await registerFCM();
+        } else {
+          localStorage.setItem("notif_banner_dismissed", "1");
+        }
+      } catch (err) {
+        console.error("[Native Push] request permission error:", err);
+      }
+      return;
+    }
+
     const result = await Notification.requestPermission();
     setPermission(result);
     if (result === "granted") {
