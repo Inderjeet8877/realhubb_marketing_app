@@ -134,6 +134,19 @@ async function sendPushNotification(senderName: string, body: string) {
       title: `💬 ${senderName}`,
       body:  body.slice(0, 120),
     },
+    android: {
+      // Explicit high priority so this wakes the device out of Doze rather than
+      // waiting for the next maintenance window — the default is already high for
+      // notification-payload messages, but this removes any ambiguity. Note: this
+      // cannot override an OEM (e.g. Samsung/MIUI) killing the app's background
+      // process via its own battery manager — that's a device setting, not FCM.
+      priority: 'high',
+      notification: {
+        channelId: 'whatsapp_replies',
+        defaultVibrateTimings: true,
+        visibility: 'public',
+      },
+    },
     webpush: {
       notification: {
         icon:    '/favicon.ico',

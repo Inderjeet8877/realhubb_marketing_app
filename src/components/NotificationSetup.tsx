@@ -103,6 +103,18 @@ export default function NotificationSetup() {
         const perm = await PushNotifications.requestPermissions();
         if (perm.receive !== "granted") return;
 
+        // Must exist before the server can target it by channelId — an unknown
+        // channel ID on an incoming FCM message can cause Android to silently drop
+        // the notification instead of falling back to a default channel.
+        await PushNotifications.createChannel({
+          id: "whatsapp_replies",
+          name: "WhatsApp replies",
+          description: "Alerts when a lead replies on WhatsApp",
+          importance: 5, // IMPORTANCE_HIGH — heads-up popup + sound
+          visibility: 1, // VISIBILITY_PUBLIC
+          vibration: true,
+        }).catch((err) => console.error("[Native Push] createChannel error:", err));
+
         await PushNotifications.register();
 
         PushNotifications.addListener("registration", async (token) => {
