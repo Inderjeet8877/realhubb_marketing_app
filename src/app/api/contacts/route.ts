@@ -156,6 +156,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const listCategories = searchParams.get('listCategories') === 'true';
   const filterDataName = searchParams.get('dataName');
+  const failed = searchParams.get('failed') === 'true';
 
   try {
     if (listCategories) {
@@ -163,7 +164,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, categories: data.categories || [] });
     }
 
-    const params: Record<string, string> = { action: 'getAll' };
+    const params: Record<string, string> = { action: failed ? 'getFailedData' : 'getAll' };
     if (filterDataName) params.dataName = filterDataName;
 
     const data = await sheetsGet(params);

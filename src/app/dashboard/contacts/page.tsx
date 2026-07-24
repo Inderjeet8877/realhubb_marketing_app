@@ -276,6 +276,8 @@ function ImportModal({
 export default function ContactsPage() {
   const { data: contactsData, isLoading: contactsLoading, mutate: reloadContacts } =
     useSWR("/api/contacts", fetcher, swrConfig);
+  const { data: failedData, isLoading: failedLoading } =
+    useSWR("/api/contacts?failed=true", fetcher, swrConfig);
 
   const contacts: Contact[] = (contactsData?.contacts || []).map((c: any) => ({
     ...c,
@@ -285,9 +287,17 @@ export default function ContactsPage() {
     tags:  Array.isArray(c.tags) ? c.tags
            : typeof c.tags === 'string' ? c.tags.split(',').filter(Boolean) : [],
   }));
+  const failedContacts: (Contact & { failReason?: string })[] = (failedData?.contacts || []).map((c: any) => ({
+    ...c,
+    id:    c.id    || '',
+    name:  String(c.name  ?? 'Unknown'),
+    phone: String(c.phone ?? ''),
+    failReason: c.failReason || 'Unknown',
+  }));
   const totalContacts = contactsData?.total || contacts.length;
   const loading = contactsLoading && contacts.length === 0;
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState<"good" | "failed">("good");
   const [showImportModal, setShowImportModal] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -516,9 +526,13 @@ export default function ContactsPage() {
     }
   };
 
-  const allBatches = [...new Set(contacts.map(c => c.dataName || 'Uncategorized'))].sort();
+  const allBatches = [...new Set(
+    [...contacts, ...failedContacts].map(c => c.dataName || 'Uncategorized')
+  )].sort();
 
-  const filteredContacts = contacts.filter((contact) => {
+  const activeList = viewMode === "failed" ? failedContacts : contacts;
+
+  const filteredContacts = activeList.filter((contact) => {
     if (!contact || typeof contact !== 'object') return false;
     const name  = String(contact.name ?? '');
     const phone = String(contact.phone ?? '');
@@ -559,47 +573,75 @@ export default function ContactsPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Users className="w-6 h-6 text-blue-600" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 sm:p-3 bg-blue-100 rounded-lg shrink-0">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{totalContacts}</p>
-              <p className="text-sm text-gray-600">Total Contacts</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Tag className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{uniqueTags.length}</p>
-              <p className="text-sm text-gray-600">Active Tags</p>
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalContacts}</p>
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Total Contacts</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Plus className="w-6 h-6 text-purple-600" />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 sm:p-3 bg-green-100 rounded-lg shrink-0">
+              <Tag className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{uniqueTags.length}</p>
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Active Tags</p>
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => { setViewMode("failed"); setFilterBatch("all"); }}
+          className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 text-left transition-colors ${
+            viewMode === "failed" ? "border-red-300 ring-1 ring-red-200" : "border-gray-100 hover:border-red-200"
+          }`}
+        >
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 sm:p-3 bg-red-100 rounded-lg shrink-0">
+              <X className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                {failedLoading ? "…" : failedContacts.length}
+              </p>
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Failed Numbers</p>
+            </div>
+          </div>
+        </button>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 sm:p-3 bg-purple-100 rounded-lg shrink-0">
+              <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">
                 {contacts.filter((c) => {
                   const thirtyDaysAgo = new Date();
                   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
                   return new Date(c.addedAt) >= thirtyDaysAgo;
                 }).length}
               </p>
-              <p className="text-sm text-gray-600">Added This Month</p>
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Added This Month</p>
             </div>
           </div>
         </div>
       </div>
+
+      {viewMode === "failed" && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <X className="w-4 h-4 shrink-0" />
+          <span>Viewing failed/invalid numbers, separated out during validation — not part of your sendable contacts.</span>
+          <button onClick={() => setViewMode("good")} className="ml-auto font-medium text-red-800 hover:text-red-900 shrink-0">
+            Back to Contacts
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-200 space-y-3">
@@ -664,36 +706,50 @@ export default function ContactsPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-10">
-                    <button onClick={toggleSelectAll} className="p-1 hover:bg-gray-100 rounded">
-                      {selectAll ? (
-                        <CheckSquare className="w-4 h-4 text-blue-600" />
-                      ) : (
-                        <Square className="w-4 h-4 text-gray-400" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Batch / Tags</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Added</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredContacts.map((contact) => (
-                  <tr key={contact.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <button onClick={() => toggleSelect(contact.id)} className="p-1 hover:bg-gray-100 rounded">
-                        {selectedIds.has(contact.id) ? (
+                  {viewMode === "good" ? (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-10">
+                      <button onClick={toggleSelectAll} className="p-1 hover:bg-gray-100 rounded">
+                        {selectAll ? (
                           <CheckSquare className="w-4 h-4 text-blue-600" />
                         ) : (
                           <Square className="w-4 h-4 text-gray-400" />
                         )}
                       </button>
-                    </td>
+                    </th>
+                  ) : (
+                    <th className="px-6 py-3 w-10" />
+                  )}
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Batch / Tags</th>
+                  {viewMode === "failed" ? (
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                  ) : (
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Added</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredContacts.map((contact) => (
+                  <tr key={contact.id} className="hover:bg-gray-50">
+                    {viewMode === "good" ? (
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <button onClick={() => toggleSelect(contact.id)} className="p-1 hover:bg-gray-100 rounded">
+                          {selectedIds.has(contact.id) ? (
+                            <CheckSquare className="w-4 h-4 text-blue-600" />
+                          ) : (
+                            <Square className="w-4 h-4 text-gray-400" />
+                          )}
+                        </button>
+                      </td>
+                    ) : (
+                      <td className="px-3 py-3" />
+                    )}
                     <td className="px-3 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-blue-100 flex-shrink-0 flex items-center justify-center text-blue-600 font-medium text-sm">
+                          <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center font-medium text-sm ${
+                            viewMode === "failed" ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
+                          }`}>
                             {String(contact.name ?? '?').charAt(0).toUpperCase()}
                           </div>
                           <span className="font-medium text-gray-900 text-sm">{String(contact.name ?? 'Unknown')}</span>
@@ -720,9 +776,17 @@ export default function ContactsPage() {
                          })()}
                       </div>
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-gray-500 text-sm hidden md:table-cell">
-                       {contact.addedAt ? (() => { try { return new Date(contact.addedAt).toLocaleDateString(); } catch { return '—'; } })() : '—'}
-                    </td>
+                    {viewMode === "failed" ? (
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <span className="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                          {(contact as any).failReason || 'Unknown'}
+                        </span>
+                      </td>
+                    ) : (
+                      <td className="px-3 py-3 whitespace-nowrap text-gray-500 text-sm hidden md:table-cell">
+                         {contact.addedAt ? (() => { try { return new Date(contact.addedAt).toLocaleDateString(); } catch { return '—'; } })() : '—'}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

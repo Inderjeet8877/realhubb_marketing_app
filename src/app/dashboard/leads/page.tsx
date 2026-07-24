@@ -626,54 +626,54 @@ export default function LeadsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-shadow hover:shadow-md">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Leads</p>
-              <p className="text-2xl font-bold text-gray-900">{totalLeads}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Total Leads</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalLeads}</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Users className="w-6 h-6 text-blue-600" />
+            <div className="p-2 sm:p-3 bg-blue-100 rounded-lg shrink-0">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-shadow hover:shadow-md">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Forms</p>
-              <p className="text-2xl font-bold text-gray-900">{forms.length}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Total Forms</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{forms.length}</p>
             </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <FileText className="w-6 h-6 text-purple-600" />
+            <div className="p-2 sm:p-3 bg-purple-100 rounded-lg shrink-0">
+              <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-shadow hover:shadow-md">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active Forms</p>
-              <p className="text-2xl font-bold text-green-600">{activeForms}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Active Forms</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-600">{activeForms}</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Target className="w-6 h-6 text-green-600" />
+            <div className="p-2 sm:p-3 bg-green-100 rounded-lg shrink-0">
+              <Target className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-shadow hover:shadow-md">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Auto Refresh</p>
-              <p className="text-lg font-bold text-gray-900">
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">Auto Refresh</p>
+              <p className="text-base sm:text-lg font-bold text-gray-900">
                 {autoRefresh ? "On (30s)" : "Off"}
               </p>
             </div>
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
                 autoRefresh ? "bg-blue-600" : "bg-gray-300"
               }`}
             >
@@ -687,7 +687,7 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      <div className="flex gap-4 mb-6 border-b border-gray-200">
+      <div className="flex gap-4 mb-6 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab("forms")}
           className={`pb-3 px-1 text-sm font-medium transition-colors ${
@@ -916,26 +916,26 @@ export default function LeadsPage() {
       {selectedForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <div className="flex items-center gap-3">
+            <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50">
+              <div className="flex items-center gap-3 min-w-0">
                 <button
                   onClick={closeFormLeads}
-                  className="p-2 hover:bg-gray-200 rounded-lg"
+                  className="p-2 hover:bg-gray-200 rounded-lg shrink-0"
                 >
                   <ArrowLeft className="w-5 h-5 text-gray-600" />
                 </button>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">{selectedForm.name}</h2>
-                  <p className="text-sm text-gray-500">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold text-gray-900 truncate">{selectedForm.name}</h2>
+                  <p className="text-sm text-gray-500 truncate">
                     {selectedForm.pageName || selectedForm.businessName} | {formLeads.length} leads
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={saveToDatabase}
                   disabled={savingToDb}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
                 >
                   <Database className="w-4 h-4" />
                   {savingToDb ? "Saving..." : "Send to Database"}
@@ -943,12 +943,12 @@ export default function LeadsPage() {
                 <button
                   onClick={sendToWhatsApp}
                   disabled={savingToDb}
-                  className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
                 >
                   <MessageSquare className="w-4 h-4" />
                   Send WA Message
                 </button>
-                <button onClick={closeFormLeads} className="p-2 hover:bg-gray-200 rounded-lg">
+                <button onClick={closeFormLeads} className="p-2 hover:bg-gray-200 rounded-lg shrink-0">
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
