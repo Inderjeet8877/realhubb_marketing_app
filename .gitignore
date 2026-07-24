@@ -30,6 +30,11 @@ yarn-error.log*
 *firebase-adminsdk*.json
 firebase-service-account.json
 
+# Local data backups / scratch scripts (may contain real customer PII)
+_contacts_backup.json
+_*_tmp.js
+_*.json
+
 # Vercel
 .vercel
 
