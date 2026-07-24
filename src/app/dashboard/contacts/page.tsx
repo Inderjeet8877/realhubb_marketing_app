@@ -298,6 +298,7 @@ export default function ContactsPage() {
   const loading = contactsLoading && contacts.length === 0;
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"good" | "failed">("good");
+  const [statFilter, setStatFilter] = useState<"all" | "tagged" | "recent">("all");
   const [showImportModal, setShowImportModal] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -532,13 +533,23 @@ export default function ContactsPage() {
 
   const activeList = viewMode === "failed" ? failedContacts : contacts;
 
+  const isRecent = (c: Contact) => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    return new Date(c.addedAt) >= thirtyDaysAgo;
+  };
+  const isTagged = (c: Contact) => Array.isArray(c.tags) && c.tags.length > 0;
+
   const filteredContacts = activeList.filter((contact) => {
     if (!contact || typeof contact !== 'object') return false;
     const name  = String(contact.name ?? '');
     const phone = String(contact.phone ?? '');
     const matchSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || phone.includes(searchTerm);
     const matchBatch  = filterBatch === 'all' || (contact.dataName || 'Uncategorized') === filterBatch;
-    return matchSearch && matchBatch;
+    const matchStat   = viewMode === "failed" || statFilter === "all"
+      || (statFilter === "tagged" && isTagged(contact))
+      || (statFilter === "recent" && isRecent(contact));
+    return matchSearch && matchBatch && matchStat;
   });
 
   const uniqueTags = [...new Set(contacts.flatMap((c) => {
@@ -574,7 +585,12 @@ export default function ContactsPage() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        <button
+          onClick={() => { setViewMode("good"); setStatFilter("all"); }}
+          className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 text-left transition-colors hover:shadow-md ${
+            viewMode === "good" && statFilter === "all" ? "border-blue-300 ring-1 ring-blue-200" : "border-gray-100 hover:border-blue-200"
+          }`}
+        >
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="p-2.5 sm:p-3 bg-blue-100 rounded-lg shrink-0">
               <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
@@ -584,8 +600,13 @@ export default function ContactsPage() {
               <p className="text-xs sm:text-sm text-gray-600 truncate">Total Contacts</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        </button>
+        <button
+          onClick={() => { setViewMode("good"); setStatFilter("tagged"); }}
+          className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 text-left transition-colors hover:shadow-md ${
+            viewMode === "good" && statFilter === "tagged" ? "border-green-300 ring-1 ring-green-200" : "border-gray-100 hover:border-green-200"
+          }`}
+        >
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="p-2.5 sm:p-3 bg-green-100 rounded-lg shrink-0">
               <Tag className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
@@ -595,10 +616,10 @@ export default function ContactsPage() {
               <p className="text-xs sm:text-sm text-gray-600 truncate">Active Tags</p>
             </div>
           </div>
-        </div>
+        </button>
         <button
           onClick={() => { setViewMode("failed"); setFilterBatch("all"); }}
-          className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 text-left transition-colors ${
+          className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 text-left transition-colors hover:shadow-md ${
             viewMode === "failed" ? "border-red-300 ring-1 ring-red-200" : "border-gray-100 hover:border-red-200"
           }`}
         >
@@ -614,23 +635,24 @@ export default function ContactsPage() {
             </div>
           </div>
         </button>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        <button
+          onClick={() => { setViewMode("good"); setStatFilter("recent"); }}
+          className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 text-left transition-colors hover:shadow-md ${
+            viewMode === "good" && statFilter === "recent" ? "border-purple-300 ring-1 ring-purple-200" : "border-gray-100 hover:border-purple-200"
+          }`}
+        >
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="p-2.5 sm:p-3 bg-purple-100 rounded-lg shrink-0">
               <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
             </div>
             <div className="min-w-0">
               <p className="text-xl sm:text-2xl font-bold text-gray-900">
-                {contacts.filter((c) => {
-                  const thirtyDaysAgo = new Date();
-                  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                  return new Date(c.addedAt) >= thirtyDaysAgo;
-                }).length}
+                {contacts.filter(isRecent).length}
               </p>
               <p className="text-xs sm:text-sm text-gray-600 truncate">Added This Month</p>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {viewMode === "failed" && (
@@ -639,6 +661,24 @@ export default function ContactsPage() {
           <span>Viewing failed/invalid numbers, separated out during validation — not part of your sendable contacts.</span>
           <button onClick={() => setViewMode("good")} className="ml-auto font-medium text-red-800 hover:text-red-900 shrink-0">
             Back to Contacts
+          </button>
+        </div>
+      )}
+      {viewMode === "good" && statFilter === "tagged" && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+          <Tag className="w-4 h-4 shrink-0" />
+          <span>Viewing contacts that have at least one tag.</span>
+          <button onClick={() => setStatFilter("all")} className="ml-auto font-medium text-green-800 hover:text-green-900 shrink-0">
+            Show All
+          </button>
+        </div>
+      )}
+      {viewMode === "good" && statFilter === "recent" && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+          <Plus className="w-4 h-4 shrink-0" />
+          <span>Viewing contacts added in the last 30 days.</span>
+          <button onClick={() => setStatFilter("all")} className="ml-auto font-medium text-purple-800 hover:text-purple-900 shrink-0">
+            Show All
           </button>
         </div>
       )}
