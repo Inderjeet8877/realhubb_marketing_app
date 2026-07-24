@@ -389,11 +389,18 @@ async function handleBulkSend(body: BulkSendRequest) {
         failed: contacts.length - successCount, delivered: 0, read: 0,
         contacts: contactResults, createdAt: FieldValue.serverTimestamp(),
       });
-      const wamidBatch = adminDb.batch();
-      for (const r of contactResults) {
-        if (r.wamid) wamidBatch.set(adminDb.collection('wamid_index').doc(r.wamid), { broadcastId, phone: r.phone });
+      // Firestore write batches hard-cap at 500 operations — a single batch built
+      // for the whole broadcast used to throw (and silently drop ALL delivery/read
+      // tracking) for any broadcast over ~500 recipients. Chunk it.
+      const withWamid = contactResults.filter(r => r.wamid);
+      const CHUNK = 450;
+      for (let i = 0; i < withWamid.length; i += CHUNK) {
+        const batch = adminDb.batch();
+        for (const r of withWamid.slice(i, i + CHUNK)) {
+          batch.set(adminDb.collection('wamid_index').doc(r.wamid!), { broadcastId, phone: r.phone });
+        }
+        await batch.commit();
       }
-      await wamidBatch.commit();
     } catch (err) {
       console.error('[Bulk Send] Failed to save broadcast report:', err);
     }

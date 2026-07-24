@@ -1384,6 +1384,12 @@ function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batc
   const [reports, setReports]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  // Per-contact delivered/read status is fetched lazily, only for whichever
+  // broadcast's "Details" panel is open — not baked into the list response —
+  // to avoid re-triggering the Firestore quota exhaustion this app hit once
+  // already from reading too much per page load.
+  const [liveContacts, setLiveContacts] = useState<Record<string, any[]>>({});
+  const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/whatsapp/broadcasts")
@@ -1391,6 +1397,22 @@ function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batc
       .then(d => { setReports(d.broadcasts || []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  const toggleExpanded = async (id: string) => {
+    if (expanded === id) { setExpanded(null); return; }
+    setExpanded(id);
+    if (liveContacts[id]) return; // already fetched
+    setLoadingStatus(id);
+    try {
+      const res = await fetch(`/api/whatsapp/broadcasts?id=${id}`);
+      const d = await res.json();
+      if (d.success) setLiveContacts(prev => ({ ...prev, [id]: d.contacts }));
+    } catch {
+      // fall back silently to the send-time snapshot already in `reports`
+    } finally {
+      setLoadingStatus(null);
+    }
+  };
 
   if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-green-600" /></div>;
   if (reports.length === 0) {
@@ -1410,9 +1432,10 @@ function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batc
         <span className="text-sm text-gray-500">{reports.length} broadcasts</span>
       </div>
       {reports.map((r: any) => {
-        const contacts: any[] = r.contacts || [];
+        const contacts: any[] = liveContacts[r.id] || r.contacts || [];
         const failedList      = contacts.filter((c: any) => !c.success);
         const isExpanded      = expanded === r.id;
+        const isLoadingStatus = loadingStatus === r.id;
         const phones          = contacts.map((c: any) => c.phone).filter(Boolean);
 
         return (
@@ -1435,10 +1458,10 @@ function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batc
                     <MessageSquare className="w-3.5 h-3.5" /> Replies
                   </button>
                   <button
-                    onClick={() => setExpanded(isExpanded ? null : r.id)}
+                    onClick={() => toggleExpanded(r.id)}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
-                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Details
+                    {isLoadingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Details
                   </button>
                 </div>
               </div>

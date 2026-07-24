@@ -38,21 +38,50 @@ export async function POST(request: NextRequest) {
             console.log(`[Webhook] ✅ Status ${s.status} → wamid ${s.id}`);
           }
 
-          // Update broadcast report via wamid_index lookup
+          // Update broadcast report via wamid_index lookup.
+          //
+          // This used to run a Firestore transaction that read the ENTIRE recipient
+          // array off the single bulk_reports/{broadcastId} doc, mutated one entry,
+          // and wrote the whole array back — for every single status webhook. A mass
+          // broadcast generates a burst of these (up to 2 per recipient, all within
+          // a short window) all contending on that one document; Firestore's
+          // per-document write throughput is limited, so the vast majority of these
+          // transactions were silently aborting after exhausting their retries. That's
+          // why delivered/read counts in-app sat at 10-20% of what Meta's own
+          // dashboard reported as actually delivered (~99%) — this app's own counter
+          // was the broken part, not real delivery.
+          //
+          // Fix: each recipient gets its own document (bulk_reports/{id}/recipients/{wamid}),
+          // so concurrent updates for DIFFERENT recipients never touch the same
+          // document. The only remaining write to the shared parent doc is a
+          // FieldValue.increment() on the aggregate counters — increments are
+          // specifically safe for high-concurrency writes to one document (Firestore
+          // merges them server-side without needing a read), unlike a full
+          // read-modify-write.
           const idxDoc = await adminDb.collection('wamid_index').doc(s.id).get();
           if (idxDoc.exists) {
             const { broadcastId } = idxDoc.data()!;
-            const reportRef = adminDb.collection('bulk_reports').doc(broadcastId);
-            await adminDb.runTransaction(async (tx) => {
-              const report = await tx.get(reportRef);
-              if (!report.exists) return;
-              const contacts: any[] = [...(report.data()!.contacts || [])];
-              const idx = contacts.findIndex((c: any) => c.wamid === s.id);
-              if (idx >= 0) contacts[idx] = { ...contacts[idx], status: s.status };
-              const delivered = contacts.filter((c: any) => c.status === 'delivered' || c.status === 'read').length;
-              const read      = contacts.filter((c: any) => c.status === 'read').length;
-              tx.update(reportRef, { contacts, delivered, read });
-            });
+            const reportRef    = adminDb.collection('bulk_reports').doc(broadcastId);
+            const recipientRef = reportRef.collection('recipients').doc(s.id);
+
+            const recipientSnap = await recipientRef.get();
+            const prevStatus: string = recipientSnap.data()?.status || 'sent';
+            const rank = (st: string) => ({ sent: 0, delivered: 1, read: 2 } as Record<string, number>)[st] ?? -1;
+
+            await recipientRef.set({ status: s.status, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+
+            if (rank(s.status) > rank(prevStatus)) {
+              const increments: Record<string, any> = {};
+              if (rank(s.status) >= rank('delivered') && rank(prevStatus) < rank('delivered')) {
+                increments.delivered = FieldValue.increment(1);
+              }
+              if (s.status === 'read' && prevStatus !== 'read') {
+                increments.read = FieldValue.increment(1);
+              }
+              if (Object.keys(increments).length > 0) {
+                await reportRef.update(increments);
+              }
+            }
           }
         } catch (err) {
           console.error(`[Webhook] Failed to update status ${s.id}:`, err);
