@@ -2,12 +2,46 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { getApps } from 'firebase-admin/app';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
 
+// Meta signs every webhook POST with the app's secret (HMAC-SHA256 over the
+// raw request body) in the X-Hub-Signature-256 header — verifying it is
+// Meta's own documented requirement for confirming a payload genuinely came
+// from Meta and not a forged request to this public URL (e.g. fake "read"
+// receipts to inflate reports, or fake inbound messages to spam push
+// notifications to every device). Fails OPEN (processes the request but
+// logs a warning) only when META_APP_SECRET isn't configured at all, so a
+// missing env var doesn't silently break real delivery tracking — but any
+// request whose signature doesn't match a configured secret is rejected.
+function isValidSignature(rawBody: string, signatureHeader: string | null): boolean {
+  const secret = process.env.META_APP_SECRET;
+  if (!secret) {
+    console.warn('[Webhook] META_APP_SECRET not set — skipping signature verification. Set it in Vercel to secure this endpoint.');
+    return true;
+  }
+  if (!signatureHeader || !signatureHeader.startsWith('sha256=')) return false;
+
+  const expected = createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex');
+  const provided = signatureHeader.slice('sha256='.length);
+
+  const expectedBuf = Buffer.from(expected, 'hex');
+  const providedBuf = Buffer.from(provided, 'hex');
+  if (expectedBuf.length !== providedBuf.length) return false;
+  return timingSafeEqual(expectedBuf, providedBuf);
+}
+
 export async function POST(request: NextRequest) {
+  const rawBody = await request.text();
+
+  if (!isValidSignature(rawBody, request.headers.get('x-hub-signature-256'))) {
+    console.warn('[Webhook] Rejected — invalid or missing X-Hub-Signature-256');
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+  }
+
   let body: any = null;
   try {
-    body = await request.json();
+    body = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ status: 'ok' });
   }

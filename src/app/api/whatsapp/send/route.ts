@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
-
-const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
+import { WHATSAPP_API_URL, SendConfig, buildMetaRequestBody, getMetaCredentials, validateTemplateHeaderMedia } from '@/lib/whatsapp-send';
 
 async function getTemplateContent(templateName: string): Promise<string> {
   try {
@@ -88,19 +87,20 @@ async function handleSingleSend(body: SendMessageRequest) {
     );
   }
 
-  const accountNum = (accountId === '2' || accountId === '3') ? accountId : '1';
-  const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`] || process.env.WHATSAPP_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN_1;
-  const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`] || process.env.WHATSAPP_PHONE_NUMBER_ID_1;
+  const { accountNum, accessToken, phoneNumberId } = getMetaCredentials(accountId);
   const businessAccountId = process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${accountNum}`] || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
 
-  const useTemplate = isTemplate || templateName;
+  // useTemplate/imageUrl/message all feed buildMetaRequestBody below — this is
+  // the same request-shape logic the backend broadcast worker uses, kept in
+  // one place (@/lib/whatsapp-send) so single sends and bulk sends can't
+  // silently diverge in how they talk to Meta.
+  const useTemplate = !!(isTemplate || templateName) && !imageUrl;
   console.log(`WhatsApp send - Account: ${accountNum}, PhoneID: ${phoneNumberId}, isTemplate: ${useTemplate}, templateName: ${templateName}, hasMessage: ${!!message}`);
 
-  if (!accessToken || !phoneNumberId || !businessAccountId) {
+  if (!accessToken || !phoneNumberId) {
     const missing = [];
     if (!accessToken) missing.push('META_ACCESS_TOKEN');
     if (!phoneNumberId) missing.push('WHATSAPP_PHONE_NUMBER_ID');
-    if (!businessAccountId) missing.push('WHATSAPP_BUSINESS_ACCOUNT_ID');
     console.error('Missing env vars:', missing);
     return NextResponse.json(
       { error: `WhatsApp not configured. Missing: ${missing.join(', ')}` },
@@ -108,101 +108,24 @@ async function handleSingleSend(body: SendMessageRequest) {
     );
   }
 
-const cleanPhone = phoneNumber.replace(/\D/g, '');
+  const cleanPhone = phoneNumber.replace(/\D/g, '');
   const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
 
-  let requestBody: any;
-
-  // First priority: Send as template if isTemplate is true or templateName exists
-  if (useTemplate && !imageUrl) {
-    // Use exact template name from Meta — do not modify it
-    const templateToUse = (templateName || 'hello_world').trim();
-    const templateLang = languageCode || 'en';
-
-    // A template approved with a media header REQUIRES that header parameter on every
-    // send. Meta will silently accept the call and never deliver it if it's missing —
-    // there's no error, no webhook, nothing. So refuse to send rather than fail silently.
-    if (['image', 'video', 'document'].includes(templateHeaderType || '')) {
-      if (!templateHeaderContent) {
-        return NextResponse.json(
-          {
-            error: `Template "${templateToUse}" has a ${templateHeaderType} header but no media URL was provided. ` +
-              `Attach the ${templateHeaderType} on the Templates page (or provide one here) before sending — ` +
-              `otherwise Meta accepts the call but never delivers the message.`,
-          },
-          { status: 400 }
-        );
-      }
-      try {
-        new URL(templateHeaderContent);
-      } catch {
-        return NextResponse.json(
-          { error: `The ${templateHeaderType} header value "${templateHeaderContent}" is not a valid URL.` },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Build header component if template has a media header (image/video/document)
-    const components: any[] = [];
-    if (templateHeaderType === 'image' && templateHeaderContent) {
-      components.push({
-        type: 'header',
-        parameters: [{ type: 'image', image: { link: templateHeaderContent } }],
-      });
-    } else if (templateHeaderType === 'video' && templateHeaderContent) {
-      components.push({
-        type: 'header',
-        parameters: [{ type: 'video', video: { link: templateHeaderContent } }],
-      });
-    } else if (templateHeaderType === 'document' && templateHeaderContent) {
-      components.push({
-        type: 'header',
-        parameters: [{ type: 'document', document: { link: templateHeaderContent } }],
-      });
-    }
-
-    console.log(`Sending TEMPLATE: "${templateToUse}" lang:${templateLang} header:${templateHeaderType} to ${formattedPhone}`);
-
-    requestBody = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: formattedPhone,
-      type: 'template',
-      template: {
-        name: templateToUse,
-        language: { code: templateLang },
-        ...(components.length > 0 && { components }),
-      },
-    };
-  } 
-  // Second priority: Send as image if templateType is image and imageUrl exists
-  else if (imageUrl) {
-    console.log(`Sending as IMAGE to ${formattedPhone}`);
-    requestBody = {
-      messaging_product: 'whatsapp',
-      to: formattedPhone,
-      type: 'image',
-      image: {
-        link: imageUrl,
-        caption: caption || message
-      }
-    };
-  } 
-  // Third priority: Send as text
-  else {
-    console.log(`Sending as TEXT to ${formattedPhone}`);
-    requestBody = {
-      messaging_product: 'whatsapp',
-      to: formattedPhone,
-      type: 'text',
-      text: {
-        body: message || 'Hello'
-      }
-    };
+  // A template approved with a media header REQUIRES that header parameter on every
+  // send. Meta will silently accept the call and never deliver it if it's missing —
+  // there's no error, no webhook, nothing. So refuse to send rather than fail silently.
+  if (useTemplate) {
+    const validationError = validateTemplateHeaderMedia(templateName, templateHeaderType, templateHeaderContent);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  console.log("Final requestBody:", JSON.stringify(requestBody));
+  const sendConfig: SendConfig = {
+    message, templateContent, imageUrl, caption, templateName,
+    languageCode: languageCode || 'en', templateHeaderType, templateHeaderContent,
+    isTemplate: useTemplate,
+  };
+  const requestBody = buildMetaRequestBody(formattedPhone, sendConfig);
+  console.log(`Sending ${useTemplate ? 'TEMPLATE' : imageUrl ? 'IMAGE' : 'TEXT'} to ${formattedPhone}`, useTemplate ? `"${templateName}" lang:${languageCode}` : '');
 
   try {
     console.log("Making WhatsApp API call to:", `${WHATSAPP_API_URL}/${phoneNumberId}/messages`);
@@ -298,39 +221,28 @@ async function handleBulkSend(body: BulkSendRequest) {
     return NextResponse.json({ error: 'No contacts provided' }, { status: 400 });
   }
 
-  const accountNum   = (accountId === '2' || accountId === '3') ? accountId : '1';
-  const accessToken  = process.env[`META_ACCESS_TOKEN_${accountNum}`] || process.env.META_ACCESS_TOKEN_1;
-  const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`] || process.env.WHATSAPP_PHONE_NUMBER_ID_1;
+  const { accessToken, phoneNumberId } = getMetaCredentials(accountId);
 
   if (!accessToken || !phoneNumberId) {
     return NextResponse.json({ error: 'WhatsApp not configured' }, { status: 500 });
   }
 
-  const useTemplate = isTemplate || templateName;
+  const useTemplate = !!(isTemplate || templateName);
   const resolvedTemplateContent = message || templateContent || (templateName ? await getTemplateContent(templateName) : '');
 
   // Same template header applies to every recipient in this batch — if the media is
   // missing, every single send would be accepted by Meta and silently never delivered.
   // Reject the whole batch up front instead of burning it on broken sends.
-  if (useTemplate && ['image', 'video', 'document'].includes(templateHeaderType || '')) {
-    if (!templateHeaderContent) {
-      return NextResponse.json(
-        {
-          error: `Template "${templateName}" has a ${templateHeaderType} header but no media URL was provided. ` +
-            `Attach the ${templateHeaderType} on the Templates page before sending this batch.`,
-        },
-        { status: 400 }
-      );
-    }
-    try {
-      new URL(templateHeaderContent);
-    } catch {
-      return NextResponse.json(
-        { error: `The ${templateHeaderType} header value "${templateHeaderContent}" is not a valid URL.` },
-        { status: 400 }
-      );
-    }
+  if (useTemplate) {
+    const validationError = validateTemplateHeaderMedia(templateName, templateHeaderType, templateHeaderContent);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   }
+
+  const sendConfig: SendConfig = {
+    message, templateContent, imageUrl, caption, templateName,
+    languageCode: languageCode || 'en', templateHeaderType, templateHeaderContent,
+    isTemplate: useTemplate,
+  };
 
   type ContactResult = { phone: string; name: string; success: boolean; wamid: string | null; status: string; error: string | null };
   const contactResults: ContactResult[] = [];
@@ -339,20 +251,7 @@ async function handleBulkSend(body: BulkSendRequest) {
     const cleanPhone    = phoneNumber.replace(/\D/g, '');
     const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
     const contactName   = contactNames[phoneNumber] || contactNames[formattedPhone] || formattedPhone;
-
-    let waBody: any;
-    if (useTemplate) {
-      const tName = (templateName || 'hello_world').trim();
-      const components: any[] = [];
-      if (templateHeaderType === 'image'    && templateHeaderContent) components.push({ type: 'header', parameters: [{ type: 'image',    image:    { link: templateHeaderContent } }] });
-      if (templateHeaderType === 'video'    && templateHeaderContent) components.push({ type: 'header', parameters: [{ type: 'video',    video:    { link: templateHeaderContent } }] });
-      if (templateHeaderType === 'document' && templateHeaderContent) components.push({ type: 'header', parameters: [{ type: 'document', document: { link: templateHeaderContent } }] });
-      waBody = { messaging_product: 'whatsapp', to: formattedPhone, type: 'template', template: { name: tName, language: { code: languageCode }, ...(components.length > 0 && { components }) } };
-    } else if (imageUrl) {
-      waBody = { messaging_product: 'whatsapp', to: formattedPhone, type: 'image', image: { link: imageUrl, caption: caption || message } };
-    } else {
-      waBody = { messaging_product: 'whatsapp', to: formattedPhone, type: 'text', text: { body: message || ' ' } };
-    }
+    const waBody = buildMetaRequestBody(formattedPhone, sendConfig);
 
     try {
       const response = await fetch(`${WHATSAPP_API_URL}/${phoneNumberId}/messages`, {

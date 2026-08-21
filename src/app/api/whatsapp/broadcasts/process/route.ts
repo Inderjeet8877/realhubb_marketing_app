@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
-import { buildMetaRequestBody, getMetaCredentials, triggerWorker, runWithConcurrency, CONCURRENCY, WHATSAPP_API_URL, SendConfig } from '../_shared';
+import {
+  buildMetaRequestBody, getMetaCredentials, triggerWorker, runWithConcurrency,
+  CONCURRENCY, WHATSAPP_API_URL, SendConfig, RATE_LIMIT_ERROR_CODES, MESSAGING_LIMIT_ERROR_CODES,
+} from '../_shared';
 
 // Vercel serverless timeout budget for one chunk. CHUNK_SIZE contacts are
 // sent CONCURRENCY-at-a-time (see below) rather than one at a time with a
@@ -16,9 +19,8 @@ export const maxDuration = 45;
 // (429 / a throttling error code) is more correct than guessing a fixed
 // delay up front for every message regardless of whether it was ever needed.
 const MAX_RATE_LIMIT_RETRIES = 3;
-const RATE_LIMIT_ERROR_CODES = new Set([4, 80007, 130429]);
 
-type ContactResult = { phone: string; name: string; success: boolean; wamid: string | null; status: string; error: string | null };
+type ContactResult = { phone: string; name: string; success: boolean; wamid: string | null; status: string; error: string | null; limitReached?: boolean };
 
 // Processes exactly ONE chunk of a broadcast job, then either finalizes the
 // job (done/cancelled) or triggers itself again for the next chunk. This is
@@ -128,6 +130,21 @@ export async function POST(request: Request) {
       await batch.commit();
     }
 
+    // Meta reported this account/number has hit its actual messaging limit —
+    // not a transient rate limit, so every remaining contact would fail
+    // identically. Stop the broadcast here instead of burning through the
+    // rest of the list (and the rest of this app's Vercel/Firestore usage)
+    // on guaranteed failures, and record why in the same place a manual
+    // cancellation would be recorded.
+    if (results.some(r => r.limitReached)) {
+      await reportRef.update({
+        status: 'cancelled',
+        cancelReason: "Stopped automatically — Meta reported this account/number's messaging limit was reached. Remaining contacts were not attempted.",
+        finishedAt: FieldValue.serverTimestamp(),
+      });
+      return NextResponse.json({ success: true, status: 'cancelled', reason: 'messaging_limit_reached', chunkIndex: claimedIndex });
+    }
+
     // Re-check cancellation after finishing this chunk — a request that
     // arrived mid-chunk should still stop the job before the next one starts.
     const postChunkSnap = await reportRef.get();
@@ -181,14 +198,22 @@ async function sendOneContact(
         return { phone: formattedPhone, name: c.name, success: true, wamid, status: 'sent', error: null };
       }
 
+      // Two very different failure modes, both surfaced by Meta as an error
+      // response: transient throttling (worth a retry) vs. the account/number
+      // having hit its actual messaging limit (retrying won't help — every
+      // remaining contact in this broadcast will fail identically until the
+      // limit resets, see the mid-chunk check below).
       const isRateLimited = response.status === 429 || RATE_LIMIT_ERROR_CODES.has(data.error?.code);
-      if (isRateLimited && attempt < MAX_RATE_LIMIT_RETRIES) {
+      const isLimitReached = MESSAGING_LIMIT_ERROR_CODES.has(data.error?.code);
+
+      if (isRateLimited && !isLimitReached && attempt < MAX_RATE_LIMIT_RETRIES) {
         await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt)));
         continue;
       }
       return {
         phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed',
         error: data.error?.message || (isRateLimited ? 'Rate limited by Meta after retrying' : 'Meta API rejected'),
+        limitReached: isLimitReached,
       };
     } catch (err: any) {
       if (attempt < MAX_RATE_LIMIT_RETRIES) {

@@ -1,5 +1,19 @@
 // Shared constants/helpers for the backend broadcast job (start → process → cancel).
 // Not a route file itself (underscore prefix keeps Next.js from treating it as one).
+//
+// Meta request-building (buildMetaRequestBody, getMetaCredentials, etc.) lives
+// in @/lib/whatsapp-send instead of here — it's shared with the 1:1 chat send
+// route too, re-exported below for convenience so existing imports from this
+// file keep working unchanged.
+export {
+  WHATSAPP_API_URL,
+  buildMetaRequestBody,
+  getMetaCredentials,
+  validateTemplateHeaderMedia,
+  RATE_LIMIT_ERROR_CODES,
+  MESSAGING_LIMIT_ERROR_CODES,
+} from '@/lib/whatsapp-send';
+export type { SendConfig } from '@/lib/whatsapp-send';
 
 // Phase 1 kept this equal to the old client-side batch size (10, fully
 // sequential) as the lowest-risk starting point. Phase 2 adds real
@@ -11,28 +25,6 @@ export const CHUNK_SIZE = 40;
 // moderate on purpose; rate-limit responses are retried with backoff (see
 // process/route.ts) rather than relying on a fixed delay to avoid them.
 export const CONCURRENCY = 8;
-export const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
-
-// Runs `worker` over `items` with at most `limit` in flight at once,
-// preserving output order. No new dependency for this — the whole thing is
-// a handful of lines.
-export async function runWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  worker: (item: T, index: number) => Promise<R>
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let nextIndex = 0;
-  async function runOne() {
-    while (nextIndex < items.length) {
-      const current = nextIndex++;
-      results[current] = await worker(items[current], current);
-    }
-  }
-  const workerCount = Math.max(1, Math.min(limit, items.length));
-  await Promise.all(Array.from({ length: workerCount }, () => runOne()));
-  return results;
-}
 
 export function getBaseUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -59,53 +51,23 @@ export async function triggerWorker(broadcastId: string) {
   }
 }
 
-export interface SendConfig {
-  message: string | null;
-  templateContent: string | null;
-  accountId: string;
-  imageUrl: string | null;
-  caption: string | null;
-  templateName: string | null;
-  languageCode: string;
-  templateHeaderType: string | null;
-  templateHeaderContent: string | null;
-  isTemplate: boolean;
-}
-
-export function buildMetaRequestBody(
-  to: string,
-  config: SendConfig
-): Record<string, unknown> {
-  if (config.isTemplate) {
-    const tName = (config.templateName || 'hello_world').trim();
-    const components: any[] = [];
-    if (config.templateHeaderType === 'image' && config.templateHeaderContent) {
-      components.push({ type: 'header', parameters: [{ type: 'image', image: { link: config.templateHeaderContent } }] });
-    } else if (config.templateHeaderType === 'video' && config.templateHeaderContent) {
-      components.push({ type: 'header', parameters: [{ type: 'video', video: { link: config.templateHeaderContent } }] });
-    } else if (config.templateHeaderType === 'document' && config.templateHeaderContent) {
-      components.push({ type: 'header', parameters: [{ type: 'document', document: { link: config.templateHeaderContent } }] });
+// Runs `worker` over `items` with at most `limit` in flight at once,
+// preserving output order. No new dependency for this — the whole thing is
+// a handful of lines.
+export async function runWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  async function runOne() {
+    while (nextIndex < items.length) {
+      const current = nextIndex++;
+      results[current] = await worker(items[current], current);
     }
-    return {
-      messaging_product: 'whatsapp', to, type: 'template',
-      template: { name: tName, language: { code: config.languageCode }, ...(components.length > 0 && { components }) },
-    };
   }
-  if (config.imageUrl) {
-    return {
-      messaging_product: 'whatsapp', to, type: 'image',
-      image: { link: config.imageUrl, caption: config.caption || config.message || '' },
-    };
-  }
-  return {
-    messaging_product: 'whatsapp', to, type: 'text',
-    text: { body: config.message || ' ' },
-  };
-}
-
-export function getMetaCredentials(accountId: string) {
-  const accountNum = (accountId === '2' || accountId === '3') ? accountId : '1';
-  const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`] || process.env.META_ACCESS_TOKEN_1;
-  const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`] || process.env.WHATSAPP_PHONE_NUMBER_ID_1;
-  return { accessToken, phoneNumberId };
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: workerCount }, () => runOne()));
+  return results;
 }

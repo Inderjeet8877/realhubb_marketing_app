@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
-import { CHUNK_SIZE, triggerWorker } from '../_shared';
+import { CHUNK_SIZE, triggerWorker, getMetaCredentials, validateTemplateHeaderMedia } from '../_shared';
 
 interface StartBroadcastRequest {
   contacts: string[];
@@ -44,30 +44,13 @@ export async function POST(request: Request) {
     // template with no media URL would be accepted by Meta and silently never
     // delivered to every single recipient — reject the whole broadcast up
     // front instead of burning it on sends that will never arrive.
-    if (useTemplate && ['image', 'video', 'document'].includes(templateHeaderType || '')) {
-      if (!templateHeaderContent) {
-        return NextResponse.json(
-          {
-            error: `Template "${templateName}" has a ${templateHeaderType} header but no media URL was provided. ` +
-              `Attach the ${templateHeaderType} on the Templates page before sending this batch.`,
-          },
-          { status: 400 }
-        );
-      }
-      try {
-        new URL(templateHeaderContent);
-      } catch {
-        return NextResponse.json(
-          { error: `The ${templateHeaderType} header value "${templateHeaderContent}" is not a valid URL.` },
-          { status: 400 }
-        );
-      }
+    if (useTemplate) {
+      const validationError = validateTemplateHeaderMedia(templateName, templateHeaderType, templateHeaderContent);
+      if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    const accountNum = (accountId === '2' || accountId === '3') ? accountId : '1';
-    const hasToken = process.env[`META_ACCESS_TOKEN_${accountNum}`] || process.env.META_ACCESS_TOKEN_1;
-    const hasPhoneId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`] || process.env.WHATSAPP_PHONE_NUMBER_ID_1;
-    if (!hasToken || !hasPhoneId) {
+    const { accountNum, accessToken, phoneNumberId } = getMetaCredentials(accountId);
+    if (!accessToken || !phoneNumberId) {
       return NextResponse.json({ error: 'WhatsApp not configured' }, { status: 500 });
     }
 
