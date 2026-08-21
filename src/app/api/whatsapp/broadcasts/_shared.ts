@@ -35,10 +35,21 @@ export function getBaseUrl() {
 // the request and return, not for every chunk after that. Guarded by a shared
 // secret so this internal endpoint can't be triggered by outside requests to
 // spam sends on this account's Meta bill.
-export async function triggerWorker(broadcastId: string) {
+//
+// This single fetch is the one link the entire rest of a broadcast depends
+// on — if it fails silently (a cold start race, a transient network blip,
+// the platform recycling this invocation before the callback finishes) the
+// whole job stalls forever with no error surfaced anywhere. That's exactly
+// what happened on a real broadcast that stopped dead at 160/2000 with
+// nothing in the logs. Retrying here, plus processing multiple chunks per
+// invocation (see process/route.ts) so this needs to fire far less often,
+// are the two changes that address it — reliability over raw speed, since
+// getting stuck partway is worse than being a bit slower.
+export async function triggerWorker(broadcastId: string, attempt = 0): Promise<void> {
   const baseUrl = getBaseUrl();
+  const MAX_ATTEMPTS = 4;
   try {
-    await fetch(`${baseUrl}/api/whatsapp/broadcasts/process`, {
+    const res = await fetch(`${baseUrl}/api/whatsapp/broadcasts/process`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -46,8 +57,15 @@ export async function triggerWorker(broadcastId: string) {
       },
       body: JSON.stringify({ broadcastId }),
     });
+    if (!res.ok && attempt < MAX_ATTEMPTS - 1) {
+      throw new Error(`Worker trigger returned ${res.status}`);
+    }
   } catch (err) {
-    console.error('[Broadcast Worker] Failed to trigger next chunk:', err);
+    if (attempt < MAX_ATTEMPTS - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+      return triggerWorker(broadcastId, attempt + 1);
+    }
+    console.error(`[Broadcast Worker] Failed to trigger next chunk after ${MAX_ATTEMPTS} attempts:`, err);
   }
 }
 

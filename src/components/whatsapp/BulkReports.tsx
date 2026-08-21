@@ -14,6 +14,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
   const [loading, setLoading]   = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [resumingId, setResumingId] = useState<string | null>(null);
   // Per-contact delivered/read status is fetched lazily, only for whichever
   // broadcast's "Details" panel is open — not baked into the list response —
   // to avoid re-triggering the Firestore quota exhaustion this app hit once
@@ -107,6 +108,26 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
     }
   };
 
+  // Backstop in case a broadcast's self-triggering chain stalls despite the
+  // retries already built into the worker — safe to click on a healthy job
+  // too, it just gets told there's nothing to claim right now.
+  const handleResume = async (id: string) => {
+    setResumingId(id);
+    try {
+      const res = await fetch("/api/whatsapp/broadcasts/resume", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ broadcastId: id }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.success) alert(d.error || "Failed to resume broadcast");
+    } catch (err: any) {
+      alert("Failed to resume broadcast: " + (err.message || "Network error"));
+    } finally {
+      setResumingId(null);
+    }
+  };
+
   if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-green-600" /></div>;
   if (reports.length === 0) {
     return (
@@ -160,13 +181,23 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   {r.status === "processing" && (
-                    <button
-                      onClick={() => handleCancel(r.id)}
-                      disabled={cancellingId === r.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50"
-                    >
-                      {cancellingId === r.id ? "Cancelling…" : "Cancel"}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleResume(r.id)}
+                        disabled={resumingId === r.id}
+                        title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+                      >
+                        {resumingId === r.id ? "Resuming…" : "Resume"}
+                      </button>
+                      <button
+                        onClick={() => handleCancel(r.id)}
+                        disabled={cancellingId === r.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50"
+                      >
+                        {cancellingId === r.id ? "Cancelling…" : "Cancel"}
+                      </button>
+                    </>
                   )}
                   <button
                     onClick={() => handleViewReplies(r)}

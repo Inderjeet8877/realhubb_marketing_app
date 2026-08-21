@@ -136,6 +136,7 @@ export default function WhatsAppPage() {
   // itself keeps going on the server even if this component unmounts.
   const [activeBroadcastId, setActiveBroadcastId] = useState<string | null>(null);
   const [cancellingBroadcast, setCancellingBroadcast] = useState(false);
+  const [resumingBroadcast, setResumingBroadcast] = useState(false);
   const [waAccountId] = useState<string>("1");
   const [accountLabel, setAccountLabel] = useState<string>("");
   const [templates, setTemplates] = useState<any[]>([]);
@@ -628,6 +629,27 @@ export default function WhatsAppPage() {
     }
   };
 
+  // Backstop in case the broadcast's self-triggering chain stalls despite
+  // the retries already built into the worker — safe to click on a healthy
+  // job too, it just gets told there's nothing to claim right now.
+  const handleResumeBroadcast = async () => {
+    if (!activeBroadcastId) return;
+    setResumingBroadcast(true);
+    try {
+      const res = await fetch("/api/whatsapp/broadcasts/resume", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ broadcastId: activeBroadcastId }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.success) alert(d.error || "Failed to resume broadcast");
+    } catch (err: any) {
+      alert("Failed to resume broadcast: " + (err.message || "Network error"));
+    } finally {
+      setResumingBroadcast(false);
+    }
+  };
+
   const handleViewReplies = (phones: string[], batchName: string) => {
     setBroadcastReplyPhones(phones);
     setBroadcastReplyLabel(batchName);
@@ -703,6 +725,14 @@ export default function WhatsAppPage() {
             <div className="bg-green-600 h-2 rounded-full transition-all duration-300"
               style={{ width: bulkTotalCount > 0 ? `${Math.round((bulkSentCount / bulkTotalCount) * 100)}%` : "0%" }} />
           </div>
+          <button
+            onClick={handleResumeBroadcast}
+            disabled={resumingBroadcast}
+            title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50 shrink-0"
+          >
+            {resumingBroadcast ? "Resuming…" : "Resume"}
+          </button>
           <button
             onClick={handleCancelBroadcast}
             disabled={cancellingBroadcast}
@@ -1302,10 +1332,19 @@ export default function WhatsAppPage() {
                   <div className="bg-green-600 h-3 rounded-full transition-all duration-300"
                     style={{ width: bulkTotalCount > 0 ? `${Math.round((bulkSentCount / bulkTotalCount) * 100)}%` : "0%" }} />
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <p className="text-xs text-gray-500">
                     {bulkTotalCount > 0 ? Math.round((bulkSentCount / bulkTotalCount) * 100) : 0}% complete — safe to close this window
                   </p>
+                  <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={handleResumeBroadcast}
+                    disabled={resumingBroadcast}
+                    title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                  >
+                    {resumingBroadcast ? "Resuming…" : "Resume"}
+                  </button>
                   <button
                     onClick={handleCancelBroadcast}
                     disabled={cancellingBroadcast}
@@ -1313,6 +1352,7 @@ export default function WhatsAppPage() {
                   >
                     {cancellingBroadcast ? "Cancelling…" : "Cancel Broadcast"}
                   </button>
+                  </div>
                 </div>
               </div>
             )}
