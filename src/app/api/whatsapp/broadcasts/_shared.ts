@@ -1,8 +1,38 @@
 // Shared constants/helpers for the backend broadcast job (start → process → cancel).
 // Not a route file itself (underscore prefix keeps Next.js from treating it as one).
 
-export const CHUNK_SIZE = 10;
+// Phase 1 kept this equal to the old client-side batch size (10, fully
+// sequential) as the lowest-risk starting point. Phase 2 adds real
+// concurrency within a chunk (see CONCURRENCY below), so a larger chunk
+// still finishes well inside one worker invocation's time budget.
+export const CHUNK_SIZE = 40;
+// How many messages this worker sends to Meta at once within a single chunk.
+// Not backed by a documented per-account throughput number from Meta — kept
+// moderate on purpose; rate-limit responses are retried with backoff (see
+// process/route.ts) rather than relying on a fixed delay to avoid them.
+export const CONCURRENCY = 8;
 export const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
+
+// Runs `worker` over `items` with at most `limit` in flight at once,
+// preserving output order. No new dependency for this — the whole thing is
+// a handful of lines.
+export async function runWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  async function runOne() {
+    while (nextIndex < items.length) {
+      const current = nextIndex++;
+      results[current] = await worker(items[current], current);
+    }
+  }
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: workerCount }, () => runOne()));
+  return results;
+}
 
 export function getBaseUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';

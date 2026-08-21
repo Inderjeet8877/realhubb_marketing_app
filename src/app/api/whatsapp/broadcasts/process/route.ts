@@ -2,12 +2,21 @@ import { NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
-import { buildMetaRequestBody, getMetaCredentials, triggerWorker, WHATSAPP_API_URL, SendConfig } from '../_shared';
+import { buildMetaRequestBody, getMetaCredentials, triggerWorker, runWithConcurrency, CONCURRENCY, WHATSAPP_API_URL, SendConfig } from '../_shared';
 
-// Vercel serverless timeout budget for one chunk — generous relative to the
-// ~10 contacts * (200ms delay + Meta round trip) this actually takes, so a
-// slow Meta response never risks getting the invocation killed mid-chunk.
-export const maxDuration = 30;
+// Vercel serverless timeout budget for one chunk. CHUNK_SIZE contacts are
+// sent CONCURRENCY-at-a-time (see below) rather than one at a time with a
+// fixed delay, so this has real headroom even accounting for rate-limit
+// retries on a few messages.
+export const maxDuration = 45;
+
+// A rate-limited send is retried with backoff instead of just failing —
+// Meta's actual throughput limit for this account isn't documented anywhere
+// we can read from code, so backing off on the signal Meta itself gives
+// (429 / a throttling error code) is more correct than guessing a fixed
+// delay up front for every message regardless of whether it was ever needed.
+const MAX_RATE_LIMIT_RETRIES = 3;
+const RATE_LIMIT_ERROR_CODES = new Set([4, 80007, 130429]);
 
 type ContactResult = { phone: string; name: string; success: boolean; wamid: string | null; status: string; error: string | null };
 
@@ -80,44 +89,17 @@ export async function POST(request: Request) {
     const sendConfig: SendConfig = job.sendConfig;
     const { accessToken, phoneNumberId } = getMetaCredentials(sendConfig.accountId);
 
-    const results: ContactResult[] = [];
+    let results: ContactResult[];
 
     if (!accessToken || !phoneNumberId) {
       // Config vanished/broke mid-job (env var removed etc.) — record every
       // contact in this chunk as failed rather than throwing and leaving the
       // job stuck in "processing" with no explanation.
-      for (const c of chunkContacts) {
-        results.push({ phone: c.phone, name: c.name, success: false, wamid: null, status: 'failed', error: 'WhatsApp not configured' });
-      }
+      results = chunkContacts.map(c => ({ phone: c.phone, name: c.name, success: false, wamid: null, status: 'failed', error: 'WhatsApp not configured' }));
     } else {
-      for (const c of chunkContacts) {
-        const cleanPhone = c.phone.replace(/\D/g, '');
-        const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
-        const waBody = buildMetaRequestBody(formattedPhone, sendConfig);
-
-        try {
-          const response = await fetch(`${WHATSAPP_API_URL}/${phoneNumberId}/messages`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(waBody),
-          });
-          const data = await response.json();
-
-          if (response.ok) {
-            const wamid = data.messages?.[0]?.id || null;
-            results.push({ phone: formattedPhone, name: c.name, success: true, wamid, status: 'sent', error: null });
-            await saveOutboundMessage(formattedPhone, sendConfig, wamid);
-          } else {
-            results.push({ phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed', error: data.error?.message || 'Meta API rejected' });
-          }
-        } catch (err: any) {
-          results.push({ phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed', error: err.message || 'Network error' });
-        }
-
-        // Same inter-message pacing as the previous client-driven sender —
-        // left unchanged here; throughput tuning is a separate phase.
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
+      results = await runWithConcurrency(chunkContacts, CONCURRENCY, (c) =>
+        sendOneContact(c, sendConfig, accessToken, phoneNumberId)
+      );
     }
 
     // Persist this chunk's results — an immutable, append-only record (never
@@ -172,6 +154,52 @@ export async function POST(request: Request) {
     }).catch(() => {});
     return NextResponse.json({ error: error.message || 'Worker failed' }, { status: 500 });
   }
+}
+
+async function sendOneContact(
+  c: { phone: string; name: string },
+  sendConfig: SendConfig,
+  accessToken: string,
+  phoneNumberId: string
+): Promise<ContactResult> {
+  const cleanPhone = c.phone.replace(/\D/g, '');
+  const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+  const waBody = buildMetaRequestBody(formattedPhone, sendConfig);
+
+  for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
+    try {
+      const response = await fetch(`${WHATSAPP_API_URL}/${phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(waBody),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        const wamid = data.messages?.[0]?.id || null;
+        await saveOutboundMessage(formattedPhone, sendConfig, wamid);
+        return { phone: formattedPhone, name: c.name, success: true, wamid, status: 'sent', error: null };
+      }
+
+      const isRateLimited = response.status === 429 || RATE_LIMIT_ERROR_CODES.has(data.error?.code);
+      if (isRateLimited && attempt < MAX_RATE_LIMIT_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt)));
+        continue;
+      }
+      return {
+        phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed',
+        error: data.error?.message || (isRateLimited ? 'Rate limited by Meta after retrying' : 'Meta API rejected'),
+      };
+    } catch (err: any) {
+      if (attempt < MAX_RATE_LIMIT_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt)));
+        continue;
+      }
+      return { phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed', error: err.message || 'Network error' };
+    }
+  }
+  // Unreachable — the loop above always returns before exhausting attempts.
+  return { phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed', error: 'Unknown error' };
 }
 
 async function saveOutboundMessage(to: string, config: SendConfig, wamid: string | null) {
