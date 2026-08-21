@@ -95,7 +95,6 @@ async function handleSingleSend(body: SendMessageRequest) {
   // one place (@/lib/whatsapp-send) so single sends and bulk sends can't
   // silently diverge in how they talk to Meta.
   const useTemplate = !!(isTemplate || templateName) && !imageUrl;
-  console.log(`WhatsApp send - Account: ${accountNum}, PhoneID: ${phoneNumberId}, isTemplate: ${useTemplate}, templateName: ${templateName}, hasMessage: ${!!message}`);
 
   if (!accessToken || !phoneNumberId) {
     const missing = [];
@@ -125,12 +124,8 @@ async function handleSingleSend(body: SendMessageRequest) {
     isTemplate: useTemplate,
   };
   const requestBody = buildMetaRequestBody(formattedPhone, sendConfig);
-  console.log(`Sending ${useTemplate ? 'TEMPLATE' : imageUrl ? 'IMAGE' : 'TEXT'} to ${formattedPhone}`, useTemplate ? `"${templateName}" lang:${languageCode}` : '');
 
   try {
-    console.log("Making WhatsApp API call to:", `${WHATSAPP_API_URL}/${phoneNumberId}/messages`);
-    console.log("Request body:", JSON.stringify(requestBody));
-    
     const response = await fetch(
       `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
       {
@@ -144,8 +139,6 @@ async function handleSingleSend(body: SendMessageRequest) {
     );
 
     const data = await response.json();
-    console.log('WhatsApp API response status:', response.status);
-    console.log('WhatsApp API response:', JSON.stringify(data));
 
     if (!response.ok) {
       // Detailed error logging
@@ -181,10 +174,7 @@ async function handleSingleSend(body: SendMessageRequest) {
       templateName,
     });
 
-    console.log('=== MESSAGE SENT ===');
-    console.log('To:', formattedPhone);
-    console.log('Message:', message || `Template: ${templateName}`);
-    console.log('Wamid:', data.messages?.[0]?.id);
+    console.log(`[Send] ${useTemplate ? `template "${templateName}"` : imageUrl ? 'image' : 'text'} -> ${formattedPhone} (wamid ${data.messages?.[0]?.id})`);
 
     return NextResponse.json({
       success: true,

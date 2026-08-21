@@ -10,7 +10,10 @@ const withPWA = require('next-pwa')({
 
 const nextConfig = {
   images: {
-    domains: ['localhost', 'firebasestorage.googleapis.com'],
+    remotePatterns: [
+      { protocol: 'http', hostname: 'localhost' },
+      { protocol: 'https', hostname: 'firebasestorage.googleapis.com' },
+    ],
   },
   async rewrites() {
     return [
