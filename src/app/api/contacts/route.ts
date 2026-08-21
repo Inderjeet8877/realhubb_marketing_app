@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 
+// Apps Script reads/writes over a 15,000+ row sheet can comfortably exceed
+// Vercel's platform-default function timeout (as low as 10s on some plans)
+// with no explicit override — this route would then get killed mid-request
+// regardless of the retry/abort logic below. Give it real headroom.
+export const maxDuration = 60;
+
 const SHEETS_URL = process.env.GOOGLE_SHEETS_API_URL || '';
 
 function checkConfig() {
@@ -114,12 +120,16 @@ function parseCSV(text: string, dataName: string): ParseResult {
 // Apps Script web apps can be slow (they re-scan the whole sheet per request) and
 // occasionally drop the connection (ECONNRESET) with no fault of the caller — retry
 // transient network failures a few times before giving up.
-async function fetchWithRetry(url: string, init: RequestInit | undefined, attempts = 3): Promise<Response> {
+async function fetchWithRetry(url: string, init: RequestInit | undefined, attempts = 2): Promise<Response> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 45_000);
+      // Sized so attempts * timeout + backoff comfortably fits inside this
+      // route's maxDuration (60s) — the previous 45s * up to 3 attempts could
+      // run well past that, meaning Vercel could kill the function mid-retry
+      // and turn a slow-but-working request into a hard failure.
+      const timeout = setTimeout(() => controller.abort(), 25_000);
       try {
         return await fetch(url, { ...init, signal: controller.signal });
       } finally {

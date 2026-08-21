@@ -43,7 +43,12 @@ interface UploadSummary {
 
 type UploadPhase = "idle" | "parsing" | "uploading" | "done";
 
-const BATCH_SIZE = 50;
+// Each batch triggers a full duplicate-check pass over the Apps Script sheet
+// (see Code.gs addBatch) — more, smaller batches meant more of those passes
+// than necessary. Paired with the addBatch optimization (reading just the
+// phone column instead of every column), this size stays well within Apps
+// Script's execution limits while cutting the number of passes ~10x.
+const BATCH_SIZE = 500;
 
 // ── Import modal ────────────────────────────────────────────────────────────
 function ImportModal({
@@ -299,6 +304,11 @@ export default function ContactsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"good" | "failed">("good");
   const [statFilter, setStatFilter] = useState<"all" | "tagged" | "recent">("all");
+  // With 15,000+ contacts, rendering every filtered row as a DOM node at once
+  // was the main cause of this page feeling laggy while just browsing —
+  // paginate the table instead of rendering the whole filtered list.
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
   const [showImportModal, setShowImportModal] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -326,6 +336,10 @@ export default function ContactsPage() {
       setSelectAll(false);
     }
   }, [searchTerm]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, filterBatch, viewMode, statFilter]);
 
   const fetchContacts = () => reloadContacts();
 
@@ -552,6 +566,10 @@ export default function ContactsPage() {
     return matchSearch && matchBatch && matchStat;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredContacts.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedContacts = filteredContacts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   const uniqueTags = [...new Set(contacts.flatMap((c) => {
     const t = c.tags as unknown;
     if (Array.isArray(t)) return t as string[];
@@ -770,7 +788,7 @@ export default function ContactsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredContacts.map((contact) => (
+                {pagedContacts.map((contact) => (
                   <tr key={contact.id} className="hover:bg-gray-50">
                     {viewMode === "good" ? (
                       <td className="px-3 py-3 whitespace-nowrap">
@@ -831,6 +849,32 @@ export default function ContactsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {filteredContacts.length > 0 && totalPages > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              Showing <span className="font-medium text-gray-700">{(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredContacts.length)}</span> of{" "}
+              <span className="font-medium text-gray-700">{filteredContacts.length}</span>
+            </p>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-gray-500 px-2 tabular-nums">Page {currentPage} / {totalPages}</span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
