@@ -104,7 +104,22 @@ export async function POST(request: NextRequest) {
 
             await recipientRef.set({ status: s.status, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 
-            if (rank(s.status) > rank(prevStatus)) {
+            // Meta can accept a message (200 + wamid at send time, counted in
+            // the "sent" total) and only later report — via this same webhook
+            // — that it ultimately failed to deliver (wrong/inactive number,
+            // blocked, etc). "failed" isn't part of the sent→delivered→read
+            // progression rank() tracks, so it fell through the check below
+            // entirely: the per-contact status correctly flipped to "failed"
+            // (via the .set() above) but the report's aggregate sent/failed
+            // counters never did, leaving the stat card permanently wrong
+            // relative to the per-contact list. Move the send-time count from
+            // "sent" to "failed" the first time this happens for a recipient.
+            if (s.status === 'failed' && prevStatus === 'sent') {
+              await reportRef.update({
+                sent: FieldValue.increment(-1),
+                failed: FieldValue.increment(1),
+              });
+            } else if (rank(s.status) > rank(prevStatus)) {
               const increments: Record<string, any> = {};
               if (rank(s.status) >= rank('delivered') && rank(prevStatus) < rank('delivered')) {
                 increments.delivered = FieldValue.increment(1);
