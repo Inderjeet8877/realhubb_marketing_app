@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, limit, doc } from "firebase/firestore";
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 
 interface Conversation {
@@ -130,6 +130,11 @@ export default function WhatsAppPage() {
   const [bulkResult, setBulkResult] = useState<any>(null);
   const [bulkSentCount, setBulkSentCount] = useState(0);
   const [bulkTotalCount, setBulkTotalCount] = useState(0);
+  // The broadcast now runs as a backend job (see /api/whatsapp/broadcasts/start)
+  // — this only tracks which job's live progress to subscribe to; the send
+  // itself keeps going on the server even if this component unmounts.
+  const [activeBroadcastId, setActiveBroadcastId] = useState<string | null>(null);
+  const [cancellingBroadcast, setCancellingBroadcast] = useState(false);
   const [waAccountId] = useState<string>("1");
   const [accountLabel, setAccountLabel] = useState<string>("");
   const [templates, setTemplates] = useState<any[]>([]);
@@ -506,6 +511,11 @@ export default function WhatsAppPage() {
     }
   };
 
+  // The actual sending happens entirely on the backend (see
+  // /api/whatsapp/broadcasts/start + /process) — this just kicks the job off
+  // and starts watching it. You can close this modal, switch tabs, or leave
+  // the page entirely; the broadcast keeps running and the Reports tab will
+  // show it live (and finished/cancelled reports) whenever you come back.
   const handleBulkSend = async () => {
     if (selectedContacts.length === 0) return;
     if (bulkMessageType === "text" && !bulkMessage) return;
@@ -530,101 +540,90 @@ export default function WhatsAppPage() {
     const contactNamesMap: Record<string, string> = {};
     contacts.forEach(c => { if (c.phone) contactNamesMap[c.phone] = c.name; });
 
-    const sharedPayload = {
-      contactNames:        contactNamesMap,
-      batchName:           selectedBatch || "Manual Selection",
-      message:             bulkMessage,
-      accountId:           waAccountId,
-      templateName:        bulkMessageType === "template" ? selectedBulkTemplate : undefined,
-      templateContent:     bulkMessageType === "template" ? (bulkTemplateObj?.content || "") : undefined,
-      languageCode:        bulkMessageType === "template" ? (bulkTemplateObj?.language || "en") : undefined,
-      templateHeaderType:  bulkMessageType === "template" ? (bulkTemplateObj?.headerType || "") : undefined,
-      templateHeaderContent: bulkMessageType === "template" ? (bulkTemplateObj?.headerContent || "") : undefined,
-      isTemplate:          bulkMessageType === "template",
-      skipReport:          true,
-    };
-
     setSendingBulk(true);
     setBulkResult(null);
     setBulkTotalCount(contactsToSend.length);
     setBulkSentCount(0);
+    setActiveBroadcastId(null);
 
-    const BATCH = 10;
-    let totalSent = 0, totalFailed = 0;
-    const allContacts: any[] = [];
-
-    let didError = false;
     try {
-      for (let i = 0; i < contactsToSend.length; i += BATCH) {
-        const batch = contactsToSend.slice(i, i + BATCH);
-        let d: any = {};
-        try {
-          const r = await fetch("/api/whatsapp/send", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ ...sharedPayload, contacts: batch }),
-          });
-          d = await r.json();
-        } catch (batchErr) {
-          console.error(`Batch ${i / BATCH + 1} failed:`, batchErr);
-          // Mark all contacts in this batch as failed
-          batch.forEach(phone => {
-            const clean = phone.replace(/\D/g, '');
-            const fmt   = clean.startsWith('91') ? clean : `91${clean}`;
-            allContacts.push({ phone: fmt, name: contactNamesMap[phone] || phone, success: false, wamid: null, status: 'failed', error: 'Batch request failed' });
-          });
-          totalFailed += batch.length;
-          setBulkSentCount(i + batch.length);
-          didError = true;
-          continue; // keep going with next batch
-        }
-        totalSent   += d.sent   || 0;
-        totalFailed += d.failed || 0;
-        allContacts.push(...(d.contacts || []));
-        setBulkSentCount(i + batch.length);
-      }
-    } catch (err) {
-      console.error("Bulk send loop error:", err);
-      didError = true;
-    } finally {
-      setSendingBulk(false);
-
-      // Fill in any contacts that were never attempted (loop exited early)
-      const processedPhones = new Set(allContacts.map((c: any) => c.phone));
-      contactsToSend.forEach(phone => {
-        const clean = phone.replace(/\D/g, '');
-        const fmt   = clean.startsWith('91') ? clean : `91${clean}`;
-        if (!processedPhones.has(fmt) && !processedPhones.has(clean)) {
-          allContacts.push({ phone: fmt, name: contactNamesMap[phone] || phone, success: false, wamid: null, status: 'failed', error: 'Not attempted' });
-          totalFailed++;
-          processedPhones.add(fmt);
-        }
+      const res = await fetch("/api/whatsapp/broadcasts/start", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          contacts:            contactsToSend,
+          contactNames:        contactNamesMap,
+          batchName:           selectedBatch || "Manual Selection",
+          message:             bulkMessage,
+          accountId:           waAccountId,
+          templateName:        bulkMessageType === "template" ? selectedBulkTemplate : undefined,
+          templateContent:     bulkMessageType === "template" ? (bulkTemplateObj?.content || "") : undefined,
+          languageCode:        bulkMessageType === "template" ? (bulkTemplateObj?.language || "en") : undefined,
+          templateHeaderType:  bulkMessageType === "template" ? (bulkTemplateObj?.headerType || "") : undefined,
+          templateHeaderContent: bulkMessageType === "template" ? (bulkTemplateObj?.headerContent || "") : undefined,
+          isTemplate:          bulkMessageType === "template",
+        }),
       });
-
-      // Always save the report — even if 0 were sent
-      try {
-        await fetch("/api/whatsapp/broadcasts", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({
-            batchName:    selectedBatch || "Manual Selection",
-            templateName: bulkMessageType === "template" ? selectedBulkTemplate : null,
-            total:        contactsToSend.length,
-            sent:         totalSent,
-            failed:       totalFailed,
-            contacts:     allContacts,
-          }),
-        });
-      } catch (e) {
-        console.error("Failed to save broadcast report:", e);
+      const d = await res.json();
+      if (!res.ok || !d.success) {
+        setSendingBulk(false);
+        setBulkResult({ error: d.error || "Failed to start broadcast" });
+        return;
       }
+      // Live progress from here on comes from the Firestore job doc, not this
+      // function — see the onSnapshot effect below.
+      setActiveBroadcastId(d.broadcastId);
+    } catch (err: any) {
+      setSendingBulk(false);
+      setBulkResult({ error: "Failed to start broadcast: " + (err.message || "Network error") });
+    }
+  };
 
-      if (didError) {
-        setBulkResult({ error: `Completed with errors — ${totalSent} sent, ${totalFailed} failed out of ${contactsToSend.length}. Report saved.` });
-      } else {
-        setBulkResult({ success: true, sent: totalSent, failed: totalFailed });
-        if (totalSent > 0) { setBulkMessage(""); setSelectedBulkTemplate(""); }
+  // Live progress for whichever broadcast was just started — keeps updating
+  // even if the send modal is closed, since this subscribes by ID rather
+  // than depending on the modal being open.
+  useEffect(() => {
+    if (!activeBroadcastId) return;
+    const unsub = onSnapshot(doc(db, "bulk_reports", activeBroadcastId), (snap) => {
+      if (!snap.exists()) return;
+      const data: any = snap.data();
+      setBulkTotalCount(data.total || 0);
+      setBulkSentCount((data.sent || 0) + (data.failed || 0));
+
+      if (data.status === "processing") {
+        setSendingBulk(true);
+        return;
       }
+      setSendingBulk(false);
+      if (data.status === "completed") {
+        setBulkResult({ success: true, sent: data.sent || 0, failed: data.failed || 0 });
+        if ((data.sent || 0) > 0) { setBulkMessage(""); setSelectedBulkTemplate(""); }
+      } else if (data.status === "cancelled") {
+        setBulkResult({ cancelled: true, sent: data.sent || 0, failed: data.failed || 0, reason: data.cancelReason });
+      } else if (data.status === "failed") {
+        setBulkResult({ error: `Broadcast failed: ${data.errorMessage || "Unknown error"} — ${data.sent || 0} sent before it stopped.` });
+      }
+    });
+    return () => unsub();
+  }, [activeBroadcastId]);
+
+  const handleCancelBroadcast = async () => {
+    if (!activeBroadcastId) return;
+    const reason = window.prompt("Why are you cancelling this broadcast? This is saved on the report.");
+    if (reason === null) return; // user dismissed the prompt — don't cancel
+    setCancellingBroadcast(true);
+    try {
+      const res = await fetch("/api/whatsapp/broadcasts/cancel", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ broadcastId: activeBroadcastId, reason }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.success) alert(d.error || "Failed to cancel broadcast");
+    } catch (err: any) {
+      alert("Failed to cancel broadcast: " + (err.message || "Network error"));
+    } finally {
+      setCancellingBroadcast(false);
     }
   };
 
@@ -690,6 +689,28 @@ export default function WhatsAppPage() {
            </button>
          </div>
       </div>
+
+      {/* Persistent broadcast progress — visible regardless of tab/modal so
+          you can navigate anywhere in the app while a broadcast runs. */}
+      {activeBroadcastId && sendingBulk && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3 flex flex-wrap items-center gap-3">
+          <Loader2 className="w-4 h-4 animate-spin text-green-600 shrink-0" />
+          <span className="text-sm text-green-800 font-medium">
+            Broadcast running in the background — {bulkSentCount} / {bulkTotalCount} processed
+          </span>
+          <div className="flex-1 min-w-[100px] bg-green-200 rounded-full h-2 overflow-hidden">
+            <div className="bg-green-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: bulkTotalCount > 0 ? `${Math.round((bulkSentCount / bulkTotalCount) * 100)}%` : "0%" }} />
+          </div>
+          <button
+            onClick={handleCancelBroadcast}
+            disabled={cancellingBroadcast}
+            className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50 shrink-0"
+          >
+            {cancellingBroadcast ? "Cancelling…" : "Cancel"}
+          </button>
+        </div>
+      )}
 
       {/* ===== INBOX ===== */}
       {activeTab === "inbox" && (
@@ -1266,7 +1287,10 @@ export default function WhatsAppPage() {
               )}
             </div>
 
-            {/* Progress bar — shown while sending */}
+            {/* Progress bar — shown while sending. The job runs on the backend,
+                so this modal can be closed without interrupting it — the
+                same progress is also shown in the persistent banner above
+                and in the Reports tab. */}
             {sendingBulk && (
               <div className="mb-4 space-y-2">
                 <div className="flex justify-between text-sm font-medium text-gray-700">
@@ -1277,16 +1301,31 @@ export default function WhatsAppPage() {
                   <div className="bg-green-600 h-3 rounded-full transition-all duration-300"
                     style={{ width: bulkTotalCount > 0 ? `${Math.round((bulkSentCount / bulkTotalCount) * 100)}%` : "0%" }} />
                 </div>
-                <p className="text-xs text-gray-500 text-right">
-                  {bulkTotalCount > 0 ? Math.round((bulkSentCount / bulkTotalCount) * 100) : 0}% complete
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500">
+                    {bulkTotalCount > 0 ? Math.round((bulkSentCount / bulkTotalCount) * 100) : 0}% complete — safe to close this window
+                  </p>
+                  <button
+                    onClick={handleCancelBroadcast}
+                    disabled={cancellingBroadcast}
+                    className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
+                  >
+                    {cancellingBroadcast ? "Cancelling…" : "Cancel Broadcast"}
+                  </button>
+                </div>
               </div>
             )}
 
             {/* Result */}
             {!sendingBulk && bulkResult && (
-              <div className={`mb-4 p-4 rounded-lg ${bulkResult.error ? "bg-red-50" : "bg-green-50"}`}>
-                {bulkResult.error ? <p className="text-red-700">{bulkResult.error}</p> : (
+              <div className={`mb-4 p-4 rounded-lg ${bulkResult.error ? "bg-red-50" : bulkResult.cancelled ? "bg-yellow-50" : "bg-green-50"}`}>
+                {bulkResult.error ? <p className="text-red-700">{bulkResult.error}</p> : bulkResult.cancelled ? (
+                  <div className="text-yellow-800">
+                    <p className="font-semibold">Broadcast cancelled</p>
+                    <p className="text-sm mt-0.5">✅ {bulkResult.sent} sent &nbsp;·&nbsp; ❌ {bulkResult.failed} failed before it was stopped</p>
+                    {bulkResult.reason && <p className="text-xs mt-1 text-yellow-700">Reason: {bulkResult.reason}</p>}
+                  </div>
+                ) : (
                   <div className="text-green-700">
                     <p className="font-semibold">Send Complete!</p>
                     <p className="text-sm mt-0.5">✅ {bulkResult.sent} sent &nbsp;·&nbsp; ❌ {bulkResult.failed} failed</p>
@@ -1384,6 +1423,7 @@ function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batc
   const [reports, setReports]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   // Per-contact delivered/read status is fetched lazily, only for whichever
   // broadcast's "Details" panel is open — not baked into the list response —
   // to avoid re-triggering the Firestore quota exhaustion this app hit once
@@ -1398,19 +1438,82 @@ function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batc
       .catch(() => setLoading(false));
   }, []);
 
-  const toggleExpanded = async (id: string) => {
-    if (expanded === id) { setExpanded(null); return; }
-    setExpanded(id);
-    if (liveContacts[id]) return; // already fetched
+  // Any broadcast still running gets its own live subscription so this list
+  // reflects progress/cancellation in real time — this is how you check on
+  // (or cancel) a broadcast you started earlier and navigated away from.
+  const processingIds = reports.filter(r => r.status === "processing").map(r => r.id).join(",");
+  useEffect(() => {
+    const ids = processingIds ? processingIds.split(",") : [];
+    if (ids.length === 0) return;
+    const unsubs = ids.map(id =>
+      onSnapshot(doc(db, "bulk_reports", id), (snap) => {
+        if (!snap.exists()) return;
+        const data: any = snap.data();
+        setReports(prev => prev.map(r => r.id === id ? {
+          ...r,
+          status: data.status || "completed",
+          sent: data.sent || 0,
+          failed: data.failed || 0,
+          delivered: data.delivered || 0,
+          read: data.read || 0,
+          total: data.total || r.total,
+          cancelReason: data.cancelReason || null,
+        } : r));
+      })
+    );
+    return () => unsubs.forEach(u => u());
+  }, [processingIds]);
+
+  // Fetches (and caches) the full per-contact list for one broadcast — used
+  // by both "Details" and "Replies", since Replies needs the phone list too
+  // and newer broadcasts no longer ship it inline in the list response.
+  const ensureContactsLoaded = async (id: string): Promise<any[]> => {
+    if (liveContacts[id]) return liveContacts[id];
+    const report = reports.find(r => r.id === id);
+    if (report?.contacts?.length > 0) return report.contacts; // old-shape reports already have it
     setLoadingStatus(id);
     try {
       const res = await fetch(`/api/whatsapp/broadcasts?id=${id}`);
       const d = await res.json();
-      if (d.success) setLiveContacts(prev => ({ ...prev, [id]: d.contacts }));
+      if (d.success) {
+        setLiveContacts(prev => ({ ...prev, [id]: d.contacts }));
+        return d.contacts;
+      }
     } catch {
-      // fall back silently to the send-time snapshot already in `reports`
+      // fall back silently to whatever's already cached/inline
     } finally {
       setLoadingStatus(null);
+    }
+    return [];
+  };
+
+  const toggleExpanded = async (id: string) => {
+    if (expanded === id) { setExpanded(null); return; }
+    setExpanded(id);
+    await ensureContactsLoaded(id);
+  };
+
+  const handleViewReplies = async (r: any) => {
+    const contacts = await ensureContactsLoaded(r.id);
+    onViewReplies(contacts.map((c: any) => c.phone).filter(Boolean), r.batchName);
+  };
+
+  const handleCancel = async (id: string) => {
+    const reason = window.prompt("Why are you cancelling this broadcast? This is saved on the report.");
+    if (reason === null) return;
+    setCancellingId(id);
+    try {
+      const res = await fetch("/api/whatsapp/broadcasts/cancel", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ broadcastId: id, reason }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.success) alert(d.error || "Failed to cancel broadcast");
+    } catch (err: any) {
+      alert("Failed to cancel broadcast: " + (err.message || "Network error"));
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -1436,7 +1539,6 @@ function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batc
         const failedList      = contacts.filter((c: any) => !c.success);
         const isExpanded      = expanded === r.id;
         const isLoadingStatus = loadingStatus === r.id;
-        const phones          = contacts.map((c: any) => c.phone).filter(Boolean);
 
         return (
           <div key={r.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
@@ -1444,15 +1546,40 @@ function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batc
               {/* Header row */}
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate">{r.batchName}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-gray-900 truncate">{r.batchName}</h3>
+                    {r.status === "processing" && (
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-green-100 text-green-700 rounded">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" /> Sending
+                      </span>
+                    )}
+                    {r.status === "cancelled" && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-100 text-yellow-700 rounded">Cancelled</span>
+                    )}
+                    {r.status === "failed" && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-700 rounded">Failed</span>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {r.templateName ? <span>Template: <span className="font-medium text-green-700">{r.templateName}</span></span> : "Custom text"}
                     {" · "}{r.createdAt ? new Date(r.createdAt).toLocaleString() : "—"}
                   </p>
+                  {r.status === "cancelled" && r.cancelReason && (
+                    <p className="text-xs text-yellow-700 mt-1">Cancelled: {r.cancelReason}</p>
+                  )}
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
+                  {r.status === "processing" && (
+                    <button
+                      onClick={() => handleCancel(r.id)}
+                      disabled={cancellingId === r.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50"
+                    >
+                      {cancellingId === r.id ? "Cancelling…" : "Cancel"}
+                    </button>
+                  )}
                   <button
-                    onClick={() => onViewReplies(phones, r.batchName)}
+                    onClick={() => handleViewReplies(r)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700"
                   >
                     <MessageSquare className="w-3.5 h-3.5" /> Replies

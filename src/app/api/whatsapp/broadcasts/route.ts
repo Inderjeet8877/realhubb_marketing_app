@@ -9,12 +9,31 @@ export async function GET(request: NextRequest) {
   // panel is actually expanded — not on every list load (see note below on why).
   if (broadcastId) {
     try {
-      const reportSnap = await adminDb.collection('bulk_reports').doc(broadcastId).get();
+      const reportRef = adminDb.collection('bulk_reports').doc(broadcastId);
+      const reportSnap = await reportRef.get();
       if (!reportSnap.exists) {
         return NextResponse.json({ success: false, error: 'Broadcast not found' }, { status: 404 });
       }
-      const contacts: any[] = reportSnap.data()?.contacts || [];
-      const recipientsSnap = await adminDb.collection('bulk_reports').doc(broadcastId).collection('recipients').get();
+      const data = reportSnap.data()!;
+
+      // Newer broadcasts (sent via the backend job worker) store per-contact
+      // results in small chunk docs instead of one inline array, since a
+      // single Firestore document can't hold thousands of contacts without
+      // risking the 1MiB/doc limit. Older reports still have the inline
+      // array — fall back to it so historical reports keep rendering.
+      let contacts: any[] = [];
+      const resultsSnap = await reportRef.collection('results').get();
+      if (!resultsSnap.empty) {
+        // Doc IDs are chunk indices as strings ("0", "1", "10", …) — Firestore
+        // has no numeric ordering for them, so sort numerically ourselves
+        // rather than relying on lexicographic document-ID order.
+        const chunkDocs = resultsSnap.docs.sort((a, b) => Number(a.id) - Number(b.id));
+        chunkDocs.forEach(doc => { contacts.push(...(doc.data().contacts || [])); });
+      } else {
+        contacts = data.contacts || [];
+      }
+
+      const recipientsSnap = await reportRef.collection('recipients').get();
       const statusByWamid = new Map<string, string>();
       recipientsSnap.forEach(r => statusByWamid.set(r.id, r.data().status));
 
@@ -37,8 +56,17 @@ export async function GET(request: NextRequest) {
 
     const broadcasts = snap.docs.map(d => {
       const data = d.data();
+      // Newer broadcasts (sent via the backend job worker) never store the
+      // full per-contact array inline — only aggregate counters, updated
+      // atomically as chunks complete — so this list view stays cheap
+      // regardless of broadcast size. Older reports still carry the inline
+      // `contacts` array from before that change; fall back to computing
+      // from it so historical reports keep showing correct numbers.
       const contacts: any[] = data.contacts || [];
-      const failed = contacts.filter(c => !c.success).length;
+      const hasInlineContacts = contacts.length > 0;
+      const sent   = typeof data.sent   === 'number' ? data.sent   : contacts.filter((c: any) => c.success).length;
+      const failed = typeof data.failed === 'number' ? data.failed : contacts.filter((c: any) => !c.success).length;
+
       // delivered/read come from the stored aggregate counters (kept current by
       // the webhook via atomic increments — see webhook/route.ts), NOT recomputed
       // from this contacts array. The array's per-contact `status` is a send-time
@@ -50,13 +78,22 @@ export async function GET(request: NextRequest) {
         id:           d.id,
         batchName:    data.batchName    || 'Unknown Batch',
         templateName: data.templateName || null,
-        total:        data.total        || contacts.length,
-        sent:         data.sent         || contacts.filter((c: any) => c.success).length,
+        // Missing status = an older report from before backend jobs existed;
+        // those were always fully sent-and-saved in one shot, so "completed"
+        // is the correct implied state.
+        status:       data.status || 'completed',
+        cancelReason: data.cancelReason || null,
+        finishedAt:   data.finishedAt?.toDate?.()?.toISOString() || null,
+        total:        data.total || contacts.length,
+        sent,
         failed,
         delivered:    data.delivered || 0,
         read:         data.read || 0,
         contacts,
-        phones:       contacts.map((c: any) => c.phone).filter(Boolean),
+        // Newer jobs don't carry phones in the list response (see above) —
+        // the client fetches them lazily via ?id= the same way it already
+        // does for the expandable "Details" panel.
+        phones:       hasInlineContacts ? contacts.map((c: any) => c.phone).filter(Boolean) : [],
         createdAt:    data.createdAt?.toDate?.()?.toISOString() || null,
       };
     });
