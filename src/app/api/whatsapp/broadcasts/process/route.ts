@@ -120,12 +120,19 @@ export async function POST(request: Request) {
     // Index every successful wamid so the delivery-status webhook can find
     // this broadcast/recipient later — same mechanism already used for the
     // existing delivered/read tracking, untouched by this change.
+    //
+    // Only wamid_index is written here — NOT a recipients/{wamid} doc.
+    // Pre-creating that doc at send time was pure extra write volume with no
+    // functional benefit: the webhook already treats a missing recipient doc
+    // as prevStatus "sent" (see webhook/route.ts), the exact same result.
+    // Doubling every successful send's write count like this is a real
+    // contributor to hitting Firestore's daily free-tier quota on a broadcast
+    // of any real size — cut it.
     const withWamid = results.filter(r => r.wamid);
     if (withWamid.length > 0) {
       const batch = adminDb.batch();
       for (const r of withWamid) {
         batch.set(adminDb.collection('wamid_index').doc(r.wamid!), { broadcastId, phone: r.phone });
-        batch.set(reportRef.collection('recipients').doc(r.wamid!), { status: 'sent' }, { merge: true });
       }
       await batch.commit();
     }
