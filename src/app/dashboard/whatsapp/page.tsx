@@ -131,6 +131,7 @@ export default function WhatsAppPage() {
   const [sendingBulk, setSendingBulk] = useState(false);
   const [bulkResult, setBulkResult] = useState<any>(null);
   const [bulkSentCount, setBulkSentCount] = useState(0);
+  const [optedOutSkippedCount, setOptedOutSkippedCount] = useState(0);
   const [bulkTotalCount, setBulkTotalCount] = useState(0);
   // The broadcast now runs as a backend job (see /api/whatsapp/broadcasts/start)
   // — this only tracks which job's live progress to subscribe to; the send
@@ -556,6 +557,7 @@ export default function WhatsAppPage() {
     setBulkResult(null);
     setBulkTotalCount(contactsToSend.length);
     setBulkSentCount(0);
+    setOptedOutSkippedCount(0);
     setActiveBroadcastId(null);
 
     try {
@@ -584,6 +586,8 @@ export default function WhatsAppPage() {
       }
       // Live progress from here on comes from the Firestore job doc, not this
       // function — see the onSnapshot effect below.
+      setBulkTotalCount(d.total ?? contactsToSend.length);
+      setOptedOutSkippedCount(d.optedOutCount || 0);
       setActiveBroadcastId(d.broadcastId);
     } catch (err: any) {
       setSendingBulk(false);
@@ -764,6 +768,7 @@ export default function WhatsAppPage() {
           <Loader2 className="w-4 h-4 animate-spin text-green-600 shrink-0" />
           <span className="text-sm text-green-800 font-medium">
             Broadcast running in the background — {bulkSentCount} / {bulkTotalCount} processed
+            {optedOutSkippedCount > 0 && ` (${optedOutSkippedCount} skipped — opted out)`}
           </span>
           <div className="flex-1 min-w-[100px] bg-green-200 rounded-full h-2 overflow-hidden">
             <div className="bg-green-600 h-2 rounded-full transition-all duration-300"
@@ -1375,6 +1380,11 @@ export default function WhatsAppPage() {
                   <div className="bg-green-600 h-3 rounded-full transition-all duration-300"
                     style={{ width: bulkTotalCount > 0 ? `${Math.round((bulkSentCount / bulkTotalCount) * 100)}%` : "0%" }} />
                 </div>
+                {optedOutSkippedCount > 0 && (
+                  <p className="text-xs text-gray-500">
+                    {optedOutSkippedCount} contact{optedOutSkippedCount === 1 ? "" : "s"} skipped — already opted out.
+                  </p>
+                )}
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs text-gray-500">
                     {bulkTotalCount > 0 ? Math.round((bulkSentCount / bulkTotalCount) * 100) : 0}% complete — safe to close this window

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
-import { CHUNK_SIZE, triggerWorker, getMetaCredentials, validateTemplateHeaderMedia } from '../_shared';
+import { CHUNK_SIZE, triggerWorker, getMetaCredentials, validateTemplateHeaderMedia, filterOptedOutPhones } from '../_shared';
 
 interface StartBroadcastRequest {
   contacts: string[];
@@ -38,6 +38,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No contacts provided' }, { status: 400 });
     }
 
+    // Never send a broadcast to someone who's already told us to stop —
+    // enforced here rather than left as something the UI merely displays,
+    // since the whole point is to reduce block/report events that damage
+    // the sending template's (and account's) Meta quality rating.
+    const { allowed: filteredContacts, excludedCount: optedOutCount } = await filterOptedOutPhones(contacts);
+    if (filteredContacts.length === 0) {
+      return NextResponse.json({ error: 'Every contact in this batch has opted out — nothing to send.' }, { status: 400 });
+    }
+
     const useTemplate = isTemplate || !!templateName;
 
     // Same guard as the previous client-driven bulk send: a media-header
@@ -54,14 +63,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'WhatsApp not configured' }, { status: 500 });
     }
 
-    const totalChunks = Math.ceil(contacts.length / CHUNK_SIZE);
+    const totalChunks = Math.ceil(filteredContacts.length / CHUNK_SIZE);
     const reportRef = adminDb.collection('bulk_reports').doc();
     const broadcastId = reportRef.id;
 
     await reportRef.set({
       broadcastId, batchName, templateName: templateName || null,
       status: 'processing',
-      total: contacts.length, sent: 0, failed: 0, delivered: 0, read: 0,
+      total: filteredContacts.length, sent: 0, failed: 0, delivered: 0, read: 0,
+      optedOutCount,
       cursor: 0, totalChunks, chunkSize: CHUNK_SIZE,
       cancelRequested: false, cancelReason: null, cancelRequestedAt: null,
       finishedAt: null, errorMessage: null,
@@ -79,9 +89,9 @@ export async function POST(request: Request) {
     // broadcast of a few thousand contacts would exceed. Chunk docs also give
     // the worker a natural, independently-claimable unit of work.
     const targetChunks: { phone: string; name: string }[][] = [];
-    for (let i = 0; i < contacts.length; i += CHUNK_SIZE) {
+    for (let i = 0; i < filteredContacts.length; i += CHUNK_SIZE) {
       targetChunks.push(
-        contacts.slice(i, i + CHUNK_SIZE).map(phone => ({
+        filteredContacts.slice(i, i + CHUNK_SIZE).map(phone => ({
           phone, name: contactNames[phone] || phone,
         }))
       );
@@ -102,7 +112,9 @@ export async function POST(request: Request) {
     // out to the browser without waiting for any sending to happen.
     after(() => triggerWorker(broadcastId));
 
-    return NextResponse.json({ success: true, broadcastId, total: contacts.length, totalChunks });
+    return NextResponse.json({
+      success: true, broadcastId, total: filteredContacts.length, totalChunks, optedOutCount,
+    });
   } catch (error: any) {
     console.error('[Broadcast Start] error:', error);
     return NextResponse.json({ error: error.message || 'Failed to start broadcast' }, { status: 500 });

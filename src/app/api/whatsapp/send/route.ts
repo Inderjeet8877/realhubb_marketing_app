@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { WHATSAPP_API_URL, SendConfig, buildMetaRequestBody, getMetaCredentials, validateTemplateHeaderMedia, normalizePhone } from '@/lib/whatsapp-send';
+import { filterOptedOutPhones } from '../broadcasts/_shared';
 
 async function getTemplateContent(templateName: string): Promise<string> {
   try {
@@ -200,14 +201,21 @@ async function handleSingleSend(body: SendMessageRequest) {
 
 async function handleBulkSend(body: BulkSendRequest) {
   const {
-    contacts, contactNames = {}, batchName = 'Unnamed Batch',
+    contacts: rawContacts, contactNames = {}, batchName = 'Unnamed Batch',
     message, templateContent, accountId, imageUrl, caption,
     templateName, languageCode = 'en', templateHeaderType, templateHeaderContent, isTemplate,
     skipReport = false,
   } = body;
 
-  if (!contacts || contacts.length === 0) {
+  if (!rawContacts || rawContacts.length === 0) {
     return NextResponse.json({ error: 'No contacts provided' }, { status: 400 });
+  }
+
+  // Never send to someone who's already told us to stop — same enforcement
+  // as the backend broadcast worker (see filterOptedOutPhones).
+  const { allowed: contacts } = await filterOptedOutPhones(rawContacts);
+  if (contacts.length === 0) {
+    return NextResponse.json({ error: 'Every contact in this batch has opted out — nothing to send.' }, { status: 400 });
   }
 
   const { accessToken, phoneNumberId } = getMetaCredentials(accountId);

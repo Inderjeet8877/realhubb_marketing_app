@@ -4,7 +4,20 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { getApps } from 'firebase-admin/app';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
-import { normalizePhone } from '@/lib/whatsapp-send';
+import { normalizePhone, getMetaCredentials, WHATSAPP_API_URL } from '@/lib/whatsapp-send';
+
+// Exact-match (after trimming trailing punctuation) rather than a substring
+// check — a message like "please stop by our office" must never be treated
+// as an unsubscribe request just because it contains the word "stop".
+const OPT_OUT_PHRASES = new Set([
+  'stop', 'unsubscribe', 'unsub', 'opt out', 'optout',
+  'cancel subscription', 'remove me', 'stop messages', 'stop broadcast',
+]);
+
+function isOptOutMessage(text: string): boolean {
+  const normalized = text.trim().toLowerCase().replace(/[.!?]+$/, '');
+  return OPT_OUT_PHRASES.has(normalized);
+}
 
 // Meta signs every webhook POST with the app's secret (HMAC-SHA256 over the
 // raw request body) in the X-Hub-Signature-256 header — verifying it is
@@ -191,6 +204,18 @@ export async function POST(request: NextRequest) {
           sendPushNotification(senderName, messageText).catch(e =>
             console.error('[Webhook] Push error:', e)
           );
+
+          // Opt-outs are handled here, not just recorded — every broadcast
+          // start (see /api/whatsapp/broadcasts/start) excludes phones in
+          // this list before sending. Reducing how many people are ever
+          // sent a message they didn't want is the actual lever on Meta's
+          // block/report-driven quality score; there's no way to appeal a
+          // low score after the fact, only to avoid triggering it.
+          if (isOptOutMessage(messageText)) {
+            handleOptOut(phone, senderName, messageText).catch(e =>
+              console.error('[Webhook] Opt-out handling error:', e)
+            );
+          }
         } catch (err) {
           console.error(`[Webhook] ❌ Failed to save from ${phone}:`, err);
         }
@@ -199,6 +224,37 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ status: 'ok' });
+}
+
+async function handleOptOut(phone: string, name: string, triggerMessage: string) {
+  await adminDb.collection('whatsapp_opt_outs').doc(phone).set({
+    phone,
+    name,
+    triggerMessage,
+    optedOutAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+  console.log(`[Webhook] 🚫 Opt-out recorded for ${phone}`);
+
+  // Confirming it (rather than silently suppressing) matters here: without
+  // this, someone who tried to unsubscribe and then got another broadcast
+  // anyway (e.g. one already queued before they opted out) has no reason to
+  // believe blocking/reporting isn't their only remaining option.
+  const { accessToken, phoneNumberId } = getMetaCredentials('1');
+  if (!accessToken || !phoneNumberId) return;
+  try {
+    await fetch(`${WHATSAPP_API_URL}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: phone,
+        type: 'text',
+        text: { body: "You've been unsubscribed and won't receive further marketing messages from us. Reply anytime if you'd like to reach us again." },
+      }),
+    });
+  } catch (err) {
+    console.error(`[Webhook] Failed to send opt-out confirmation to ${phone}:`, err);
+  }
 }
 
 async function sendPushNotification(senderName: string, body: string) {

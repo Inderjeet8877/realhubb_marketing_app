@@ -16,6 +16,26 @@ export {
 } from '@/lib/whatsapp-send';
 export type { SendConfig } from '@/lib/whatsapp-send';
 
+import { normalizePhone } from '@/lib/whatsapp-send';
+import { adminDb } from '@/lib/firebase-admin';
+
+// Excludes anyone who's opted out (via the "STOP"/"unsubscribe" webhook
+// handling) before a broadcast ever gets created — the actual enforcement
+// side of opt-out handling; recording an opt-out only helps if it's checked
+// before every future send, not just displayed somewhere. Reads the whole
+// whatsapp_opt_outs collection into memory rather than querying per phone —
+// that collection is sized by how many people have ever opted out, not by
+// the (much larger) target list being filtered. Server-only (this file is
+// never imported by client code, unlike @/lib/whatsapp-send).
+export async function filterOptedOutPhones(phones: string[]): Promise<{ allowed: string[]; excludedCount: number }> {
+  const snap = await adminDb.collection('whatsapp_opt_outs').get();
+  if (snap.empty) return { allowed: phones, excludedCount: 0 };
+
+  const optedOut = new Set(snap.docs.map(d => d.id));
+  const allowed = phones.filter(p => !optedOut.has(normalizePhone(p)));
+  return { allowed, excludedCount: phones.length - allowed.length };
+}
+
 // Phase 1 kept this equal to the old client-side batch size (10, fully
 // sequential) as the lowest-risk starting point. Phase 2 adds real
 // concurrency within a chunk (see CONCURRENCY below), so a larger chunk

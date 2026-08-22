@@ -4,6 +4,12 @@
 // this request-body/validation logic; keeping it in one place means a future
 // fix (a new header type, a Meta API change) can't silently apply to some
 // send paths and not others.
+//
+// NOTE: this file is also imported by the client-side WhatsApp page (for
+// normalizePhone) — never import firebase-admin or any other server-only
+// module here, or the client bundle breaks. Anything needing Firestore
+// (e.g. filterOptedOutPhones) lives in a server-only file instead
+// (src/app/api/whatsapp/broadcasts/_shared.ts).
 
 export const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 

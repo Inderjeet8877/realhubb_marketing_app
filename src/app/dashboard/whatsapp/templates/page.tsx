@@ -355,6 +355,42 @@ export default function WhatsAppTemplatesPage() {
     return null;
   };
 
+  // Advisory, not blocking — these are patterns correlated with recipients
+  // blocking/reporting a message (which is what actually drives Meta to
+  // pause or disable a template later), not rules Meta enforces at
+  // submission time. Flagging them here, before the template is even
+  // created, is much cheaper than discovering them after a broadcast has
+  // already damaged the template's quality rating.
+  const analyzeTemplateContent = (text: string): string[] => {
+    const warnings: string[] = [];
+    if (!text.trim()) return warnings;
+
+    const emojiCount = (text.match(/\p{Extended_Pictographic}/gu) || []).length;
+    if (emojiCount > 5) {
+      warnings.push(`${emojiCount} emojis used — heavy emoji use reads as spammy to many recipients. Keep it to 2–3 at most.`);
+    }
+
+    const exclamations = (text.match(/!/g) || []).length;
+    if (exclamations > 3) {
+      warnings.push(`${exclamations} exclamation marks — excessive urgency punctuation is a common spam signal.`);
+    }
+
+    const allCapsWords = text.match(/\b[A-Z]{4,}\b/g) || [];
+    if (allCapsWords.length > 2) {
+      warnings.push(`Multiple ALL-CAPS words (e.g. "${allCapsWords[0]}") — reads as shouting.`);
+    }
+
+    if (/\b(limited units?|hurry|act now|don'?t miss|last chance|offer ends|only \d+\s*(left|units?)|not for every)\b/i.test(text)) {
+      warnings.push(`Contains urgency/scarcity phrasing ("limited", "hurry", "act now", etc.) — this pattern correlates strongly with block/report rates in sales-style broadcasts.`);
+    }
+
+    if (!/\b(stop|unsubscribe|opt.?out)\b/i.test(text)) {
+      warnings.push(`No opt-out instructions found — adding "Reply STOP to unsubscribe" gives recipients an alternative to blocking/reporting you, which is what actually damages your quality rating.`);
+    }
+
+    return warnings;
+  };
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
@@ -515,6 +551,21 @@ export default function WhatsAppTemplatesPage() {
                   </p>
                 </div>
 
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1.5">
+                  <p className="text-sm font-semibold text-blue-900">Before you submit — what keeps a template healthy</p>
+                  <p className="text-xs text-blue-800">
+                    Meta tracks how recipients react to messages sent with this template — mainly how often they{" "}
+                    <strong>block your number</strong> or <strong>report it as spam</strong>. If that rate gets too high,
+                    Meta pauses the template (and can disable it after repeated pauses) — there&apos;s no way to appeal that
+                    after the fact, only to avoid triggering it:
+                  </p>
+                  <ul className="text-xs text-blue-800 list-disc list-inside space-y-0.5">
+                    <li>Keep the tone conversational — avoid heavy emoji use, ALL CAPS, and urgency/scarcity phrasing (&quot;limited units&quot;, &quot;act now&quot;)</li>
+                    <li>Include an opt-out line (e.g. &quot;Reply STOP to unsubscribe&quot;) so recipients can leave instead of blocking/reporting you</li>
+                    <li>Only send to people likely to actually want this message — broad blasts to an unsegmented list raise block rates fast</li>
+                  </ul>
+                </div>
+
                 {editingTemplate && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <p className="text-sm text-yellow-800">
@@ -655,6 +706,16 @@ export default function WhatsAppTemplatesPage() {
                   <p className="text-xs text-gray-500 mt-1">
                     Use {"{{1}}"}, {"{{2}}"} for dynamic placeholders
                   </p>
+                  {analyzeTemplateContent(content).length > 0 && (
+                    <div className="mt-2 bg-orange-50 border border-orange-200 rounded-lg p-2.5 space-y-1">
+                      <p className="text-xs font-semibold text-orange-800">
+                        Won&apos;t block submission, but worth considering — these patterns raise the odds recipients block/report this template later:
+                      </p>
+                      <ul className="text-xs text-orange-700 list-disc list-inside space-y-0.5">
+                        {analyzeTemplateContent(content).map((w, i) => <li key={i}>{w}</li>)}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
                 <div>
