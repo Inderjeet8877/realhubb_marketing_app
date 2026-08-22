@@ -116,6 +116,40 @@ function normalizePhoneNumber(phone: string): string | null {
   return '+' + digits;
 }
 
+// Meta's real template status has several distinct values beyond just
+// approved/pending/rejected — collapsing everything else into "pending" was
+// hiding a real, actionable difference: PAUSED (or DISABLED) means Meta
+// already approved this template and later suspended it — typically because
+// too many recipients blocked/reported it as spam, tanking its quality
+// rating — which needs a completely different response (fix the message,
+// slow down sending) than a template that's simply awaiting its first
+// review. Same for the other statuses Meta documents.
+type TemplateApprovalStatus =
+  | 'approved' | 'rejected' | 'pending' | 'paused' | 'disabled'
+  | 'in_appeal' | 'pending_deletion' | 'limit_exceeded';
+
+function mapApprovalStatus(rawStatus: string | undefined): TemplateApprovalStatus {
+  switch (rawStatus) {
+    case 'APPROVED':         return 'approved';
+    case 'REJECTED':         return 'rejected';
+    case 'PAUSED':           return 'paused';
+    case 'DISABLED':         return 'disabled';
+    case 'IN_APPEAL':        return 'in_appeal';
+    case 'PENDING_DELETION': return 'pending_deletion';
+    case 'LIMIT_EXCEEDED':   return 'limit_exceeded';
+    case 'PENDING':
+    default:                 return 'pending';
+  }
+}
+
+// Explicit field list for Meta's message_templates endpoint — once you pass
+// `fields=`, Meta returns ONLY what's listed here (no more implicit
+// defaults), so this must include everything already parsed elsewhere in
+// this file (components, category, language) plus quality_score and
+// rejected_reason, which are what make PAUSED/REJECTED actually actionable
+// instead of just a bare status word.
+const TEMPLATE_FIELDS = 'id,name,status,category,language,components,quality_score,rejected_reason';
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const syncFromMeta = url.searchParams.get('syncFromMeta') === 'true';
@@ -132,19 +166,19 @@ export async function GET(request: Request) {
     try {
       // Fetch ALL templates from Meta (paginated)
       let allMetaTemplates: any[] = [];
-      let nextPage: string | null = `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}`;
-      
+      let nextPage: string | null = `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}&fields=${TEMPLATE_FIELDS}`;
+
       while (nextPage) {
         const metaRes: any = await fetch(nextPage);
         const metaData: any = await metaRes.json();
-        
+
         if (metaData.data && Array.isArray(metaData.data)) {
           allMetaTemplates = [...allMetaTemplates, ...metaData.data];
         }
-        
+
         // Check for next page
-        nextPage = metaData.paging?.cursors?.after 
-          ? `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}&after=${metaData.paging.cursors.after}`
+        nextPage = metaData.paging?.cursors?.after
+          ? `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}&fields=${TEMPLATE_FIELDS}&after=${metaData.paging.cursors.after}`
           : null;
       }
       
@@ -178,9 +212,6 @@ export async function GET(request: Request) {
             return { type: 'QUICK_REPLY', text: b.text };
           });
 
-          const status = mt.status === 'APPROVED' ? 'approved'
-            : mt.status === 'REJECTED' ? 'rejected' : 'pending';
-
           const templateData = {
             name: mt.name,
             language: mt.language || 'en',
@@ -189,7 +220,9 @@ export async function GET(request: Request) {
             headerType,
             footerContent,
             buttons,
-            approvalStatus: status,
+            approvalStatus: mapApprovalStatus(mt.status),
+            qualityScore: mt.quality_score?.score || null,
+            rejectedReason: mt.rejected_reason && mt.rejected_reason !== 'NONE' ? mt.rejected_reason : null,
             metaTemplateId: mt.id,
           };
 
@@ -264,7 +297,7 @@ export async function GET(request: Request) {
     // 1. Fetch all templates from Meta (with pagination)
     let metaTemplates: any[] = [];
     let nextUrl: string | null =
-      `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}&limit=100`;
+      `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}&limit=100&fields=${TEMPLATE_FIELDS}`;
 
     while (nextUrl) {
       const res: Response = await fetch(nextUrl);
@@ -310,9 +343,9 @@ export async function GET(request: Request) {
         headerComp.format === 'VIDEO'    ? 'video' :
         headerComp.format === 'DOCUMENT' ? 'document' : 'text';
 
-      const approvalStatus =
-        mt.status === 'APPROVED' ? 'approved' :
-        mt.status === 'REJECTED' ? 'rejected' : 'pending';
+      const approvalStatus = mapApprovalStatus(mt.status);
+      const qualityScore = mt.quality_score?.score || null;
+      const rejectedReason = mt.rejected_reason && mt.rejected_reason !== 'NONE' ? mt.rejected_reason : null;
 
       const buttons = (buttonsComp?.buttons || []).map((b: any) => {
         if (b.type === 'URL')          return { type: 'URL',   text: b.text, url: b.url };
@@ -331,6 +364,8 @@ export async function GET(request: Request) {
         footerContent: footerComp?.text || '',
         buttons,
         approvalStatus,
+        qualityScore,
+        rejectedReason,
         metaTemplateId: mt.id,
         createdAt: fs.createdAt?.toDate?.() || new Date(),
       };
@@ -500,17 +535,8 @@ const components: any[] = [];
           if (searchData.data && searchData.data.length > 0) {
             const existingMeta = searchData.data[0];
             metaTemplateId = existingMeta.id;
-            // Map Meta status to our status
-            const metaStatus = existingMeta.status; // APPROVED, PENDING, INCOMPLETE, etc.
-            if (metaStatus === 'APPROVED') {
-              approvalStatus = 'approved';
-            } else if (metaStatus === 'PENDING') {
-              approvalStatus = 'pending'; 
-            } else {
-              // NOT_SUBMITTED, INCOMPLETE, or any other status - treat as pending for now
-              approvalStatus = 'pending';
-            }
-            console.log('Found existing Meta template:', metaStatus, '-> mapped to:', approvalStatus);
+            approvalStatus = mapApprovalStatus(existingMeta.status);
+            console.log('Found existing Meta template:', existingMeta.status, '-> mapped to:', approvalStatus);
           }
         } catch (searchError) {
           console.error('Search error:', searchError);

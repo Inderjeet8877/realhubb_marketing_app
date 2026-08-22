@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Plus, Trash2, CheckCircle, Clock, XCircle, Send, FileText, Eye,
-  Loader2, X, Cloud,
+  Loader2, X, Cloud, PauseCircle, Ban, AlertTriangle,
 } from "lucide-react";
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 
@@ -18,6 +18,8 @@ interface Template {
   footerContent: string;
   buttons: { type: string; text: string; url?: string; phone_number?: string }[];
   approvalStatus: string;
+  qualityScore?: string | null;
+  rejectedReason?: string | null;
   metaTemplateId?: string;
   createdAt: Date;
 }
@@ -67,10 +69,33 @@ export default function WhatsAppTemplatesPage() {
       .catch(() => {});
   }, [selectedAccount]);
 
-  const fetchTemplates = async () => {
+  // `sync=true` is what the "Refresh Status" button needs — it hits Meta's
+  // live API and updates Firestore's approvalStatus for every template
+  // (see GET .../templates?syncFromMeta=true). Without it, this only re-reads
+  // whatever's already cached in Firestore — which is exactly what every
+  // call site here used to do, including the button whose whole job is to
+  // check Meta for a real status change. A template Meta had long since
+  // approved could show "Pending Review" forever no matter how many times
+  // you clicked it, because the click never actually asked Meta anything.
+  const fetchTemplates = async (sync = false) => {
     setRefreshing(true);
     try {
-      const response = await fetch("/api/whatsapp/templates");
+      // The sync endpoint's response is {success, new, updated, total} — it
+      // upserts Firestore but doesn't return a template list — so always
+      // follow it with the plain GET (which already reflects Meta's live
+      // status on every call) to actually populate the displayed list.
+      if (sync) {
+        const syncRes = await fetch('/api/whatsapp/templates?syncFromMeta=true');
+        const syncData = await syncRes.json();
+        if (!syncRes.ok) {
+          setFetchError(syncData.error || "Failed to sync templates from Meta");
+          setLoading(false);
+          setRefreshing(false);
+          return;
+        }
+      }
+
+      const response = await fetch('/api/whatsapp/templates');
       const data = await response.json();
       if (response.ok) {
         setTemplates(data.templates || []);
@@ -257,6 +282,12 @@ export default function WhatsAppTemplatesPage() {
     setButtons(buttons.filter((_, i) => i !== index));
   };
 
+  // Meta reports several distinct states beyond approved/pending/rejected —
+  // in particular PAUSED and DISABLED mean Meta already approved this
+  // template and later suspended it (almost always because too many
+  // recipients blocked/reported it, tanking its quality rating), which is a
+  // completely different situation from "awaiting first review" and needs a
+  // different response: fix the message/targeting, don't just wait.
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "approved":
@@ -265,6 +296,16 @@ export default function WhatsAppTemplatesPage() {
         return <Clock className="w-5 h-5 text-yellow-500" />;
       case "rejected":
         return <XCircle className="w-5 h-5 text-red-500" />;
+      case "paused":
+        return <PauseCircle className="w-5 h-5 text-orange-500" />;
+      case "disabled":
+        return <Ban className="w-5 h-5 text-red-600" />;
+      case "in_appeal":
+        return <AlertTriangle className="w-5 h-5 text-orange-500" />;
+      case "limit_exceeded":
+        return <AlertTriangle className="w-5 h-5 text-orange-500" />;
+      case "pending_deletion":
+        return <Trash2 className="w-5 h-5 text-gray-500" />;
       default:
         return <Clock className="w-5 h-5 text-gray-500" />;
     }
@@ -278,9 +319,40 @@ export default function WhatsAppTemplatesPage() {
         return <span className="text-yellow-600 font-medium">Pending Review</span>;
       case "rejected":
         return <span className="text-red-600 font-medium">Rejected</span>;
+      case "paused":
+        return <span className="text-orange-600 font-medium">Paused — Quality Issue</span>;
+      case "disabled":
+        return <span className="text-red-700 font-medium">Disabled by Meta</span>;
+      case "in_appeal":
+        return <span className="text-orange-600 font-medium">In Appeal</span>;
+      case "limit_exceeded":
+        return <span className="text-orange-600 font-medium">Limit Exceeded</span>;
+      case "pending_deletion":
+        return <span className="text-gray-600 font-medium">Pending Deletion</span>;
       default:
         return <span className="text-gray-600 font-medium">Not Submitted</span>;
     }
+  };
+
+  // Plain-language explanation of what actually happened and what to do —
+  // shown under the badge for the non-obvious statuses. Meta pausing/
+  // disabling a template is a real quality signal (too many recipients
+  // blocked or reported messages sent with it), not a generic "still
+  // reviewing" state, and conflating the two hides that entirely.
+  const getStatusExplanation = (t: Template): string | null => {
+    if (t.approvalStatus === "paused") {
+      return `Meta suspended this template${t.qualityScore ? ` (quality rating: ${t.qualityScore})` : ""} — usually because too many recipients blocked or reported messages sent with it. Sending will likely fail until Meta lifts the pause (often a few hours), and repeated pauses can lead to it being disabled entirely. Consider revising the message or targeting before it's used again.`;
+    }
+    if (t.approvalStatus === "disabled") {
+      return `Meta has disabled this template${t.qualityScore ? ` (quality rating: ${t.qualityScore})` : ""} — it can no longer be used to send messages. This usually follows repeated quality pauses. You'll need to create a new template.`;
+    }
+    if (t.approvalStatus === "rejected" && t.rejectedReason) {
+      return `Meta's rejection reason: ${t.rejectedReason}.`;
+    }
+    if (t.approvalStatus === "limit_exceeded") {
+      return "This template hit Meta's per-template messaging limit for the current period.";
+    }
+    return null;
   };
 
   return (
@@ -292,10 +364,10 @@ export default function WhatsAppTemplatesPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => fetchTemplates()}
+            onClick={() => fetchTemplates(true)}
             disabled={refreshing}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            title="Re-fetch live approval status from Meta"
+            title="Re-sync template data (including quality/pause status) from Meta into this app's records"
           >
             <Loader2 className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
             {refreshing ? "Refreshing..." : "Refresh Status"}
@@ -311,8 +383,13 @@ export default function WhatsAppTemplatesPage() {
       </div>
 
       {templates.some((t) => t.approvalStatus === "pending") && (
-        <p className="text-xs text-gray-400 -mt-6 mb-6">
+        <p className="text-xs text-gray-400 -mt-6 mb-2">
           Some templates are still pending Meta review — click &quot;Refresh Status&quot; above to check for updates.
+        </p>
+      )}
+      {templates.some((t) => t.approvalStatus === "paused" || t.approvalStatus === "disabled") && (
+        <p className="text-xs text-orange-600 font-medium -mt-4 mb-6">
+          One or more templates have been paused or disabled by Meta due to quality issues — see the details on each affected template below before sending with it again.
         </p>
       )}
 
@@ -378,6 +455,12 @@ export default function WhatsAppTemplatesPage() {
                     No {template.headerType} attached — edit this template to add one before sending.
                   </p>
                 )
+              )}
+
+              {getStatusExplanation(template) && (
+                <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg p-2 mb-3">
+                  {getStatusExplanation(template)}
+                </p>
               )}
 
               <div className="flex items-center justify-between">
