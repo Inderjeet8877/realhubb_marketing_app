@@ -149,7 +149,7 @@ export default function WhatsAppPage() {
   const [selectedBulkTemplate, setSelectedBulkTemplate] = useState<string>("");
   const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
   const [showWebhookPanel, setShowWebhookPanel] = useState(false);
-  const [simulatingInbound, setSimulatingInbound] = useState(false);
+  const [copiedDetails, setCopiedDetails] = useState(false);
   const [batches, setBatches] = useState<{ name: string; count: number }[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<string>("");
   const [sendRange, setSendRange] = useState<string>("all");
@@ -428,24 +428,6 @@ export default function WhatsAppPage() {
     }
   };
 
-  const simulateInbound = async () => {
-    if (!selectedConversation) return;
-    setSimulatingInbound(true);
-    try {
-      const r = await fetch("/api/whatsapp/simulate-inbound", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: selectedConversation.phone, message: "Test reply from customer", name: selectedConversation.name }),
-      });
-      const d = await r.json();
-      if (!d.success) alert("Simulate failed: " + d.error);
-    } catch (e) {
-      alert("Simulate error: " + e);
-    } finally {
-      setSimulatingInbound(false);
-    }
-  };
-
   const fetchWebhookLogs = async () => {
     try {
       const r = await fetch("/api/whatsapp/simulate-inbound");
@@ -457,23 +439,16 @@ export default function WhatsAppPage() {
     } catch {}
   };
 
-  const testDirectSave = async () => {
+  const handleCopyDetails = async () => {
     if (!selectedConversation) return;
+    const hasName = selectedConversation.name && selectedConversation.name !== selectedConversation.phone;
+    const text = hasName ? `${selectedConversation.name}\n${selectedConversation.phone}` : selectedConversation.phone;
     try {
-      const r = await fetch("/api/whatsapp/test-message", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: selectedConversation.phone,
-          message: '🧪 Direct test message!',
-          direction: 'inbound'
-        }),
-      });
-      const data = await r.json();
-      alert('Test result: ' + JSON.stringify(data, null, 2));
-      fetchConversations();
-    } catch (error) {
-      alert('Test error: ' + error);
+      await navigator.clipboard.writeText(text);
+      setCopiedDetails(true);
+      setTimeout(() => setCopiedDetails(false), 1500);
+    } catch {
+      alert("Couldn't copy — your browser may be blocking clipboard access.");
     }
   };
 
@@ -954,19 +929,11 @@ export default function WhatsAppPage() {
                     <p className="text-green-200 text-xs">{selectedConversation.phone}</p>
                   </div>
                   <button
-                    onClick={simulateInbound}
-                    disabled={simulatingInbound}
+                    onClick={handleCopyDetails}
                     className="px-2 py-1 text-[10px] bg-white/10 hover:bg-white/20 text-white/80 rounded border border-white/20"
-                    title="Simulate a test inbound message from this customer"
+                    title="Copy this contact's name and phone number"
                   >
-                    {simulatingInbound ? "..." : "Test Reply"}
-                  </button>
-                  <button
-                    onClick={testDirectSave}
-                    className="px-2 py-1 text-[10px] bg-blue-600 hover:bg-blue-700 text-white rounded border border-white/20"
-                    title="Direct save test - bypass webhook"
-                  >
-                    Direct Test
+                    {copiedDetails ? "✓ Copied" : "Copy Details"}
                   </button>
                   <button onClick={() => setSelectedConversation(null)} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-full">
                     <X className="w-4 h-4" />
@@ -1522,7 +1489,7 @@ export default function WhatsAppPage() {
             </div>
 
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-yellow-800 text-xs font-medium">After fixing Meta config, click the &quot;Test Reply&quot; button in any chat to verify inbound messages work end-to-end.</p>
+              <p className="text-yellow-800 text-xs font-medium">After fixing Meta config, send a real WhatsApp message to this number from your phone to verify inbound messages work end-to-end.</p>
             </div>
           </div>
         </div>
