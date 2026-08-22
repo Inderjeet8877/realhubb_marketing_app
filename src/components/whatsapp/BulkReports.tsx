@@ -55,6 +55,27 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
     return () => unsubs.forEach(u => u());
   }, [processingIds]);
 
+  // Safety net on top of the worker's own retries: every 10 minutes, nudge
+  // every currently-processing broadcast the same way the manual Resume
+  // button does. Silent (no alerts) since this fires unattended — safe on a
+  // perfectly healthy job too, the worker's transactional chunk-claim means
+  // an extra trigger just gets told there's nothing to claim right now.
+  useEffect(() => {
+    const ids = processingIds ? processingIds.split(",") : [];
+    if (ids.length === 0) return;
+    const AUTO_RESUME_INTERVAL_MS = 10 * 60 * 1000;
+    const interval = setInterval(() => {
+      ids.forEach(id => {
+        fetch("/api/whatsapp/broadcasts/resume", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ broadcastId: id }),
+        }).catch(err => console.warn("[Auto-resume] failed for", id, err));
+      });
+    }, AUTO_RESUME_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [processingIds]);
+
   // Fetches (and caches) the full per-contact list for one broadcast — used
   // by both "Details" and "Replies", since Replies needs the phone list too
   // and newer broadcasts no longer ship it inline in the list response.

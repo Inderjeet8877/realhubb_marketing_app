@@ -664,6 +664,42 @@ export default function WhatsAppPage() {
     }
   };
 
+  // Core resume call, shared by the manual button and the automatic watchdog
+  // below — silent mode skips the alert() popups since an automatic nudge
+  // firing every 10 minutes shouldn't interrupt whoever's on this page.
+  const resumeBroadcast = async (broadcastId: string, opts?: { silent?: boolean }) => {
+    try {
+      const res = await fetch("/api/whatsapp/broadcasts/resume", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ broadcastId }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.success) {
+        if (opts?.silent) console.warn("[Auto-resume] nudge response:", d.error || res.status);
+        else alert(d.error || "Failed to resume broadcast");
+      }
+    } catch (err: any) {
+      if (opts?.silent) console.warn("[Auto-resume] failed:", err);
+      else alert("Failed to resume broadcast: " + (err.message || "Network error"));
+    }
+  };
+
+  // Safety net on top of the worker's own retries: every 10 minutes while a
+  // broadcast is actively processing, automatically nudge it the same way
+  // the manual Resume button does — safe on a perfectly healthy job (the
+  // worker's transactional chunk-claim means an extra trigger just gets told
+  // there's nothing to claim), so this can run unconditionally without
+  // needing to first detect whether anything actually looks stuck.
+  useEffect(() => {
+    if (!activeBroadcastId || !sendingBulk) return;
+    const AUTO_RESUME_INTERVAL_MS = 10 * 60 * 1000;
+    const interval = setInterval(() => {
+      resumeBroadcast(activeBroadcastId, { silent: true });
+    }, AUTO_RESUME_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [activeBroadcastId, sendingBulk]);
+
   // Backstop in case the broadcast's self-triggering chain stalls despite
   // the retries already built into the worker — safe to click on a healthy
   // job too, it just gets told there's nothing to claim right now.
@@ -671,15 +707,7 @@ export default function WhatsAppPage() {
     if (!activeBroadcastId) return;
     setResumingBroadcast(true);
     try {
-      const res = await fetch("/api/whatsapp/broadcasts/resume", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ broadcastId: activeBroadcastId }),
-      });
-      const d = await res.json();
-      if (!res.ok || !d.success) alert(d.error || "Failed to resume broadcast");
-    } catch (err: any) {
-      alert("Failed to resume broadcast: " + (err.message || "Network error"));
+      await resumeBroadcast(activeBroadcastId); // handles its own error reporting
     } finally {
       setResumingBroadcast(false);
     }
