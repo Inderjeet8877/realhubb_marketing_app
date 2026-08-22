@@ -5,6 +5,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import {
   buildMetaRequestBody, getMetaCredentials, triggerWorker, runWithConcurrency,
   CONCURRENCY, WHATSAPP_API_URL, SendConfig, RATE_LIMIT_ERROR_CODES, MESSAGING_LIMIT_ERROR_CODES,
+  normalizePhone,
 } from '../_shared';
 
 // Vercel serverless timeout budget for this invocation.
@@ -195,8 +196,7 @@ async function sendOneContact(
   accessToken: string,
   phoneNumberId: string
 ): Promise<ContactResult> {
-  const cleanPhone = c.phone.replace(/\D/g, '');
-  const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+  const formattedPhone = normalizePhone(c.phone);
   const waBody = buildMetaRequestBody(formattedPhone, sendConfig);
 
   for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {

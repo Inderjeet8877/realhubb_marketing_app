@@ -4,6 +4,7 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { getApps } from 'firebase-admin/app';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
+import { normalizePhone } from '@/lib/whatsapp-send';
 
 // Meta signs every webhook POST with the app's secret (HMAC-SHA256 over the
 // raw request body) in the X-Hub-Signature-256 header — verifying it is
@@ -143,7 +144,13 @@ export async function POST(request: NextRequest) {
       const contacts: any[] = value.contacts || [];
 
       for (const msg of value.messages) {
-        const phone = (msg.from || '').replace(/\D/g, '');
+        // Meta's webhook already sends `from` as the full MSISDN, so this is
+        // normally a no-op — but running it through the exact same
+        // normalization used everywhere we store/send a phone number means
+        // there's one single definition of "the phone format" for this app,
+        // not an assumption that Meta's inbound format and our own
+        // send-side formatting always happen to agree.
+        const phone = normalizePhone(msg.from || '');
         if (!phone) continue;
 
         const messageText =

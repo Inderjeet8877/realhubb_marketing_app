@@ -10,6 +10,7 @@ export {
   buildMetaRequestBody,
   getMetaCredentials,
   validateTemplateHeaderMedia,
+  normalizePhone,
   RATE_LIMIT_ERROR_CODES,
   MESSAGING_LIMIT_ERROR_CODES,
 } from '@/lib/whatsapp-send';

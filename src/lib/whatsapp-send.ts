@@ -7,6 +7,26 @@
 
 export const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 
+// Canonical Indian phone format used everywhere a phone number is stored or
+// sent to Meta — 12 digits, "91" + 10-digit mobile number, no "+", no
+// separators. This replaces a `startsWith('91') ? asIs : '91'+digits`
+// heuristic that used to be duplicated (and drifting) across the send
+// routes and the webhook: any real 10-digit mobile number that happens to
+// start with "91" itself (there's nothing stopping a valid Indian mobile
+// from doing that) was wrongly left un-prefixed, so it could end up stored
+// in different formats depending on which code path touched it — which is
+// exactly why a broadcast's known-correct recipient list could fail to
+// match that same contact's inbound reply in whatsapp_conversations. Basing
+// the decision on digit COUNT instead of a prefix guess removes the
+// ambiguity entirely.
+export function normalizePhone(raw: string): string {
+  const digits = (raw || '').replace(/\D/g, '');
+  if (digits.length === 10) return '91' + digits;
+  if (digits.length === 11 && digits.startsWith('0')) return '91' + digits.slice(1);
+  if (digits.length === 12 && digits.startsWith('91')) return digits;
+  return digits;
+}
+
 export interface SendConfig {
   message?: string | null;
   templateContent?: string | null;

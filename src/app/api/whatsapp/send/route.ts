@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
-import { WHATSAPP_API_URL, SendConfig, buildMetaRequestBody, getMetaCredentials, validateTemplateHeaderMedia } from '@/lib/whatsapp-send';
+import { WHATSAPP_API_URL, SendConfig, buildMetaRequestBody, getMetaCredentials, validateTemplateHeaderMedia, normalizePhone } from '@/lib/whatsapp-send';
 
 async function getTemplateContent(templateName: string): Promise<string> {
   try {
@@ -107,8 +107,7 @@ async function handleSingleSend(body: SendMessageRequest) {
     );
   }
 
-  const cleanPhone = phoneNumber.replace(/\D/g, '');
-  const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+  const formattedPhone = normalizePhone(phoneNumber);
 
   // A template approved with a media header REQUIRES that header parameter on every
   // send. Meta will silently accept the call and never deliver it if it's missing —
@@ -238,9 +237,8 @@ async function handleBulkSend(body: BulkSendRequest) {
   const contactResults: ContactResult[] = [];
 
   for (const phoneNumber of contacts) {
-    const cleanPhone    = phoneNumber.replace(/\D/g, '');
-    const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
-    const contactName   = contactNames[phoneNumber] || contactNames[formattedPhone] || formattedPhone;
+    const formattedPhone = normalizePhone(phoneNumber);
+    const contactName    = contactNames[phoneNumber] || contactNames[formattedPhone] || formattedPhone;
     const waBody = buildMetaRequestBody(formattedPhone, sendConfig);
 
     try {

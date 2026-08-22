@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3, ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3, Filter } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, orderBy, limit, doc } from "firebase/firestore";
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 import { BulkReports } from "@/components/whatsapp/BulkReports";
+import { normalizePhone } from "@/lib/whatsapp-send";
 
 interface Conversation {
   id: string;
@@ -158,9 +159,15 @@ export default function WhatsAppPage() {
   const allBatchPhonesRef  = useRef<string[]>([]);
   const chatContainerRef   = useRef<HTMLDivElement>(null);
 
+  // Set for O(1) membership checks — a broadcast can carry thousands of
+  // phones, and this filter runs once per conversation on every render.
+  const broadcastReplyPhoneSet = useMemo(
+    () => broadcastReplyPhones ? new Set(broadcastReplyPhones) : null,
+    [broadcastReplyPhones]
+  );
   const displayedConversations = conversations
     .filter(c => !showRepliesOnly || c.hasInbound)
-    .filter(c => !broadcastReplyPhones || broadcastReplyPhones.includes(c.phone));
+    .filter(c => !broadcastReplyPhoneSet || broadcastReplyPhoneSet.has(c.phone));
 
   useEffect(() => {
     fetchContacts();
@@ -183,11 +190,14 @@ export default function WhatsAppPage() {
     setLoadingConversations(true);
 
     // Unbounded before — this billed a read for every message document ever stored,
-    // on every listener attach and every new message anywhere. Capped to the most
-    // recent 500 messages, which comfortably covers active conversations while
-    // keeping this from scaling read costs with the entire lifetime message history.
+    // on every listener attach and every new message anywhere. Capped at a number
+    // high enough to comfortably cover a broadcast's replies scattered across recent
+    // history (this used to be 500, which — shared across every contact AND every
+    // outbound send mixed together — meant a broadcast's older replies routinely
+    // fell outside the window and silently vanished from its "Replies" view even
+    // though the notification for them had already arrived).
     const unsub = onSnapshot(
-      query(collection(db, "whatsapp_conversations"), orderBy("createdAt", "desc"), limit(500)),
+      query(collection(db, "whatsapp_conversations"), orderBy("createdAt", "desc"), limit(3000)),
       (snap) => {
         setLoadingConversations(false);
         const sorted = snap.docs.slice().sort((a, b) => {
@@ -195,10 +205,11 @@ export default function WhatsAppPage() {
           const bT = b.data().createdAt?.toDate?.()?.getTime() || 0;
           return bT - aT;
         });
-        const convMap    = new Map<string, Conversation>();
-        const nameMap    = new Map<string, string>();
-        const inboundSet = new Set<string>();   // phones with ANY inbound message
-        const tmplMap    = new Map<string, Set<string>>();
+        const convMap        = new Map<string, Conversation>();
+        const nameMap        = new Map<string, string>();
+        const inboundSet     = new Set<string>();   // phones with ANY inbound message
+        const tmplMap        = new Map<string, Set<string>>();
+        const unreadCountMap = new Map<string, number>();
 
         for (const doc of sorted) {
           const d = doc.data();
@@ -209,6 +220,14 @@ export default function WhatsAppPage() {
             if (!tmplMap.has(d.phone)) tmplMap.set(d.phone, new Set());
             tmplMap.get(d.phone)!.add(d.templateName);
           }
+          // Each inbound message doc carries its own unreadCount (0 or 1) —
+          // summing across every doc for this phone, instead of trusting only
+          // whichever one happens to be newest, is what actually reflects how
+          // many of that contact's messages are unread (previously this could
+          // only ever show 0 or 1 regardless of how many were really unread).
+          if (d.direction === "inbound" && (d.unreadCount || 0) > 0) {
+            unreadCountMap.set(d.phone, (unreadCountMap.get(d.phone) || 0) + 1);
+          }
           if (!convMap.has(d.phone)) {
             convMap.set(d.phone, {
               id: doc.id,
@@ -217,7 +236,7 @@ export default function WhatsAppPage() {
               lastMessage: d.message || d.lastMessage || "",
               lastMessageAt: d.createdAt?.toDate?.()?.toISOString() || null,
               lastMessageDirection: d.direction,
-              unreadCount: d.unreadCount || 0,
+              unreadCount: 0, // filled in below from unreadCountMap
               hasInbound: false,
               templates: [],
             });
@@ -235,7 +254,23 @@ export default function WhatsAppPage() {
           const c = convMap.get(phone);
           if (c) c.templates = Array.from(tmplSet);
         }
-        setConversations(Array.from(convMap.values()));
+        for (const [phone, count] of unreadCountMap) {
+          const c = convMap.get(phone);
+          if (c) c.unreadCount = count;
+        }
+
+        // WhatsApp-style ordering: conversations with anything unread float to
+        // the top (most-recently-active unread first), then everything else
+        // by most-recent activity — rather than pure recency ignoring read state.
+        const ordered = Array.from(convMap.values()).sort((a, b) => {
+          const aUnread = (a.unreadCount ?? 0) > 0;
+          const bUnread = (b.unreadCount ?? 0) > 0;
+          if (aUnread !== bUnread) return aUnread ? -1 : 1;
+          const aT = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+          const bT = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+          return bT - aT;
+        });
+        setConversations(ordered);
       },
       (err) => {
         console.error("Conversations listener error:", err);
@@ -651,11 +686,17 @@ export default function WhatsAppPage() {
   };
 
   const handleViewReplies = (phones: string[], batchName: string) => {
-    setBroadcastReplyPhones(phones);
+    // Normalized so this matches conversations regardless of exactly how the
+    // phone was formatted when the broadcast was sent (older broadcasts can
+    // predate a normalization fix) — see normalizePhone in @/lib/whatsapp-send.
+    setBroadcastReplyPhones(phones.map(normalizePhone));
     setBroadcastReplyLabel(batchName);
     setShowRepliesOnly(false);
     setActiveTab("inbox");
-    fetchConversations();
+    // The live onSnapshot listener above is the single source of truth for
+    // `conversations` now — calling the one-shot REST fetch here used to
+    // race it and could briefly overwrite correct, live data with a stale
+    // snapshot, right at the moment you're trying to look at replies.
   };
 
   const toggleContact = (phone: string) => setSelectedContacts(prev => prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]);
@@ -763,11 +804,18 @@ export default function WhatsAppPage() {
                   Live
                 </span>
                 <button
-                  onClick={() => setShowRepliesOnly(!showRepliesOnly)}
+                  onClick={() => {
+                    // A specific broadcast's reply filter and "every reply
+                    // across every broadcast" are two different views — turning
+                    // this on switches to the all-replies view rather than
+                    // narrowing whichever broadcast you were previously looking at.
+                    setShowRepliesOnly(!showRepliesOnly);
+                    if (!showRepliesOnly) { setBroadcastReplyPhones(null); setBroadcastReplyLabel(""); }
+                  }}
                   className={`px-2 py-1 text-[10px] rounded border ${showRepliesOnly ? "bg-white/30 text-white border-white/40" : "bg-white/10 text-white/70 border-white/20 hover:bg-white/20"}`}
-                  title="Show only conversations with replies"
+                  title="Show every reply received, across all contacts and broadcasts"
                 >
-                  {showRepliesOnly ? "✓ Replies" : "Replies"}
+                  {showRepliesOnly ? "✓ All Replies" : "All Replies"}
                 </button>
                 <button
                   onClick={fetchWebhookLogs}
