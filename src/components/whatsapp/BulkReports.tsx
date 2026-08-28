@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, BarChart3, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, BarChart3, MessageSquare, ChevronDown, ChevronUp, X } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { onSnapshot, doc } from "firebase/firestore";
+import { describeMetaErrorCode } from "@/lib/whatsapp-send";
 
 // Extracted out of the WhatsApp page so this tab's own state/effects
 // (report list, live per-broadcast Firestore listeners) don't force
@@ -21,6 +22,9 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
   // already from reading too much per page load.
   const [liveContacts, setLiveContacts] = useState<Record<string, any[]>>({});
   const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
+  // The contact whose failure detail modal is open — click any failed
+  // number to see the full reason instead of just the truncated badge text.
+  const [selectedFailure, setSelectedFailure] = useState<any | null>(null);
 
   useEffect(() => {
     fetch("/api/whatsapp/broadcasts")
@@ -257,40 +261,100 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
               <div className="border-t border-gray-100">
                 {failedList.length > 0 && (
                   <div className="p-3 bg-red-50 border-b border-red-100">
-                    <p className="text-xs font-semibold text-red-700 mb-2">{failedList.length} failed</p>
+                    <p className="text-xs font-semibold text-red-700 mb-2">{failedList.length} failed — click one for the full reason</p>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {failedList.map((c: any, i: number) => (
-                        <div key={i} className="flex justify-between text-xs bg-white rounded px-2 py-1.5">
+                        <button
+                          key={i}
+                          onClick={() => setSelectedFailure(c)}
+                          className="w-full flex justify-between text-xs bg-white hover:bg-red-100 rounded px-2 py-1.5 text-left transition-colors"
+                        >
                           <span className="font-medium text-gray-800">{c.name || c.phone}</span>
                           <span className="text-red-500 truncate ml-2">{c.error || "Failed"}</span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
                 )}
                 <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
-                  {contacts.map((c: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-2 text-xs">
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-800 truncate">{c.name || c.phone}</p>
-                        <p className="text-gray-400">{c.phone}</p>
+                  {contacts.map((c: any, i: number) => {
+                    const isFailed = c.status !== "read" && c.status !== "delivered" && c.status !== "sent";
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => isFailed && setSelectedFailure(c)}
+                        className={`flex items-center justify-between px-4 py-2 text-xs ${isFailed ? "cursor-pointer hover:bg-red-50" : ""}`}
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-800 truncate">{c.name || c.phone}</p>
+                          <p className="text-gray-400">{c.phone}</p>
+                        </div>
+                        <span className={`flex-shrink-0 px-2 py-0.5 rounded-full font-medium ${
+                          c.status === "read"      ? "bg-purple-100 text-purple-700" :
+                          c.status === "delivered" ? "bg-blue-100 text-blue-700" :
+                          c.status === "sent"      ? "bg-green-100 text-green-700" :
+                          "bg-red-100 text-red-700"
+                        }`}>
+                          {c.status === "read" ? "Read" : c.status === "delivered" ? "Delivered" : c.status === "sent" ? "Sent" : c.error || "Failed"}
+                        </span>
                       </div>
-                      <span className={`flex-shrink-0 px-2 py-0.5 rounded-full font-medium ${
-                        c.status === "read"      ? "bg-purple-100 text-purple-700" :
-                        c.status === "delivered" ? "bg-blue-100 text-blue-700" :
-                        c.status === "sent"      ? "bg-green-100 text-green-700" :
-                        "bg-red-100 text-red-700"
-                      }`}>
-                        {c.status === "read" ? "Read" : c.status === "delivered" ? "Delivered" : c.status === "sent" ? "Sent" : c.error || "Failed"}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
         );
       })}
+
+      {selectedFailure && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedFailure(null)}>
+          <div className="bg-white rounded-xl p-5 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-gray-900 truncate">{selectedFailure.name || selectedFailure.phone}</h3>
+                <p className="text-xs text-gray-500">{selectedFailure.phone}</p>
+              </div>
+              <button onClick={() => setSelectedFailure(null)} className="p-1 hover:bg-gray-100 rounded shrink-0">
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            {(() => {
+              const category = describeMetaErrorCode(selectedFailure.errorCode);
+              return (
+                <div className="space-y-2">
+                  {category && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-orange-800 mb-1">Likely reason</p>
+                      <p className="text-sm text-orange-900">{category}</p>
+                    </div>
+                  )}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-gray-600 mb-1">Meta&apos;s exact response</p>
+                    <p className="text-sm text-gray-800 break-words">{selectedFailure.error || "No error message was recorded for this send."}</p>
+                    {selectedFailure.errorDetail && (
+                      <p className="text-xs text-gray-500 mt-1.5 break-words">{selectedFailure.errorDetail}</p>
+                    )}
+                  </div>
+                  {(selectedFailure.errorCode || selectedFailure.errorSubcode) && (
+                    <p className="text-xs text-gray-400">
+                      Error code: {selectedFailure.errorCode ?? "—"}
+                      {selectedFailure.errorSubcode ? ` (subcode ${selectedFailure.errorSubcode})` : ""}
+                      {" — "}for reference if you need to check Meta&apos;s documentation or contact support.
+                    </p>
+                  )}
+                  {!category && (
+                    <p className="text-xs text-gray-400">
+                      This specific error code isn&apos;t in our known list yet — the message above is Meta&apos;s own explanation.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

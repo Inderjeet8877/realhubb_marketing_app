@@ -115,3 +115,29 @@ export const RATE_LIMIT_ERROR_CODES = new Set([4, 130429]);
 // the broadcast worker can stop the job cleanly instead of burning through
 // the rest of the list on guaranteed failures.
 export const MESSAGING_LIMIT_ERROR_CODES = new Set([131048, 131056, 131031]);
+
+// Plain-language category for the Meta error codes documented well enough to
+// be confident about — everything else falls back to just showing Meta's own
+// message text rather than guessing. This is intentionally conservative: a
+// wrong guess here is worse than admitting "not sure," so codes not in this
+// table are left to the caller to display raw.
+const KNOWN_ERROR_CODES: Record<number, string> = {
+  131026: "This number likely isn't reachable on WhatsApp (not registered, or the device has been offline/unreachable for an extended period).",
+  131047: 'More than 24 hours have passed since this contact last messaged you, and no approved template was used for this send — outside that window, only template messages can be delivered.',
+  131031: "This WhatsApp Business Account has been restricted by Meta — check Meta Business Suite for the reason.",
+  131048: 'This send was blocked as part of Meta\'s spam-rate protection for this account/number.',
+  131056: "This account/number has hit Meta's throughput ('pair rate') limit — sending too many messages too quickly.",
+  132000: 'The number of variables provided doesn\'t match what the template expects.',
+  132001: "The template this send referenced doesn't exist (or was deleted) on Meta's side.",
+  132005: 'This template is currently paused by Meta due to quality issues.',
+  132007: 'This template has been disabled by Meta.',
+  132015: "This template isn't approved for use yet.",
+  100: 'Meta rejected a parameter in this request — most often an invalid or malformed phone number.',
+  131009: 'One of the parameters (often the phone number) is not in a format Meta accepts.',
+  470: 'This message falls outside the allowed messaging window/policy for this template category.',
+};
+
+export function describeMetaErrorCode(code: number | null | undefined): string | null {
+  if (code == null) return null;
+  return KNOWN_ERROR_CODES[code] || null;
+}

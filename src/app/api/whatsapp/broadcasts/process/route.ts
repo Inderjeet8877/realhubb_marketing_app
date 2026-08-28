@@ -29,7 +29,11 @@ const TIME_BUDGET_MS = 32_000;
 // delay up front for every message regardless of whether it was ever needed.
 const MAX_RATE_LIMIT_RETRIES = 3;
 
-type ContactResult = { phone: string; name: string; success: boolean; wamid: string | null; status: string; error: string | null; limitReached?: boolean };
+type ContactResult = {
+  phone: string; name: string; success: boolean; wamid: string | null; status: string;
+  error: string | null; errorCode: number | null; errorSubcode: number | null; errorDetail: string | null;
+  limitReached?: boolean;
+};
 
 // Processes exactly ONE chunk of a broadcast job, then either finalizes the
 // job (done/cancelled) or triggers itself again for the next chunk. This is
@@ -117,7 +121,10 @@ export async function POST(request: Request) {
         // Config vanished/broke mid-job (env var removed etc.) — record every
         // contact in this chunk as failed rather than throwing and leaving
         // the job stuck in "processing" with no explanation.
-        results = chunkContacts.map(c => ({ phone: c.phone, name: c.name, success: false, wamid: null, status: 'failed', error: 'WhatsApp not configured' }));
+        results = chunkContacts.map(c => ({
+          phone: c.phone, name: c.name, success: false, wamid: null, status: 'failed',
+          error: 'WhatsApp not configured', errorCode: null, errorSubcode: null, errorDetail: null,
+        }));
       } else {
         results = await runWithConcurrency(chunkContacts, CONCURRENCY, (c) =>
           sendOneContact(c, sendConfig, accessToken, phoneNumberId)
@@ -211,7 +218,7 @@ async function sendOneContact(
       if (response.ok) {
         const wamid = data.messages?.[0]?.id || null;
         await saveOutboundMessage(formattedPhone, sendConfig, wamid);
-        return { phone: formattedPhone, name: c.name, success: true, wamid, status: 'sent', error: null };
+        return { phone: formattedPhone, name: c.name, success: true, wamid, status: 'sent', error: null, errorCode: null, errorSubcode: null, errorDetail: null };
       }
 
       // Two very different failure modes, both surfaced by Meta as an error
@@ -229,6 +236,9 @@ async function sendOneContact(
       return {
         phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed',
         error: data.error?.message || (isRateLimited ? 'Rate limited by Meta after retrying' : 'Meta API rejected'),
+        errorCode: data.error?.code ?? null,
+        errorSubcode: data.error?.error_subcode ?? null,
+        errorDetail: data.error?.error_data?.details ?? null,
         limitReached: isLimitReached,
       };
     } catch (err: any) {
@@ -236,11 +246,17 @@ async function sendOneContact(
         await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempt)));
         continue;
       }
-      return { phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed', error: err.message || 'Network error' };
+      return {
+        phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed',
+        error: err.message || 'Network error', errorCode: null, errorSubcode: null, errorDetail: null,
+      };
     }
   }
   // Unreachable — the loop above always returns before exhausting attempts.
-  return { phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed', error: 'Unknown error' };
+  return {
+    phone: formattedPhone, name: c.name, success: false, wamid: null, status: 'failed',
+    error: 'Unknown error', errorCode: null, errorSubcode: null, errorDetail: null,
+  };
 }
 
 async function saveOutboundMessage(to: string, config: SendConfig, wamid: string | null) {
