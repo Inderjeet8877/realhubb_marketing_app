@@ -33,6 +33,18 @@ export function normalizePhone(raw: string): string {
   return digits;
 }
 
+// Strict validity check for a real Indian mobile number — applied uniformly
+// everywhere a number is stored or sent (contacts upload, broadcast
+// pre-send checks). normalizePhone only reshapes digit counts (it'll
+// happily return "91" + 10 garbage digits); this adds the one constraint
+// normalizePhone deliberately doesn't enforce — the mobile number itself
+// must start with 6-9 — so contacts upload and broadcast sending can never
+// drift apart on what counts as a valid number.
+export function isValidIndianMobile(raw: string): boolean {
+  const normalized = normalizePhone(raw);
+  return /^91[6-9]\d{9}$/.test(normalized);
+}
+
 export interface SendConfig {
   message?: string | null;
   templateContent?: string | null;

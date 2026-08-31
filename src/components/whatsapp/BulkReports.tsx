@@ -5,6 +5,7 @@ import { Loader2, BarChart3, MessageSquare, ChevronDown, ChevronUp, X } from "lu
 import { db } from "@/lib/firebase";
 import { onSnapshot, doc } from "firebase/firestore";
 import { describeMetaErrorCode } from "@/lib/whatsapp-send";
+import { formatDuration } from "@/lib/format";
 
 // Extracted out of the WhatsApp page so this tab's own state/effects
 // (report list, live per-broadcast Firestore listeners) don't force
@@ -199,6 +200,12 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                   <p className="text-xs text-gray-500 mt-0.5">
                     {r.templateName ? <span>Template: <span className="font-medium text-green-700">{r.templateName}</span></span> : "Custom text"}
                     {" · "}{r.createdAt ? new Date(r.createdAt).toLocaleString() : "—"}
+                    {/* Only for a full completion — cancelled/failed jobs also have both
+                        timestamps set, but showing a duration there would misleadingly
+                        imply it ran to completion; those already show their own reason below. */}
+                    {r.status === "completed" && r.createdAt && r.finishedAt && (
+                      <> · Took {formatDuration(new Date(r.finishedAt).getTime() - new Date(r.createdAt).getTime())}</>
+                    )}
                   </p>
                   {r.status === "cancelled" && r.cancelReason && (
                     <p className="text-xs text-yellow-700 mt-1">Cancelled: {r.cancelReason}</p>

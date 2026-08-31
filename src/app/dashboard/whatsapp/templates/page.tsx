@@ -361,34 +361,49 @@ export default function WhatsAppTemplatesPage() {
   // submission time. Flagging them here, before the template is even
   // created, is much cheaper than discovering them after a broadcast has
   // already damaged the template's quality rating.
-  const analyzeTemplateContent = (text: string): string[] => {
+  //
+  // The numeric score/label here is OUR OWN prediction from the text alone
+  // — deliberately named and colored differently from Meta's real,
+  // post-approval qualityScore (RED/YELLOW/GREEN, rendered elsewhere on
+  // this page via getStatusExplanation) so the two are never confused.
+  const QUALITY_LABELS: [number, string][] = [[90, 'Excellent'], [75, 'Good'], [55, 'Fair'], [35, 'Poor'], [0, 'Bad']];
+
+  const analyzeTemplateContent = (text: string): { score: number; label: string; warnings: string[] } => {
     const warnings: string[] = [];
-    if (!text.trim()) return warnings;
+    let score = 100;
+    if (!text.trim()) return { score: 100, label: 'Excellent', warnings };
 
     const emojiCount = (text.match(/\p{Extended_Pictographic}/gu) || []).length;
     if (emojiCount > 5) {
       warnings.push(`${emojiCount} emojis used — heavy emoji use reads as spammy to many recipients. Keep it to 2–3 at most.`);
+      score -= 15;
     }
 
     const exclamations = (text.match(/!/g) || []).length;
     if (exclamations > 3) {
       warnings.push(`${exclamations} exclamation marks — excessive urgency punctuation is a common spam signal.`);
+      score -= 15;
     }
 
     const allCapsWords = text.match(/\b[A-Z]{4,}\b/g) || [];
     if (allCapsWords.length > 2) {
       warnings.push(`Multiple ALL-CAPS words (e.g. "${allCapsWords[0]}") — reads as shouting.`);
+      score -= 15;
     }
 
     if (/\b(limited units?|hurry|act now|don'?t miss|last chance|offer ends|only \d+\s*(left|units?)|not for every)\b/i.test(text)) {
       warnings.push(`Contains urgency/scarcity phrasing ("limited", "hurry", "act now", etc.) — this pattern correlates strongly with block/report rates in sales-style broadcasts.`);
+      score -= 20;
     }
 
     if (!/\b(stop|unsubscribe|opt.?out)\b/i.test(text)) {
       warnings.push(`No opt-out instructions found — adding "Reply STOP to unsubscribe" gives recipients an alternative to blocking/reporting you, which is what actually damages your quality rating.`);
+      score -= 15;
     }
 
-    return warnings;
+    score = Math.max(0, score);
+    const label = QUALITY_LABELS.find(([min]) => score >= min)![1];
+    return { score, label, warnings };
   };
 
   return (
@@ -706,16 +721,37 @@ export default function WhatsAppTemplatesPage() {
                   <p className="text-xs text-gray-500 mt-1">
                     Use {"{{1}}"}, {"{{2}}"} for dynamic placeholders
                   </p>
-                  {analyzeTemplateContent(content).length > 0 && (
-                    <div className="mt-2 bg-orange-50 border border-orange-200 rounded-lg p-2.5 space-y-1">
-                      <p className="text-xs font-semibold text-orange-800">
-                        Won&apos;t block submission, but worth considering — these patterns raise the odds recipients block/report this template later:
-                      </p>
-                      <ul className="text-xs text-orange-700 list-disc list-inside space-y-0.5">
-                        {analyzeTemplateContent(content).map((w, i) => <li key={i}>{w}</li>)}
-                      </ul>
-                    </div>
-                  )}
+                  {(() => {
+                    const analysis = analyzeTemplateContent(content);
+                    return (
+                      <>
+                        {content.trim() && (
+                          <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50 p-2.5">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-semibold text-indigo-900">Predicted Content Score</span>
+                              <span className="text-xs font-bold text-indigo-900">{analysis.score}/100 — {analysis.label}</span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-indigo-100 overflow-hidden">
+                              <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${analysis.score}%` }} />
+                            </div>
+                            <p className="text-[10px] text-indigo-700 mt-1">
+                              Our own estimate from this text alone, before submission — not Meta&apos;s official quality rating (shown after approval, on each template card below).
+                            </p>
+                          </div>
+                        )}
+                        {analysis.warnings.length > 0 && (
+                          <div className="mt-2 bg-orange-50 border border-orange-200 rounded-lg p-2.5 space-y-1">
+                            <p className="text-xs font-semibold text-orange-800">
+                              Won&apos;t block submission, but worth considering — these patterns raise the odds recipients block/report this template later:
+                            </p>
+                            <ul className="text-xs text-orange-700 list-disc list-inside space-y-0.5">
+                              {analysis.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div>

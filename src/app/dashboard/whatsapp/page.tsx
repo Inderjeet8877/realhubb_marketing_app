@@ -7,6 +7,7 @@ import { collection, query, where, onSnapshot, orderBy, limit, doc } from "fireb
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 import { BulkReports } from "@/components/whatsapp/BulkReports";
 import { normalizePhone } from "@/lib/whatsapp-send";
+import { formatDuration } from "@/lib/format";
 
 interface Conversation {
   id: string;
@@ -612,7 +613,14 @@ export default function WhatsAppPage() {
       }
       setSendingBulk(false);
       if (data.status === "completed") {
-        setBulkResult({ success: true, sent: data.sent || 0, failed: data.failed || 0 });
+        // Both timestamps are already stored on every job (createdAt at
+        // start, finishedAt the moment the last chunk finishes) — this is
+        // the first place anything actually reads them to show how long
+        // the broadcast took.
+        const durationMs = (data.createdAt?.toDate?.() && data.finishedAt?.toDate?.())
+          ? data.finishedAt.toDate().getTime() - data.createdAt.toDate().getTime()
+          : null;
+        setBulkResult({ success: true, sent: data.sent || 0, failed: data.failed || 0, durationMs });
         if ((data.sent || 0) > 0) { setBulkMessage(""); setSelectedBulkTemplate(""); }
       } else if (data.status === "cancelled") {
         setBulkResult({ cancelled: true, sent: data.sent || 0, failed: data.failed || 0, reason: data.cancelReason });
@@ -1423,6 +1431,10 @@ export default function WhatsAppPage() {
                   <div className="text-green-700">
                     <p className="font-semibold">Send Complete!</p>
                     <p className="text-sm mt-0.5">✅ {bulkResult.sent} sent &nbsp;·&nbsp; ❌ {bulkResult.failed} failed</p>
+                    {bulkResult.durationMs != null && (
+                      <p className="text-xs mt-1 text-green-600">Took {formatDuration(bulkResult.durationMs)}</p>
+                    )}
+                    <p className="text-xs mt-1 text-green-600">Thanks for using RealHubb WhatsApp Broadcast — your messages are on their way.</p>
                   </div>
                 )}
               </div>

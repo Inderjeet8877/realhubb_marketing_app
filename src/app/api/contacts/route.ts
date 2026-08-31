@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import { normalizePhone, isValidIndianMobile } from '@/lib/whatsapp-send';
 
 // Apps Script reads/writes over a 15,000+ row sheet can comfortably exceed
 // Vercel's platform-default function timeout (as low as 10s on some plans)
@@ -37,14 +38,18 @@ interface ParseResult {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+// Was: unconditionally stripped a leading "91" substring before checking
+// digit length — which could corrupt a number instead of rejecting or fixing
+// it (e.g. an 11-digit number with a leading 0 stayed 11 digits and became
+// "+0XXXXXXXXXX", never corrected to "+91..."). Delegates to the same
+// normalizePhone/isValidIndianMobile used for actually sending messages
+// (@/lib/whatsapp-send), so a number accepted here is guaranteed to be one
+// that can actually be sent to later — no separate, drifting definition of
+// "valid" between contacts upload and broadcast sending.
 function cleanPhoneNumber(phone: string): string {
   if (!phone) return '';
-  let cleaned = phone.toString().replace(/[\s\-\(\)\.\+]/g, '');
-  cleaned = cleaned.replace(/^91/, '');
-  if (!/^\d+$/.test(cleaned)) return '';
-  if (cleaned.length === 10) return '+91' + cleaned;
-  if (cleaned.length === 11 || cleaned.length === 12) return '+' + cleaned;
-  return '';
+  if (!isValidIndianMobile(phone)) return '';
+  return '+' + normalizePhone(phone);
 }
 
 function norm(h: string) { return h.toLowerCase().trim().replace(/["']/g, ''); }
