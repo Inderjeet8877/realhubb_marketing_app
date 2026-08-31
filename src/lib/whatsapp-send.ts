@@ -45,6 +45,34 @@ export function isValidIndianMobile(raw: string): boolean {
   return /^91[6-9]\d{9}$/.test(normalized);
 }
 
+// General validity gate used everywhere a phone is accepted or sent to.
+// isValidIndianMobile alone was wrongly used as this gate initially — it
+// rejects EVERY non-Indian number outright, which surfaced as a real bug
+// once a validation report showed genuine overseas contacts (UAE, Saudi,
+// Qatar, US, etc. — real NRI customers this business actually serves)
+// being flagged as "invalid" alongside actual garbage. The fix: a number
+// shaped like an Indian one (91-prefixed 12 digits, bare 10 digits, or an
+// 11-digit leading-0 domestic format) unambiguously claims to be Indian —
+// "91" isn't any other country's calling code — so it must pass the real
+// Indian-mobile check specifically, or it's genuinely malformed data (e.g.
+// "+911234567890", "+910000000000": 91-shaped but not a real mobile
+// pattern). Anything NOT shaped like an Indian number is a different
+// country's number and is accepted as long as it's a plausible E.164
+// length — this app doesn't validate every country's mobile format in
+// detail, just rules out clearly-broken digit strings.
+export function isValidPhoneNumber(raw: string): boolean {
+  const digits = (raw || '').replace(/\D/g, '');
+  if (!digits) return false;
+
+  const looksIndianShaped =
+    (digits.length === 12 && digits.startsWith('91')) ||
+    digits.length === 10 ||
+    (digits.length === 11 && digits.startsWith('0'));
+
+  if (looksIndianShaped) return isValidIndianMobile(raw);
+  return digits.length >= 8 && digits.length <= 15;
+}
+
 export interface SendConfig {
   message?: string | null;
   templateContent?: string | null;

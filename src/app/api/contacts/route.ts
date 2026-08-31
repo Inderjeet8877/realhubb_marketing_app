@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
-import { normalizePhone, isValidIndianMobile } from '@/lib/whatsapp-send';
+import { normalizePhone, isValidPhoneNumber } from '@/lib/whatsapp-send';
 
 // Apps Script reads/writes over a 15,000+ row sheet can comfortably exceed
 // Vercel's platform-default function timeout (as low as 10s on some plans)
@@ -42,13 +42,20 @@ interface ParseResult {
 // digit length — which could corrupt a number instead of rejecting or fixing
 // it (e.g. an 11-digit number with a leading 0 stayed 11 digits and became
 // "+0XXXXXXXXXX", never corrected to "+91..."). Delegates to the same
-// normalizePhone/isValidIndianMobile used for actually sending messages
+// normalizePhone/isValidPhoneNumber used for actually sending messages
 // (@/lib/whatsapp-send), so a number accepted here is guaranteed to be one
 // that can actually be sent to later — no separate, drifting definition of
 // "valid" between contacts upload and broadcast sending.
+//
+// isValidPhoneNumber (not isValidIndianMobile) is used here specifically —
+// this business has real international/NRI contacts (UAE, Saudi, US, etc.),
+// discovered via a validation report after an earlier, too-strict
+// India-only version of this function wrongly flagged genuine overseas
+// contacts as invalid. Numbers shaped like an Indian number still get the
+// strict 6-9-first-digit check; anything else just needs a plausible length.
 function cleanPhoneNumber(phone: string): string {
   if (!phone) return '';
-  if (!isValidIndianMobile(phone)) return '';
+  if (!isValidPhoneNumber(phone)) return '';
   return '+' + normalizePhone(phone);
 }
 

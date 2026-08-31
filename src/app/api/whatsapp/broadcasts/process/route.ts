@@ -5,7 +5,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import {
   buildMetaRequestBody, getMetaCredentials, triggerWorker, runWithConcurrency,
   CONCURRENCY, WHATSAPP_API_URL, SendConfig, RATE_LIMIT_ERROR_CODES, MESSAGING_LIMIT_ERROR_CODES,
-  normalizePhone, isValidIndianMobile,
+  normalizePhone, isValidPhoneNumber,
 } from '../_shared';
 
 // Vercel serverless timeout budget for this invocation.
@@ -205,13 +205,14 @@ async function sendOneContact(
 ): Promise<ContactResult> {
   // Catch obviously-invalid numbers before ever calling Meta — no wasted API
   // call, no vague Meta rejection, just a clear, immediate reason. Uses the
-  // exact same check contacts upload now enforces (@/lib/whatsapp-send), so
-  // a broadcast never spends an API call on a number that could never have
-  // been accepted as a contact in the first place.
-  if (!isValidIndianMobile(c.phone)) {
+  // exact same check contacts upload now enforces (@/lib/whatsapp-send) —
+  // isValidPhoneNumber, not isValidIndianMobile, since this business has
+  // real international/NRI contacts (UAE, Saudi, US, etc.) that an
+  // India-only check would wrongly reject.
+  if (!isValidPhoneNumber(c.phone)) {
     return {
       phone: c.phone, name: c.name, success: false, wamid: null, status: 'failed',
-      error: 'Invalid phone number format — not a valid 10-digit Indian mobile number.',
+      error: 'Invalid phone number format — not a recognizable phone number.',
       errorCode: null, errorSubcode: null, errorDetail: null,
     };
   }
