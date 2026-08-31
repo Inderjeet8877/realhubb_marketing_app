@@ -25,8 +25,22 @@ export const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 // match that same contact's inbound reply in whatsapp_conversations. Basing
 // the decision on digit COUNT instead of a prefix guess removes the
 // ambiguity entirely.
+// "00" is the internationally standard IDD (International Direct Dialing)
+// prefix, equivalent in meaning to "+" — used when a number is copied from a
+// system that renders it without a "+" (e.g. "0091 98765 43210" instead of
+// "+91 98765 43210"). "+" gets stripped for free by the \D filter below, but
+// "00" is made of digits and survives it, so without this a number like that
+// would fall through as a 14-digit string, get accepted by the "plausible
+// international length" fallback in isValidPhoneNumber, and then get sent to
+// Meta completely unformatted. A real subscriber number essentially never
+// starts with "00" once the IDD prefix is accounted for, so this is safe to
+// always apply.
+function stripIddPrefix(digits: string): string {
+  return digits.length > 10 && digits.startsWith('00') ? digits.slice(2) : digits;
+}
+
 export function normalizePhone(raw: string): string {
-  const digits = (raw || '').replace(/\D/g, '');
+  const digits = stripIddPrefix((raw || '').replace(/\D/g, ''));
   if (digits.length === 10) return '91' + digits;
   if (digits.length === 11 && digits.startsWith('0')) return '91' + digits.slice(1);
   if (digits.length === 12 && digits.startsWith('91')) return digits;
@@ -61,7 +75,7 @@ export function isValidIndianMobile(raw: string): boolean {
 // length — this app doesn't validate every country's mobile format in
 // detail, just rules out clearly-broken digit strings.
 export function isValidPhoneNumber(raw: string): boolean {
-  const digits = (raw || '').replace(/\D/g, '');
+  const digits = stripIddPrefix((raw || '').replace(/\D/g, ''));
   if (!digits) return false;
 
   const looksIndianShaped =
@@ -91,6 +105,21 @@ export function getMetaCredentials(accountId?: string | null) {
   const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`] || process.env.META_ACCESS_TOKEN_1;
   const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`] || process.env.WHATSAPP_PHONE_NUMBER_ID_1;
   return { accountNum, accessToken, phoneNumberId };
+}
+
+// Reverse of getMetaCredentials — given the phone_number_id Meta's webhook
+// says actually received a message (value.metadata.phone_number_id), find
+// which of this app's 3 configured accounts that is. Used so a reply sent
+// back to a contact (e.g. an opt-out confirmation) goes out from the same
+// number they actually messaged, instead of assuming account 1 — a message
+// sent from the wrong number would fail outright (no open session with
+// that number) or just look wrong to the recipient.
+export function getAccountIdForPhoneNumberId(phoneNumberId: string | null | undefined): string {
+  if (!phoneNumberId) return '1';
+  for (const id of ['1', '2', '3']) {
+    if (process.env[`WHATSAPP_PHONE_NUMBER_ID_${id}`] === phoneNumberId) return id;
+  }
+  return '1';
 }
 
 export function buildMetaRequestBody(to: string, config: SendConfig): Record<string, unknown> {
@@ -145,8 +174,12 @@ export function validateTemplateHeaderMedia(
 }
 
 // Meta error codes/subcodes that mean "you're being throttled, try again
-// shortly" — genuinely worth a retry with backoff.
-export const RATE_LIMIT_ERROR_CODES = new Set([4, 130429]);
+// shortly" — genuinely worth a retry with backoff. 131056 ("pair rate
+// limit") belongs here, not in MESSAGING_LIMIT_ERROR_CODES below: it's
+// scoped to one sender/recipient PAIR (this contact's own message history
+// with this number), not the whole account — one contact tripping it must
+// not be treated as "every remaining contact will fail identically."
+export const RATE_LIMIT_ERROR_CODES = new Set([4, 130429, 131056]);
 
 // Meta error codes/subcodes that mean "you've hit your account/number's
 // messaging limit" — NOT transient. Retrying (or continuing to send more of
@@ -154,7 +187,7 @@ export const RATE_LIMIT_ERROR_CODES = new Set([4, 130429]);
 // identically until the limit resets. Distinguished from rate limiting so
 // the broadcast worker can stop the job cleanly instead of burning through
 // the rest of the list on guaranteed failures.
-export const MESSAGING_LIMIT_ERROR_CODES = new Set([131048, 131056, 131031]);
+export const MESSAGING_LIMIT_ERROR_CODES = new Set([131048, 131031]);
 
 // Plain-language category for the Meta error codes documented well enough to
 // be confident about — everything else falls back to just showing Meta's own

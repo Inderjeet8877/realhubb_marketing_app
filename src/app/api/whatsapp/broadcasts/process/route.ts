@@ -175,6 +175,17 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true, status: 'cancelled', reason: 'messaging_limit_reached', chunksProcessed: chunksProcessedThisInvocation });
       }
 
+      // A cancel request may have arrived WHILE this chunk was being sent —
+      // the loop-top check above only catches cancellation BETWEEN chunks,
+      // so without this, cancelling during the very last chunk's send
+      // finalized the job as 'completed' instead of 'cancelled', silently
+      // discarding the operator's cancel reason.
+      const postChunkSnap = await reportRef.get();
+      if (postChunkSnap.data()?.cancelRequested) {
+        await reportRef.update({ status: 'cancelled', finishedAt: FieldValue.serverTimestamp() });
+        return NextResponse.json({ success: true, status: 'cancelled', chunksProcessed: chunksProcessedThisInvocation });
+      }
+
       if (claimedIndex + 1 >= job.totalChunks) {
         await reportRef.update({ status: 'completed', finishedAt: FieldValue.serverTimestamp() });
         return NextResponse.json({ success: true, status: 'completed', chunksProcessed: chunksProcessedThisInvocation });

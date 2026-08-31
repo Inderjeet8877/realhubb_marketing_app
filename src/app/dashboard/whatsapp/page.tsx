@@ -678,14 +678,21 @@ export default function WhatsAppPage() {
   // worker's transactional chunk-claim means an extra trigger just gets told
   // there's nothing to claim), so this can run unconditionally without
   // needing to first detect whether anything actually looks stuck.
+  // Skipped while the Reports tab is open — BulkReports (mounted only then,
+  // see `activeTab === "reports"` below) runs its own equivalent watchdog
+  // over every processing broadcast, this one included. Without this guard,
+  // switching to Reports while a broadcast you started is still running
+  // left both timers alive at once, double-firing the resume call every
+  // 10 minutes for the same broadcast (harmless — the worker's chunk-claim
+  // makes a redundant trigger a no-op — but genuinely wasted invocations).
   useEffect(() => {
-    if (!activeBroadcastId || !sendingBulk) return;
+    if (!activeBroadcastId || !sendingBulk || activeTab === "reports") return;
     const AUTO_RESUME_INTERVAL_MS = 10 * 60 * 1000;
     const interval = setInterval(() => {
       resumeBroadcast(activeBroadcastId, { silent: true });
     }, AUTO_RESUME_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [activeBroadcastId, sendingBulk]);
+  }, [activeBroadcastId, sendingBulk, activeTab]);
 
   // Backstop in case the broadcast's self-triggering chain stalls despite
   // the retries already built into the worker — safe to click on a healthy

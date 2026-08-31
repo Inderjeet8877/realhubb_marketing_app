@@ -80,7 +80,14 @@ export async function triggerWorker(broadcastId: string, attempt = 0): Promise<v
       },
       body: JSON.stringify({ broadcastId }),
     });
-    if (!res.ok && attempt < MAX_ATTEMPTS - 1) {
+    // Was: only threw here if `attempt < MAX_ATTEMPTS - 1`, so a non-ok
+    // response on the LAST attempt fell through with nothing thrown — the
+    // catch block below (which does the retry-or-log decision) never ran,
+    // and the function returned as if it had succeeded. That's a silent
+    // failure on exactly the path this retry logic exists to catch. Always
+    // throw on a bad response; the catch block decides whether to retry or
+    // give up and log, based on the attempt count.
+    if (!res.ok) {
       throw new Error(`Worker trigger returned ${res.status}`);
     }
   } catch (err) {
