@@ -5,7 +5,13 @@ import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+// jspdf-autotable v3+ only self-attaches doc.autoTable(...) when a
+// `window.jsPDF` GLOBAL already exists (see its own source) — a bundled
+// ES-module import never sets that, so the old side-effect-only import below
+// silently never patched anything and this button threw "doc.autoTable is
+// not a function" the moment it ran. The documented, version-proof API is
+// this function-call form instead.
+import autoTable from "jspdf-autotable";
 import {
   Users,
   Loader2,
@@ -423,7 +429,7 @@ export default function LeadsPage() {
               getLeadCity(lead).substring(0, 15),
             ]);
 
-            (doc as any).autoTable({
+            autoTable(doc, {
               startY: yPos,
               head: [["Name", "Email", "Phone", "City"]],
               body: tableData,

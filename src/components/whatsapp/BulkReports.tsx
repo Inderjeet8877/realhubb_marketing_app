@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, BarChart3, MessageSquare, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Loader2, BarChart3, MessageSquare, ChevronDown, ChevronUp, X, FileDown } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { onSnapshot, doc } from "firebase/firestore";
 import { describeMetaErrorCode } from "@/lib/whatsapp-send";
 import { formatDuration } from "@/lib/format";
+import { buildBroadcastReportPdf, type BroadcastReportRow } from "@/lib/broadcast-report-pdf";
+
+const NO_TEMPLATE_KEY = "__none__";
+const NO_TEMPLATE_LABEL = "Custom / No Template";
 
 // Extracted out of the WhatsApp page so this tab's own state/effects
 // (report list, live per-broadcast Firestore listeners) don't force
@@ -26,6 +30,18 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
   // The contact whose failure detail modal is open — click any failed
   // number to see the full reason instead of just the truncated badge text.
   const [selectedFailure, setSelectedFailure] = useState<any | null>(null);
+
+  // Report generation. Deliberately fetches a SEPARATE, much larger dataset
+  // (up to 5000 broadcasts) from the same endpoint rather than reusing
+  // `reports` (capped at 50 for the normal list) — a generated report must
+  // never silently drop a template's older broadcasts just because the list
+  // view above only shows the most recent ones.
+  const [reportPanelOpen, setReportPanelOpen]   = useState(false);
+  const [allReports, setAllReports]             = useState<BroadcastReportRow[] | null>(null);
+  const [loadingAllReports, setLoadingAllReports] = useState(false);
+  const [reportScope, setReportScope]           = useState<"all" | "single" | "multiple">("all");
+  const [selectedTemplateKeys, setSelectedTemplateKeys] = useState<string[]>([]);
+  const [generatingPdf, setGeneratingPdf]       = useState(false);
 
   useEffect(() => {
     fetch("/api/whatsapp/broadcasts")
@@ -154,6 +170,79 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
     }
   };
 
+  const openReportPanel = async () => {
+    const next = !reportPanelOpen;
+    setReportPanelOpen(next);
+    if (next && allReports === null && !loadingAllReports) {
+      setLoadingAllReports(true);
+      try {
+        const res = await fetch("/api/whatsapp/broadcasts?limit=5000");
+        const d = await res.json();
+        setAllReports(d.broadcasts || []);
+      } catch {
+        setAllReports([]);
+      } finally {
+        setLoadingAllReports(false);
+      }
+    }
+  };
+
+  const toggleTemplateKey = (key: string, multi: boolean) => {
+    setSelectedTemplateKeys(prev => {
+      if (!multi) return prev[0] === key ? [] : [key];
+      return prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
+    });
+  };
+
+  const templateCounts = (() => {
+    if (!allReports) return [] as { key: string; label: string; count: number }[];
+    const counts = new Map<string, number>();
+    for (const r of allReports) {
+      const key = r.templateName || NO_TEMPLATE_KEY;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([key, count]) => ({ key, label: key === NO_TEMPLATE_KEY ? NO_TEMPLATE_LABEL : key, count }))
+      .sort((a, b) => b.count - a.count);
+  })();
+
+  const handleGenerateReport = () => {
+    if (!allReports || allReports.length === 0) {
+      alert("No broadcast history available to report on yet.");
+      return;
+    }
+    let rows = allReports;
+    let scopeLabel = "Scope: All Templates";
+    if (reportScope !== "all") {
+      if (selectedTemplateKeys.length === 0) {
+        alert(`Select ${reportScope === "single" ? "a template" : "at least one template"} first.`);
+        return;
+      }
+      const wanted = new Set(selectedTemplateKeys);
+      rows = allReports.filter(r => wanted.has(r.templateName || NO_TEMPLATE_KEY));
+      const labels = selectedTemplateKeys.map(k => (k === NO_TEMPLATE_KEY ? NO_TEMPLATE_LABEL : k));
+      scopeLabel = `Scope: ${labels.join(", ")}`;
+    }
+    if (rows.length === 0) {
+      alert("No broadcasts match the selected template(s).");
+      return;
+    }
+    setGeneratingPdf(true);
+    // Let the "Generating…" state paint before the synchronous PDF build
+    // (potentially hundreds of table rows) blocks the main thread.
+    setTimeout(() => {
+      try {
+        const doc = buildBroadcastReportPdf(rows, { scopeLabel });
+        const dateStr = new Date().toISOString().split("T")[0];
+        doc.save(`whatsapp-broadcast-report-${dateStr}.pdf`);
+      } catch (err: any) {
+        alert("Failed to generate PDF: " + (err.message || "Unknown error"));
+      } finally {
+        setGeneratingPdf(false);
+      }
+    }, 30);
+  };
+
   if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-green-600" /></div>;
   if (reports.length === 0) {
     return (
@@ -169,8 +258,98 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Broadcast Reports</h2>
-        <span className="text-sm text-gray-500">{reports.length} broadcasts</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">{reports.length} broadcasts</span>
+          <button
+            onClick={openReportPanel}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white text-green-700 border border-green-300 rounded-lg hover:bg-green-50"
+          >
+            <FileDown className="w-3.5 h-3.5" /> Generate Report
+            {reportPanelOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+        </div>
       </div>
+
+      {reportPanelOpen && (
+        <div className="bg-white border border-green-200 rounded-xl p-4 space-y-4">
+          <div>
+            <h3 className="font-semibold text-gray-900 text-sm">Generate Report</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Build a PDF summarizing broadcast performance — by a single template, several templates, or your entire history.
+            </p>
+          </div>
+
+          {loadingAllReports ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading full broadcast history…
+            </div>
+          ) : allReports && allReports.length > 0 ? (
+            <>
+              <p className="text-xs text-gray-500">
+                {allReports.length} broadcasts found across {templateCounts.length} template{templateCounts.length === 1 ? "" : "s"}.
+              </p>
+
+              <div className="flex gap-2">
+                {([
+                  { key: "all",      label: "All Templates" },
+                  { key: "single",   label: "Single Template" },
+                  { key: "multiple", label: "Multiple Templates" },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => { setReportScope(opt.key); setSelectedTemplateKeys([]); }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border ${
+                      reportScope === opt.key
+                        ? "bg-green-600 text-white border-green-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {reportScope !== "all" && (
+                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                  {templateCounts.map(t => {
+                    const checked = selectedTemplateKeys.includes(t.key);
+                    return (
+                      <label
+                        key={t.key}
+                        className="flex items-center justify-between gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <input
+                            type={reportScope === "single" ? "radio" : "checkbox"}
+                            name="report-template"
+                            checked={checked}
+                            onChange={() => toggleTemplateKey(t.key, reportScope === "multiple")}
+                            className="shrink-0"
+                          />
+                          <span className="truncate text-gray-800">{t.label}</span>
+                        </span>
+                        <span className="text-xs text-gray-400 shrink-0">{t.count} broadcast{t.count === 1 ? "" : "s"}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              <button
+                onClick={handleGenerateReport}
+                disabled={generatingPdf}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                {generatingPdf ? "Generating PDF…" : "Generate PDF"}
+              </button>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500 py-2">No broadcast history available yet.</p>
+          )}
+        </div>
+      )}
+
       {reports.map((r: any) => {
         const contacts: any[] = liveContacts[r.id] || r.contacts || [];
         const failedList      = contacts.filter((c: any) => !c.success);

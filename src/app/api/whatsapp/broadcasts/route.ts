@@ -48,10 +48,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Default 50 keeps the normal Reports tab list cheap. Report generation
+    // (PDF export) needs the COMPLETE matching history, not just the most
+    // recent 50 — it passes a much higher limit explicitly so a template's
+    // older broadcasts are never silently missing from its report.
+    const limitParam    = request.nextUrl.searchParams.get('limit');
+    const parsedLimit   = limitParam ? parseInt(limitParam, 10) : 50;
+    const effectiveLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 5000) : 50;
+
     const snap = await adminDb
       .collection('bulk_reports')
       .orderBy('createdAt', 'desc')
-      .limit(50)
+      .limit(effectiveLimit)
       .get();
 
     const broadcasts = snap.docs.map(d => {
