@@ -228,14 +228,53 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
       return;
     }
     setGeneratingPdf(true);
-    // Let the "Generating…" state paint before the synchronous PDF build
-    // (potentially hundreds of table rows) blocks the main thread.
+
+    // jsPDF's own doc.save() ultimately triggers an <a download> click — on
+    // mobile (iOS Safari especially, and many in-app WebViews) that only
+    // reliably fires when it happens essentially synchronously with the tap
+    // that started it. Building a report (autoTable across potentially
+    // hundreds of rows) can take a noticeable moment on a phone CPU, and by
+    // the time it's done the browser may no longer treat this as a
+    // user-triggered action — the download then just silently never
+    // happens, with no error anywhere. The fix used everywhere this problem
+    // comes up: open a blank tab RIGHT NOW, synchronously, while it's still
+    // unambiguously part of the click — then once the (slow) PDF build
+    // finishes, point that already-open tab at the finished file. Opening
+    // the tab later, after the PDF is built, is exactly what fails on
+    // mobile; opening it now and filling it in later does not.
+    const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const pendingTab = isMobile ? window.open("", "_blank") : null;
+    if (pendingTab) {
+      pendingTab.document.title = "Preparing report…";
+      pendingTab.document.body.innerHTML =
+        "<p style='font-family:sans-serif;padding:24px;color:#555'>Preparing your report…</p>";
+    }
+
+    // Also let the "Generating…" button state paint before the synchronous
+    // PDF build blocks the main thread.
     setTimeout(() => {
       try {
         const doc = buildBroadcastReportPdf(rows, { scopeLabel });
         const dateStr = new Date().toISOString().split("T")[0];
-        doc.save(`whatsapp-broadcast-report-${dateStr}.pdf`);
+        const filename = `whatsapp-broadcast-report-${dateStr}.pdf`;
+
+        if (isMobile) {
+          const blobUrl = URL.createObjectURL(doc.output("blob"));
+          if (pendingTab && !pendingTab.closed) {
+            pendingTab.location.href = blobUrl;
+          } else {
+            // The pre-opened tab got blocked or closed anyway (some in-app
+            // browsers disallow window.open outright) — falling back to
+            // navigating the current tab still gets the user their file,
+            // which matters more here than preserving the dashboard view.
+            window.location.href = blobUrl;
+          }
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        } else {
+          doc.save(filename);
+        }
       } catch (err: any) {
+        if (pendingTab && !pendingTab.closed) pendingTab.close();
         alert("Failed to generate PDF: " + (err.message || "Unknown error"));
       } finally {
         setGeneratingPdf(false);
