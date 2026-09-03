@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import useSWR from "swr";
 import {
   Loader2, BarChart3, MessageSquare, ChevronDown, ChevronUp, X, FileDown,
   FileText, Layers, LayoutGrid, Search, CheckCircle2, AlertCircle, Clock,
+  RefreshCw,
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { onSnapshot, doc } from "firebase/firestore";
 import { describeMetaErrorCode } from "@/lib/whatsapp-send";
 import { formatDuration } from "@/lib/format";
+import { fetcher, reportSwrConfig } from "@/lib/swr";
 import { buildBroadcastReportPdf, type BroadcastReportRow } from "@/lib/broadcast-report-pdf";
 
 const NO_TEMPLATE_KEY = "__none__";
@@ -39,9 +42,24 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
   // `reports` (capped at 50 for the normal list) — a generated report must
   // never silently drop a template's older broadcasts just because the list
   // view above only shows the most recent ones.
-  const [reportPanelOpen, setReportPanelOpen]   = useState(false);
-  const [allReports, setAllReports]             = useState<BroadcastReportRow[] | null>(null);
-  const [loadingAllReports, setLoadingAllReports] = useState(false);
+  //
+  // Keyed on reportPanelOpen so SWR only fetches once the panel is actually
+  // opened (passing `null` as the key tells SWR not to fetch at all) — but
+  // once fetched, the result stays in SWR's cache under this key for the
+  // rest of the session, so closing and reopening the panel is served
+  // instantly instead of re-downloading up to 5000 docs every time.
+  const [reportPanelOpen, setReportPanelOpen] = useState(false);
+  const {
+    data: allReportsData,
+    error: allReportsError,
+    isLoading: loadingAllReports,
+    mutate: refreshAllReports,
+  } = useSWR<{ broadcasts: BroadcastReportRow[] }>(
+    reportPanelOpen ? "/api/whatsapp/broadcasts?limit=5000" : null,
+    fetcher,
+    reportSwrConfig
+  );
+  const allReports = allReportsData?.broadcasts ?? null;
   const [reportScope, setReportScope]           = useState<"all" | "single" | "multiple">("all");
   const [selectedTemplateKeys, setSelectedTemplateKeys] = useState<string[]>([]);
   const [generatingPdf, setGeneratingPdf]       = useState(false);
@@ -181,23 +199,18 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
     }
   };
 
-  const openReportPanel = async () => {
-    const next = !reportPanelOpen;
-    setReportPanelOpen(next);
-    if (next && allReports === null && !loadingAllReports) {
-      setLoadingAllReports(true);
-      try {
-        const res = await fetch("/api/whatsapp/broadcasts?limit=5000");
-        const d = await res.json();
-        setAllReports(d.broadcasts || []);
-      } catch {
-        setAllReports([]);
-        setReportNotice({ type: "error", text: "Couldn't load broadcast history — check your connection and reopen this panel." });
-      } finally {
-        setLoadingAllReports(false);
-      }
-    }
+  const openReportPanel = () => {
+    setReportPanelOpen(prev => !prev);
   };
+
+  // SWR's own error is a plain Error object with no user-facing text of its
+  // own — surface it through the same inline-banner mechanism as every other
+  // validation/error message in this panel.
+  useEffect(() => {
+    if (allReportsError) {
+      setReportNotice({ type: "error", text: "Couldn't load broadcast history — check your connection and try again." });
+    }
+  }, [allReportsError]);
 
   const toggleTemplateKey = (key: string, multi: boolean) => {
     setReportNotice(null);
@@ -373,6 +386,18 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                 </p>
               </div>
             </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {allReports && (
+                <button
+                  onClick={() => refreshAllReports()}
+                  disabled={loadingAllReports}
+                  title="Broadcast history is cached for this session — refresh if you've sent something new since opening this panel."
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-white disabled:opacity-50"
+                  aria-label="Refresh broadcast history"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingAllReports ? "animate-spin" : ""}`} />
+                </button>
+              )}
             <button
               onClick={() => setReportPanelOpen(false)}
               className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-white shrink-0"
@@ -380,6 +405,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
             >
               <X className="w-4 h-4" />
             </button>
+            </div>
           </div>
 
           <div className="p-4 sm:p-5 space-y-5">
