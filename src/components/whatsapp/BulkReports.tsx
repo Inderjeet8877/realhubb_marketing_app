@@ -340,20 +340,28 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
         </div>
         <button
           onClick={openReportPanel}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-all active:scale-[0.98] ${
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-all duration-200 active:scale-[0.98] ${
             reportPanelOpen
               ? "bg-green-600 text-white border-green-600 shadow-sm"
               : "bg-white text-green-700 border-green-300 hover:bg-green-50 hover:border-green-400 shadow-sm"
           }`}
         >
           <FileDown className="w-4 h-4" /> Generate Report
-          {reportPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${reportPanelOpen ? "rotate-180" : ""}`} />
         </button>
       </div>
 
-      {reportPanelOpen && (
+      {/* Always mounted so it can animate open/closed smoothly (grid-template-rows
+          0fr → 1fr is well-supported and, unlike a max-height hack, scales correctly
+          for content of any height) — collapsed state is fully clipped and hidden
+          from assistive tech, not just visually zero-height. */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${reportPanelOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+        aria-hidden={!reportPanelOpen}
+      >
+        <div className="overflow-hidden">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="flex items-start justify-between gap-3 px-5 py-4 bg-gradient-to-r from-green-50 to-white border-b border-gray-100">
+          <div className="flex items-start justify-between gap-3 px-4 sm:px-5 py-4 bg-gradient-to-r from-green-50 to-white border-b border-gray-100">
             <div className="flex items-start gap-3 min-w-0">
               <div className="w-9 h-9 rounded-full bg-green-600 text-white flex items-center justify-center shrink-0">
                 <FileDown className="w-4 h-4" />
@@ -374,7 +382,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
             </button>
           </div>
 
-          <div className="p-5 space-y-5">
+          <div className="p-4 sm:p-5 space-y-5">
             {loadingAllReports ? (
               <div className="flex items-center gap-2 text-sm text-gray-500 py-6 justify-center">
                 <Loader2 className="w-4 h-4 animate-spin" /> Loading full broadcast history…
@@ -538,7 +546,8 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
             )}
           </div>
         </div>
-      )}
+        </div>
+      </div>
 
       {reports.map((r: any) => {
         const contacts: any[] = liveContacts[r.id] || r.contacts || [];
@@ -557,8 +566,9 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
             className={`relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 ${accentColor} bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200`}
           >
             <div className="p-4">
-              {/* Header row */}
-              <div className="flex items-start justify-between gap-3 mb-3">
+              {/* Header row — stacks on narrow phones so 3-4 action buttons
+                  never get squeezed into an overflowing single line */}
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold text-gray-900 truncate">{r.batchName}</h3>
@@ -588,7 +598,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                     <p className="text-xs text-yellow-700 mt-1">Cancelled: {r.cancelReason}</p>
                   )}
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
                   {r.status === "processing" && (
                     <>
                       <button
@@ -623,8 +633,9 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className="grid grid-cols-5 gap-2 text-center">
+              {/* Stats — 3 columns on narrow phones (wraps to a tidy 2nd row of
+                  2) instead of squeezing all 5 into one cramped line */}
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center">
                 {[
                   { label: "Total",     value: r.total,     bg: "bg-gray-50",   text: "text-gray-900"   },
                   { label: "Sent",      value: r.sent,      bg: "bg-green-50",  text: "text-green-700"  },
@@ -632,7 +643,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                   { label: "Delivered", value: r.delivered, bg: "bg-blue-50",   text: "text-blue-700"   },
                   { label: "Read",      value: r.read,      bg: "bg-purple-50", text: "text-purple-700" },
                 ].map(({ label, value, bg, text }) => (
-                  <div key={label} className={`${bg} rounded-lg p-2`}>
+                  <div key={label} className={`${bg} rounded-lg p-2 transition-colors`}>
                     <p className={`text-lg font-bold ${text}`}>{value ?? 0}</p>
                     <p className="text-xs text-gray-500 leading-tight">{label}</p>
                   </div>
@@ -692,8 +703,8 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
       })}
 
       {selectedFailure && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedFailure(null)}>
-          <div className="bg-white rounded-xl p-5 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setSelectedFailure(null)}>
+          <div className="bg-white rounded-xl p-5 max-w-md w-full shadow-2xl animate-modal-in" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900 truncate">{selectedFailure.name || selectedFailure.phone}</h3>
