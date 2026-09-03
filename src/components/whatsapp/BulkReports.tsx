@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, BarChart3, MessageSquare, ChevronDown, ChevronUp, X, FileDown } from "lucide-react";
+import {
+  Loader2, BarChart3, MessageSquare, ChevronDown, ChevronUp, X, FileDown,
+  FileText, Layers, LayoutGrid, Search, CheckCircle2, AlertCircle, Clock,
+} from "lucide-react";
 import { db } from "@/lib/firebase";
 import { onSnapshot, doc } from "firebase/firestore";
 import { describeMetaErrorCode } from "@/lib/whatsapp-send";
@@ -42,6 +45,14 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
   const [reportScope, setReportScope]           = useState<"all" | "single" | "multiple">("all");
   const [selectedTemplateKeys, setSelectedTemplateKeys] = useState<string[]>([]);
   const [generatingPdf, setGeneratingPdf]       = useState(false);
+  // Purely presentational — narrows the on-screen template list, never the
+  // underlying data used to build the report.
+  const [templateSearch, setTemplateSearch]     = useState("");
+  // Replaces the old alert()s for this panel specifically with an inline,
+  // dismissible banner that matches the rest of the app's look instead of a
+  // jarring native browser dialog. Doesn't change what's validated or when —
+  // only how it's communicated.
+  const [reportNotice, setReportNotice] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/whatsapp/broadcasts")
@@ -181,6 +192,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
         setAllReports(d.broadcasts || []);
       } catch {
         setAllReports([]);
+        setReportNotice({ type: "error", text: "Couldn't load broadcast history — check your connection and reopen this panel." });
       } finally {
         setLoadingAllReports(false);
       }
@@ -188,6 +200,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
   };
 
   const toggleTemplateKey = (key: string, multi: boolean) => {
+    setReportNotice(null);
     setSelectedTemplateKeys(prev => {
       if (!multi) return prev[0] === key ? [] : [key];
       return prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
@@ -206,16 +219,34 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
       .sort((a, b) => b.count - a.count);
   })();
 
+  const filteredTemplateCounts = templateSearch.trim()
+    ? templateCounts.filter(t => t.label.toLowerCase().includes(templateSearch.trim().toLowerCase()))
+    : templateCounts;
+
+  // Read-only preview of what the current selection will produce — purely
+  // for on-screen feedback before committing to a (potentially slow, on
+  // mobile) PDF build. Mirrors the same filter handleGenerateReport applies.
+  const previewRows = (() => {
+    if (!allReports) return [] as BroadcastReportRow[];
+    if (reportScope === "all") return allReports;
+    if (selectedTemplateKeys.length === 0) return [];
+    const wanted = new Set(selectedTemplateKeys);
+    return allReports.filter(r => wanted.has(r.templateName || NO_TEMPLATE_KEY));
+  })();
+  const previewTotalContacts = previewRows.reduce((sum, r) => sum + (r.total || 0), 0);
+  const canGenerate = !generatingPdf && (reportScope === "all" || selectedTemplateKeys.length > 0);
+
   const handleGenerateReport = () => {
+    setReportNotice(null);
     if (!allReports || allReports.length === 0) {
-      alert("No broadcast history available to report on yet.");
+      setReportNotice({ type: "error", text: "No broadcast history available to report on yet." });
       return;
     }
     let rows = allReports;
     let scopeLabel = "Scope: All Templates";
     if (reportScope !== "all") {
       if (selectedTemplateKeys.length === 0) {
-        alert(`Select ${reportScope === "single" ? "a template" : "at least one template"} first.`);
+        setReportNotice({ type: "error", text: `Select ${reportScope === "single" ? "a template" : "at least one template"} first.` });
         return;
       }
       const wanted = new Set(selectedTemplateKeys);
@@ -224,7 +255,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
       scopeLabel = `Scope: ${labels.join(", ")}`;
     }
     if (rows.length === 0) {
-      alert("No broadcasts match the selected template(s).");
+      setReportNotice({ type: "error", text: "No broadcasts match the selected template(s)." });
       return;
     }
     setGeneratingPdf(true);
@@ -273,9 +304,10 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
         } else {
           doc.save(filename);
         }
+        setReportNotice({ type: "success", text: `Report ready — ${rows.length} broadcast${rows.length === 1 ? "" : "s"} included. Check your downloads${isMobile ? " or the new tab" : ""}.` });
       } catch (err: any) {
         if (pendingTab && !pendingTab.closed) pendingTab.close();
-        alert("Failed to generate PDF: " + (err.message || "Unknown error"));
+        setReportNotice({ type: "error", text: "Failed to generate PDF: " + (err.message || "Unknown error") });
       } finally {
         setGeneratingPdf(false);
       }
@@ -293,99 +325,218 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
     );
   }
 
+  const scopeOptions = [
+    { key: "all" as const,      label: "All Templates",      desc: "Everything you've ever sent",     Icon: LayoutGrid },
+    { key: "single" as const,   label: "Single Template",    desc: "Deep-dive on one template",        Icon: FileText   },
+    { key: "multiple" as const, label: "Multiple Templates", desc: "Compare a few side by side",       Icon: Layers     },
+  ];
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900">Broadcast Reports</h2>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">{reports.length} broadcasts</span>
-          <button
-            onClick={openReportPanel}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white text-green-700 border border-green-300 rounded-lg hover:bg-green-50"
-          >
-            <FileDown className="w-3.5 h-3.5" /> Generate Report
-            {reportPanelOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Broadcast Reports</h2>
+          <p className="text-sm text-gray-500">{reports.length} broadcast{reports.length === 1 ? "" : "s"}</p>
         </div>
+        <button
+          onClick={openReportPanel}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-all active:scale-[0.98] ${
+            reportPanelOpen
+              ? "bg-green-600 text-white border-green-600 shadow-sm"
+              : "bg-white text-green-700 border-green-300 hover:bg-green-50 hover:border-green-400 shadow-sm"
+          }`}
+        >
+          <FileDown className="w-4 h-4" /> Generate Report
+          {reportPanelOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
       </div>
 
       {reportPanelOpen && (
-        <div className="bg-white border border-green-200 rounded-xl p-4 space-y-4">
-          <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Generate Report</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Build a PDF summarizing broadcast performance — by a single template, several templates, or your entire history.
-            </p>
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="flex items-start justify-between gap-3 px-5 py-4 bg-gradient-to-r from-green-50 to-white border-b border-gray-100">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-green-600 text-white flex items-center justify-center shrink-0">
+                <FileDown className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-gray-900 text-sm">Generate Report</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Build a clean, presentation-ready PDF of broadcast performance.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setReportPanelOpen(false)}
+              className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-white shrink-0"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
-          {loadingAllReports ? (
-            <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading full broadcast history…
-            </div>
-          ) : allReports && allReports.length > 0 ? (
-            <>
-              <p className="text-xs text-gray-500">
-                {allReports.length} broadcasts found across {templateCounts.length} template{templateCounts.length === 1 ? "" : "s"}.
-              </p>
-
-              <div className="flex gap-2">
-                {([
-                  { key: "all",      label: "All Templates" },
-                  { key: "single",   label: "Single Template" },
-                  { key: "multiple", label: "Multiple Templates" },
-                ] as const).map(opt => (
-                  <button
-                    key={opt.key}
-                    onClick={() => { setReportScope(opt.key); setSelectedTemplateKeys([]); }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border ${
-                      reportScope === opt.key
-                        ? "bg-green-600 text-white border-green-600"
-                        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+          <div className="p-5 space-y-5">
+            {loadingAllReports ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500 py-6 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin" /> Loading full broadcast history…
               </div>
-
-              {reportScope !== "all" && (
-                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-                  {templateCounts.map(t => {
-                    const checked = selectedTemplateKeys.includes(t.key);
-                    return (
-                      <label
-                        key={t.key}
-                        className="flex items-center justify-between gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
-                      >
-                        <span className="flex items-center gap-2 min-w-0">
-                          <input
-                            type={reportScope === "single" ? "radio" : "checkbox"}
-                            name="report-template"
-                            checked={checked}
-                            onChange={() => toggleTemplateKey(t.key, reportScope === "multiple")}
-                            className="shrink-0"
-                          />
-                          <span className="truncate text-gray-800">{t.label}</span>
-                        </span>
-                        <span className="text-xs text-gray-400 shrink-0">{t.count} broadcast{t.count === 1 ? "" : "s"}</span>
-                      </label>
-                    );
-                  })}
+            ) : allReports && allReports.length > 0 ? (
+              <>
+                {/* Step 1 — scope */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">1. Choose scope</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {scopeOptions.map(opt => {
+                      const active = reportScope === opt.key;
+                      return (
+                        <button
+                          key={opt.key}
+                          onClick={() => { setReportScope(opt.key); setSelectedTemplateKeys([]); setTemplateSearch(""); setReportNotice(null); }}
+                          className={`relative text-left p-3 rounded-xl border transition-all active:scale-[0.98] ${
+                            active
+                              ? "border-green-500 bg-green-50 ring-1 ring-green-500"
+                              : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          {active && (
+                            <CheckCircle2 className="w-4 h-4 text-green-600 absolute top-2 right-2" />
+                          )}
+                          <opt.Icon className={`w-4 h-4 mb-1.5 ${active ? "text-green-700" : "text-gray-400"}`} />
+                          <p className={`text-sm font-semibold ${active ? "text-green-900" : "text-gray-800"}`}>{opt.label}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
 
-              <button
-                onClick={handleGenerateReport}
-                disabled={generatingPdf}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-              >
-                {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-                {generatingPdf ? "Generating PDF…" : "Generate PDF"}
-              </button>
-            </>
-          ) : (
-            <p className="text-sm text-gray-500 py-2">No broadcast history available yet.</p>
-          )}
+                {/* Step 2 — template picker */}
+                {reportScope !== "all" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        2. {reportScope === "single" ? "Pick a template" : "Pick templates"}
+                      </p>
+                      {reportScope === "multiple" && templateCounts.length > 1 && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedTemplateKeys(templateCounts.map(t => t.key)); setReportNotice(null); }}
+                            className="text-green-700 font-medium hover:underline"
+                          >
+                            Select all
+                          </button>
+                          <span className="text-gray-300">·</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTemplateKeys([])}
+                            className="text-gray-500 font-medium hover:underline"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {templateCounts.length > 6 && (
+                      <div className="relative mb-2">
+                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={templateSearch}
+                          onChange={(e) => setTemplateSearch(e.target.value)}
+                          placeholder="Search templates…"
+                          className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                        />
+                      </div>
+                    )}
+
+                    <div className="max-h-52 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
+                      {filteredTemplateCounts.length === 0 ? (
+                        <p className="text-sm text-gray-400 text-center py-4">No templates match &quot;{templateSearch}&quot;.</p>
+                      ) : filteredTemplateCounts.map(t => {
+                        const checked = selectedTemplateKeys.includes(t.key);
+                        const maxCount = templateCounts[0]?.count || 1;
+                        return (
+                          <label
+                            key={t.key}
+                            className={`flex items-center justify-between gap-3 px-3 py-2.5 text-sm cursor-pointer transition-colors ${
+                              checked ? "bg-green-50" : "hover:bg-gray-50"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <input
+                                type={reportScope === "single" ? "radio" : "checkbox"}
+                                name="report-template"
+                                checked={checked}
+                                onChange={() => toggleTemplateKey(t.key, reportScope === "multiple")}
+                                className="shrink-0 accent-green-600 w-4 h-4"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className={`block truncate ${checked ? "text-green-900 font-medium" : "text-gray-800"}`}>{t.label}</span>
+                                <span className="block h-1 mt-1 rounded-full bg-gray-100 overflow-hidden max-w-[140px]">
+                                  <span
+                                    className={`block h-full rounded-full ${checked ? "bg-green-500" : "bg-gray-300"}`}
+                                    style={{ width: `${Math.max(6, (t.count / maxCount) * 100)}%` }}
+                                  />
+                                </span>
+                              </span>
+                            </span>
+                            <span className={`text-xs shrink-0 px-2 py-0.5 rounded-full ${checked ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                              {t.count} broadcast{t.count === 1 ? "" : "s"}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Live preview */}
+                {previewRows.length > 0 && (
+                  <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800">
+                    <BarChart3 className="w-4 h-4 shrink-0 text-blue-500" />
+                    <span>
+                      This report will include <strong>{previewRows.length}</strong> broadcast{previewRows.length === 1 ? "" : "s"}, covering{" "}
+                      <strong>{previewTotalContacts.toLocaleString()}</strong> contacts.
+                    </span>
+                  </div>
+                )}
+
+                {/* Inline notice — replaces native alert() for a more app-like feel */}
+                {reportNotice && (
+                  <div className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl text-xs ${
+                    reportNotice.type === "error" ? "bg-red-50 border border-red-100 text-red-700" : "bg-green-50 border border-green-100 text-green-700"
+                  }`}>
+                    {reportNotice.type === "error"
+                      ? <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      : <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />}
+                    <span className="flex-1">{reportNotice.text}</span>
+                    <button onClick={() => setReportNotice(null)} className="shrink-0 opacity-60 hover:opacity-100">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={handleGenerateReport}
+                    disabled={!canGenerate}
+                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98] shadow-sm"
+                  >
+                    {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                    {generatingPdf ? "Generating PDF…" : "Generate PDF"}
+                  </button>
+                  {!canGenerate && !generatingPdf && (
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> Pick a template above to continue
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500 py-6 text-center">No broadcast history available yet.</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -395,8 +546,16 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
         const isExpanded      = expanded === r.id;
         const isLoadingStatus = loadingStatus === r.id;
 
+        const accentColor = r.status === "processing" ? "before:bg-green-500"
+          : r.status === "cancelled" ? "before:bg-yellow-500"
+          : r.status === "failed" ? "before:bg-red-500"
+          : "before:bg-transparent";
+
         return (
-          <div key={r.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <div
+            key={r.id}
+            className={`relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 ${accentColor} bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200`}
+          >
             <div className="p-4">
               {/* Header row */}
               <div className="flex items-start justify-between gap-3 mb-3">
@@ -436,14 +595,14 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                         onClick={() => handleResume(r.id)}
                         disabled={resumingId === r.id}
                         title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition-colors active:scale-[0.98]"
                       >
                         {resumingId === r.id ? "Resuming…" : "Resume"}
                       </button>
                       <button
                         onClick={() => handleCancel(r.id)}
                         disabled={cancellingId === r.id}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors active:scale-[0.98]"
                       >
                         {cancellingId === r.id ? "Cancelling…" : "Cancel"}
                       </button>
@@ -451,13 +610,13 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                   )}
                   <button
                     onClick={() => handleViewReplies(r)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors active:scale-[0.98]"
                   >
                     <MessageSquare className="w-3.5 h-3.5" /> Replies
                   </button>
                   <button
                     onClick={() => toggleExpanded(r.id)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors active:scale-[0.98]"
                   >
                     {isLoadingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Details
                   </button>
