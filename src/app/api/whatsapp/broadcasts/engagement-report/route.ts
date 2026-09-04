@@ -6,7 +6,6 @@
 // broadcast included in the report's current scope, so a contact targeted
 // by more than one broadcast is classified exactly once.
 import { NextRequest, NextResponse } from 'next/server';
-import { Query, DocumentData } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { normalizePhone, getBroadcastContacts } from '../_shared';
 
@@ -35,12 +34,8 @@ export async function POST(request: NextRequest) {
     const perBroadcast = await Promise.all(ids.map((id) => getBroadcastContacts(id)));
 
     const targetsByPhone = new Map<string, string>(); // normalized phone -> best-known name
-    let earliestCreatedAt: Date | null = null;
     for (const result of perBroadcast) {
       if (!result) continue;
-      if (result.createdAt && (!earliestCreatedAt || result.createdAt < earliestCreatedAt)) {
-        earliestCreatedAt = result.createdAt;
-      }
       for (const c of result.contacts) {
         if (!c.phone) continue;
         const phone = normalizePhone(c.phone);
@@ -70,17 +65,17 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    // Bounded to on/after the earliest broadcast in scope where possible —
-    // a free reduction in read volume for narrower report scopes, though for
-    // an "all templates" report spanning this business's whole history it's
-    // close to a full scan regardless, same as the accepted precedent above.
-    let inboundQuery: Query<DocumentData> = adminDb
+    // Deliberately a single equality filter, nothing more — combining it with
+    // a createdAt range filter would need a composite index Firestore doesn't
+    // have deployed for this collection (confirmed directly: that combination
+    // throws FAILED_PRECONDITION at runtime, which silently degraded every
+    // real report to "engagement data unavailable" until this was caught).
+    // At this business's actual scale (a few hundred inbound messages) a
+    // plain single-field scan is already effectively instant.
+    const inboundSnap = await adminDb
       .collection('whatsapp_conversations')
-      .where('direction', '==', 'inbound');
-    if (earliestCreatedAt) {
-      inboundQuery = inboundQuery.where('createdAt', '>=', earliestCreatedAt);
-    }
-    const inboundSnap = await inboundQuery.get();
+      .where('direction', '==', 'inbound')
+      .get();
 
     const latestInboundByPhone = new Map<string, { message: string; date: string | null; ms: number }>();
     inboundSnap.forEach((doc) => {
