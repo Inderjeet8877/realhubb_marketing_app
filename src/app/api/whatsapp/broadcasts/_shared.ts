@@ -99,6 +99,60 @@ export async function triggerWorker(broadcastId: string, attempt = 0): Promise<v
   }
 }
 
+export interface BroadcastContact {
+  phone: string;
+  name: string;
+  success?: boolean;
+  wamid?: string | null;
+  status?: string;
+  error?: string | null;
+  errorCode?: number | null;
+  errorSubcode?: number | null;
+  errorDetail?: string | null;
+  [key: string]: unknown;
+}
+
+// Who a broadcast was actually sent to, with final per-contact status —
+// shared by GET /api/whatsapp/broadcasts?id=X (the "Details" panel) and the
+// engagement-report endpoint, so both read the exact same merge of
+// results-subcollection + live recipients-subcollection status instead of
+// two copies of this logic drifting apart.
+export async function getBroadcastContacts(
+  broadcastId: string
+): Promise<{ createdAt: Date | null; contacts: BroadcastContact[] } | null> {
+  const reportRef = adminDb.collection('bulk_reports').doc(broadcastId);
+  const reportSnap = await reportRef.get();
+  if (!reportSnap.exists) return null;
+  const data = reportSnap.data()!;
+
+  // Newer broadcasts (sent via the backend job worker) store per-contact
+  // results in small chunk docs instead of one inline array, since a single
+  // Firestore document can't hold thousands of contacts without risking the
+  // 1MiB/doc limit. Older reports still have the inline array — fall back
+  // to it so historical reports keep resolving.
+  let contacts: BroadcastContact[] = [];
+  const resultsSnap = await reportRef.collection('results').get();
+  if (!resultsSnap.empty) {
+    const chunkDocs = resultsSnap.docs.sort((a, b) => Number(a.id) - Number(b.id));
+    chunkDocs.forEach(doc => { contacts.push(...(doc.data().contacts || [])); });
+  } else {
+    contacts = data.contacts || [];
+  }
+
+  const recipientsSnap = await reportRef.collection('recipients').get();
+  const statusByWamid = new Map<string, string>();
+  recipientsSnap.forEach(r => statusByWamid.set(r.id, r.data().status));
+
+  const liveContacts = contacts.map(c => (
+    c.wamid && statusByWamid.has(c.wamid) ? { ...c, status: statusByWamid.get(c.wamid) } : c
+  ));
+
+  return {
+    createdAt: data.createdAt?.toDate?.() || null,
+    contacts: liveContacts,
+  };
+}
+
 // Runs `worker` over `items` with at most `limit` in flight at once,
 // preserving output order. No new dependency for this — the whole thing is
 // a handful of lines.

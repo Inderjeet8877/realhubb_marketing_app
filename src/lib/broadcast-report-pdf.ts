@@ -38,12 +38,27 @@ export interface BroadcastReportRow {
   finishedAt: string | null;
 }
 
+export interface EngagementContact {
+  phone: string;
+  name: string;
+  message?: string;
+  date?: string | null;
+}
+
+export interface EngagementReportData {
+  replied: EngagementContact[];
+  noReply: EngagementContact[];
+  optedOut: EngagementContact[];
+}
+
 const MARGIN = 14;
 const FOOTER_RESERVE = 18;
 const PAGE_TOP = 15;
 const GREEN: [number, number, number] = [22, 101, 52];
 const DARK_GRAY: [number, number, number] = [55, 65, 81];
 const GRAY_TEXT: [number, number, number] = [100, 100, 100];
+const RED: [number, number, number] = [153, 27, 27];
+const SLATE: [number, number, number] = [71, 85, 105];
 const NO_TEMPLATE_LABEL = 'Custom / No Template';
 
 function pageWidthOf(doc: jsPDF) { return doc.internal.pageSize.getWidth(); }
@@ -218,7 +233,105 @@ function drawDetailTable(doc: jsPDF, startY: number, rows: BroadcastReportRow[])
   return (doc as any).lastAutoTable.finalY;
 }
 
-export function buildBroadcastReportPdf(rows: BroadcastReportRow[], opts: { scopeLabel: string }): jsPDF {
+function drawEngagementTable(doc: jsPDF, startY: number, contacts: EngagementContact[], includeMessage: boolean): number {
+  const sorted = contacts; // already sorted by the caller (engagement-report endpoint)
+  const body = sorted.map(c => includeMessage
+    ? [c.name || c.phone, c.phone, c.message || '—', fmtDate(c.date ?? null)]
+    : [c.name || c.phone, c.phone]);
+
+  autoTable(doc, {
+    startY,
+    head: includeMessage ? [['Name', 'Phone', 'Message', 'Date']] : [['Name', 'Phone']],
+    body,
+    theme: 'striped',
+    margin: { left: MARGIN, right: MARGIN, bottom: FOOTER_RESERVE },
+    headStyles: { fillColor: DARK_GRAY, textColor: 255, fontSize: 8, halign: 'left' },
+    styles: { fontSize: 7.5, cellPadding: 2.5, overflow: 'linebreak', valign: 'middle' },
+    columnStyles: includeMessage
+      ? { 0: { cellWidth: 42 }, 1: { cellWidth: 32 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 28 } }
+      : { 0: { cellWidth: 90 }, 1: { cellWidth: 'auto' } },
+  });
+  return (doc as any).lastAutoTable.finalY;
+}
+
+// Own dedicated page(s), separate from the per-template broadcast stats —
+// the user explicitly wants this as a distinct section of the report, not
+// blended in with send/delivery numbers. Each of the three groups also
+// starts on its own fresh page so "who replied," "who didn't," and "who
+// opted out" never visually run into each other.
+function addEngagementSection(doc: jsPDF, data: EngagementReportData): void {
+  const pageWidth = pageWidthOf(doc);
+  const totalUnique = data.replied.length + data.noReply.length + data.optedOut.length;
+  const replyRate = totalUnique > 0 ? (data.replied.length / totalUnique) * 100 : null;
+  const optOutRate = totalUnique > 0 ? (data.optedOut.length / totalUnique) * 100 : null;
+
+  doc.addPage();
+  let y = PAGE_TOP;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(...GREEN);
+  doc.text('Recipient Engagement & Replies', pageWidth / 2, y, { align: 'center' });
+  y += 7;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...GRAY_TEXT);
+  doc.text(
+    'Who responded, who did not, and who asked not to be contacted again — based on every reply',
+    pageWidth / 2, y, { align: 'center' }
+  );
+  y += 4.5;
+  doc.text(
+    'received from contacts targeted by this report, across their full conversation history.',
+    pageWidth / 2, y, { align: 'center' }
+  );
+  y += 10;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(30, 30, 30);
+  doc.text('Engagement Summary', MARGIN, y);
+  y += 4;
+  y = drawStatTable(doc, y, [
+    ['Total Unique Contacts', String(totalUnique)],
+    ['Replied / Interested', String(data.replied.length)],
+    ['No Reply', String(data.noReply.length)],
+    ['Opted Out / Said Stop', String(data.optedOut.length)],
+    ['Reply Rate', fmtPercent(replyRate)],
+    ['Opt-Out Rate', fmtPercent(optOutRate)],
+  ]);
+
+  const sections: { title: string; color: [number, number, number]; contacts: EngagementContact[]; includeMessage: boolean; empty: string }[] = [
+    { title: `Replied / Interested (${data.replied.length})`, color: GREEN, contacts: data.replied, includeMessage: true, empty: 'No one in this report has replied yet.' },
+    { title: `Opted Out / Said Stop (${data.optedOut.length})`, color: RED, contacts: data.optedOut, includeMessage: true, empty: 'No one in this report has opted out.' },
+    { title: `No Reply (${data.noReply.length})`, color: SLATE, contacts: data.noReply, includeMessage: false, empty: 'Everyone in this report has replied at least once.' },
+  ];
+
+  for (const section of sections) {
+    doc.addPage();
+    y = PAGE_TOP;
+    doc.setFillColor(...section.color);
+    doc.rect(MARGIN, y, pageWidth - MARGIN * 2, 9, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(section.title, MARGIN + 3, y + 6.3);
+    y += 13;
+
+    if (section.contacts.length === 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(...GRAY_TEXT);
+      doc.text(section.empty, MARGIN, y + 5);
+      continue;
+    }
+    drawEngagementTable(doc, y, section.contacts, section.includeMessage);
+  }
+}
+
+export function buildBroadcastReportPdf(
+  rows: BroadcastReportRow[],
+  opts: { scopeLabel: string; engagement?: EngagementReportData | null }
+): jsPDF {
   const doc = new jsPDF();
   const pageWidth = pageWidthOf(doc);
   let y = PAGE_TOP;
@@ -301,6 +414,10 @@ export function buildBroadcastReportPdf(rows: BroadcastReportRow[], opts: { scop
 
     y = drawDetailTable(doc, y, group.rows);
     y += 12;
+  }
+
+  if (opts.engagement) {
+    addEngagementSection(doc, opts.engagement);
   }
 
   stampFooters(doc);

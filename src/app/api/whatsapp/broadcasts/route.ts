@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
+import { getBroadcastContacts } from './_shared';
 
 export async function GET(request: NextRequest) {
   const broadcastId = request.nextUrl.searchParams.get('id');
@@ -9,39 +10,11 @@ export async function GET(request: NextRequest) {
   // panel is actually expanded — not on every list load (see note below on why).
   if (broadcastId) {
     try {
-      const reportRef = adminDb.collection('bulk_reports').doc(broadcastId);
-      const reportSnap = await reportRef.get();
-      if (!reportSnap.exists) {
+      const result = await getBroadcastContacts(broadcastId);
+      if (!result) {
         return NextResponse.json({ success: false, error: 'Broadcast not found' }, { status: 404 });
       }
-      const data = reportSnap.data()!;
-
-      // Newer broadcasts (sent via the backend job worker) store per-contact
-      // results in small chunk docs instead of one inline array, since a
-      // single Firestore document can't hold thousands of contacts without
-      // risking the 1MiB/doc limit. Older reports still have the inline
-      // array — fall back to it so historical reports keep rendering.
-      let contacts: any[] = [];
-      const resultsSnap = await reportRef.collection('results').get();
-      if (!resultsSnap.empty) {
-        // Doc IDs are chunk indices as strings ("0", "1", "10", …) — Firestore
-        // has no numeric ordering for them, so sort numerically ourselves
-        // rather than relying on lexicographic document-ID order.
-        const chunkDocs = resultsSnap.docs.sort((a, b) => Number(a.id) - Number(b.id));
-        chunkDocs.forEach(doc => { contacts.push(...(doc.data().contacts || [])); });
-      } else {
-        contacts = data.contacts || [];
-      }
-
-      const recipientsSnap = await reportRef.collection('recipients').get();
-      const statusByWamid = new Map<string, string>();
-      recipientsSnap.forEach(r => statusByWamid.set(r.id, r.data().status));
-
-      const liveContacts = contacts.map(c => (
-        c.wamid && statusByWamid.has(c.wamid) ? { ...c, status: statusByWamid.get(c.wamid) } : c
-      ));
-
-      return NextResponse.json({ success: true, contacts: liveContacts });
+      return NextResponse.json({ success: true, contacts: result.contacts });
     } catch (error: any) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }

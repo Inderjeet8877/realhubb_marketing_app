@@ -12,7 +12,7 @@ import { onSnapshot, doc } from "firebase/firestore";
 import { describeMetaErrorCode } from "@/lib/whatsapp-send";
 import { formatDuration } from "@/lib/format";
 import { fetcher, reportSwrConfig } from "@/lib/swr";
-import { buildBroadcastReportPdf, type BroadcastReportRow } from "@/lib/broadcast-report-pdf";
+import { buildBroadcastReportPdf, type BroadcastReportRow, type EngagementReportData } from "@/lib/broadcast-report-pdf";
 
 const NO_TEMPLATE_KEY = "__none__";
 const NO_TEMPLATE_LABEL = "Custom / No Template";
@@ -63,6 +63,10 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
   const [reportScope, setReportScope]           = useState<"all" | "single" | "multiple">("all");
   const [selectedTemplateKeys, setSelectedTemplateKeys] = useState<string[]>([]);
   const [generatingPdf, setGeneratingPdf]       = useState(false);
+  // On by default since it's the whole point of asking for this report, but
+  // opt-out-able since it adds a real backend lookup (matching replies/opt-outs
+  // against every targeted contact) on top of the otherwise-instant PDF build.
+  const [includeEngagement, setIncludeEngagement] = useState(true);
   // Purely presentational — narrows the on-screen template list, never the
   // underlying data used to build the report.
   const [templateSearch, setTemplateSearch]     = useState("");
@@ -294,11 +298,38 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
         "<p style='font-family:sans-serif;padding:24px;color:#555'>Preparing your report…</p>";
     }
 
-    // Also let the "Generating…" button state paint before the synchronous
-    // PDF build blocks the main thread.
-    setTimeout(() => {
+    // Also let the "Generating…" button state paint before the (now
+    // potentially network-bound, not just CPU-bound) work below runs. The
+    // mobile pre-opened-tab trick above already tolerates arbitrary extra
+    // delay before the file is ready, so awaiting a fetch here needs no
+    // further changes to that flow.
+    setTimeout(async () => {
+      let engagement: EngagementReportData | null = null;
+      let engagementFailed = false;
+
+      if (includeEngagement) {
+        try {
+          const res = await fetch("/api/whatsapp/broadcasts/engagement-report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ broadcastIds: rows.map(r => r.id) }),
+          });
+          const d = await res.json();
+          if (res.ok && d.success) {
+            engagement = { replied: d.replied, noReply: d.noReply, optedOut: d.optedOut };
+          } else {
+            engagementFailed = true;
+          }
+        } catch {
+          // A failure here should never block the broadcast-stats pages the
+          // user already waited for — degrade to generating without the
+          // engagement section and say so, rather than failing the whole report.
+          engagementFailed = true;
+        }
+      }
+
       try {
-        const doc = buildBroadcastReportPdf(rows, { scopeLabel });
+        const doc = buildBroadcastReportPdf(rows, { scopeLabel, engagement });
         const dateStr = new Date().toISOString().split("T")[0];
         const filename = `whatsapp-broadcast-report-${dateStr}.pdf`;
 
@@ -317,7 +348,13 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
         } else {
           doc.save(filename);
         }
-        setReportNotice({ type: "success", text: `Report ready — ${rows.length} broadcast${rows.length === 1 ? "" : "s"} included. Check your downloads${isMobile ? " or the new tab" : ""}.` });
+        const readyText = `Report ready — ${rows.length} broadcast${rows.length === 1 ? "" : "s"} included. Check your downloads${isMobile ? " or the new tab" : ""}.`;
+        setReportNotice({
+          type: "success",
+          text: engagementFailed
+            ? `${readyText} Couldn't load reply/engagement data this time, so that section was left out — the rest of the report is unaffected.`
+            : readyText,
+        });
       } catch (err: any) {
         if (pendingTab && !pendingTab.closed) pendingTab.close();
         setReportNotice({ type: "error", text: "Failed to generate PDF: " + (err.message || "Unknown error") });
@@ -535,6 +572,27 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                     </span>
                   </div>
                 )}
+
+                {/* Step 3 — optional engagement/replies section */}
+                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                  includeEngagement ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={includeEngagement}
+                    onChange={(e) => setIncludeEngagement(e.target.checked)}
+                    className="mt-0.5 shrink-0 accent-green-600 w-4 h-4"
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
+                      <MessageSquare className="w-3.5 h-3.5 text-green-600" />
+                      Include recipient engagement &amp; replies
+                    </span>
+                    <span className="block text-xs text-gray-500 mt-0.5">
+                      Adds a separate section listing who replied, who didn&apos;t, and who opted out or said stop — and why. Takes a few extra seconds to look up.
+                    </span>
+                  </span>
+                </label>
 
                 {/* Inline notice — replaces native alert() for a more app-like feel */}
                 {reportNotice && (
