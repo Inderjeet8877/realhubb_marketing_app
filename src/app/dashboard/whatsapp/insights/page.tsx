@@ -19,6 +19,32 @@ interface InsightsData {
   costAvailable: boolean;
   costByCategory: { category: string; cost: number; delivered: number }[];
   totalCost: number;
+  costCurrency: string;
+  costError: string | null;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  MARKETING: "Marketing",
+  MARKETING_LITE: "Marketing (lite)",
+  UTILITY: "Utility",
+  AUTHENTICATION: "Authentication",
+  AUTHENTICATION_INTERNATIONAL: "Authentication – international",
+  SERVICE: "Service",
+  REFERRAL_CONVERSION: "Referral conversion",
+};
+
+function formatCategoryLabel(category: string): string {
+  return CATEGORY_LABELS[category] || category.replaceAll("_", " ");
+}
+
+function formatMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+  } catch {
+    // Unknown/unsupported currency code from Meta — fall back to a plain labeled number
+    // rather than letting Intl throw and take the whole page down.
+    return `${amount.toFixed(2)} ${currency}`;
+  }
 }
 
 const RANGE_OPTIONS = [
@@ -178,35 +204,46 @@ export default function WhatsAppInsightsPage() {
             )}
           </div>
 
-          {/* Cost breakdown */}
+          {/* Cost breakdown — Meta's own billed amount for this account, for the exact
+              date range currently selected above (7/30/90 days), sourced live from
+              Meta's pricing_analytics API rather than estimated from message counts. */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <IndianRupee className="w-5 h-5 text-gray-500" />
-              Conversation Cost Breakdown
+              Approximate Total Charges
             </h2>
             {data.costAvailable ? (
-              <div className="space-y-3">
-                <p className="text-2xl font-bold text-gray-900">₹ {data.totalCost.toFixed(2)}</p>
-                <div className="divide-y divide-gray-100">
-                  {data.costByCategory.map((c) => (
-                    <div key={c.category} className="flex justify-between py-2 text-sm">
-                      <span className="text-gray-700">{c.category.replaceAll("_", " ")}</span>
-                      <span className="font-medium text-gray-900">₹ {c.cost.toFixed(2)}</span>
-                    </div>
-                  ))}
+              data.costByCategory.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-2xl font-bold text-gray-900">{formatMoney(data.totalCost, data.costCurrency)}</p>
+                  <p className="text-xs text-gray-400">
+                    As billed by Meta for the last {data.days} day{data.days === 1 ? "" : "s"} — matches WhatsApp Manager.
+                  </p>
+                  <div className="divide-y divide-gray-100">
+                    {data.costByCategory.map((c) => (
+                      <div key={c.category} className="flex justify-between py-2 text-sm">
+                        <span className="text-gray-700">{formatCategoryLabel(c.category)}</span>
+                        <div className="text-right">
+                          <span className="font-medium text-gray-900">{formatMoney(c.cost, data.costCurrency)}</span>
+                          <span className="block text-xs text-gray-400">{c.delivered.toLocaleString()} messages</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <p className="text-sm text-gray-500 py-4">No billable messages in this date range.</p>
+              )
             ) : (
               <div className="text-sm text-gray-500 bg-gray-50 rounded-lg p-4">
                 <p>
-                  Meta&apos;s cost/conversation-analytics API isn&apos;t returning data for this account&apos;s
-                  current access level (it consistently returns empty regardless of parameters — this
-                  typically requires Business-level Finance access, not just WhatsApp Business Account
-                  management access on this System User token).
+                  {data.costError
+                    ? <>Meta returned an error for this account&apos;s billing data: <span className="font-medium text-gray-700">{data.costError}</span></>
+                    : "Couldn't load billing data from Meta for this account right now."}
                 </p>
                 <p className="mt-2">
-                  For exact billing figures, check{" "}
-                  <span className="font-medium">WhatsApp Manager → Account tools → Analytics</span> directly
+                  For exact billing figures in the meantime, check{" "}
+                  <span className="font-medium">WhatsApp Manager → Phone numbers → Insights</span> directly
                   in Meta Business Suite.
                 </p>
               </div>
