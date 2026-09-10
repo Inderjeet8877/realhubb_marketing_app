@@ -1,8 +1,22 @@
-export const fetcher = (url: string) =>
-  fetch(url).then(r => {
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.json();
-  });
+// On a non-ok response, routes in this app generally still return a JSON body
+// with a real `error` message (e.g. "Apps Script error: ...") rather than an
+// empty one — reading it here means every page using this fetcher gets that
+// actual reason surfaced in its error state, instead of just a bare "HTTP 502"
+// with no indication of what actually went wrong upstream.
+export const fetcher = async (url: string) => {
+  const r = await fetch(url);
+  if (!r.ok) {
+    let message = `HTTP ${r.status}`;
+    try {
+      const body = await r.json();
+      if (body?.error) message = body.error;
+    } catch {
+      // Response body wasn't JSON (or was empty) — fall back to the bare status.
+    }
+    throw new Error(message);
+  }
+  return r.json();
+};
 
 // Shared SWR options — show stale data instantly, refresh in background
 export const swrConfig = {

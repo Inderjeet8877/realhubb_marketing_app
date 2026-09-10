@@ -279,7 +279,7 @@ function ImportModal({
 }
 
 export default function ContactsPage() {
-  const { data: contactsData, isLoading: contactsLoading, mutate: reloadContacts } =
+  const { data: contactsData, error: contactsError, isLoading: contactsLoading, mutate: reloadContacts } =
     useSWR("/api/contacts", fetcher, swrConfig);
   const { data: failedData, isLoading: failedLoading } =
     useSWR("/api/contacts?failed=true", fetcher, swrConfig);
@@ -751,7 +751,27 @@ export default function ContactsPage() {
           )}
         </div>
 
-        {contacts.length === 0 ? (
+        {contactsError ? (
+          // Distinguish "we couldn't actually load your contacts" from "you
+          // genuinely have zero contacts" — these used to look identical
+          // (an empty list, no explanation) whenever the Google Sheets
+          // backend failed for any reason (down, quota-exceeded, a bad
+          // response), which made a real outage indistinguishable from an
+          // empty account and impossible to diagnose from this page alone.
+          <div className="p-8 text-center">
+            <TriangleAlert className="w-12 h-12 text-red-300 mx-auto mb-4" />
+            <p className="text-red-600 font-semibold">Couldn&apos;t load contacts</p>
+            <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto break-words">
+              {contactsError.message || "The contacts source didn't respond as expected."}
+            </p>
+            <button
+              onClick={() => reloadContacts()}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+            >
+              Try again
+            </button>
+          </div>
+        ) : contacts.length === 0 ? (
           <div className="p-8 text-center">
             <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500">No contacts found</p>

@@ -190,13 +190,40 @@ export async function GET(request: NextRequest) {
     if (filterDataName) params.dataName = filterDataName;
 
     const data = await sheetsGet(params);
+
+    // A previous version of this route trusted whatever came back and always
+    // answered with HTTP 200 + contacts:[] on ANY failure (network error, Apps
+    // Script down/quota-exceeded, a malformed/non-JSON response like Google's
+    // own HTML error pages) — indistinguishable, from the UI's point of view,
+    // from "this business genuinely has zero contacts." That silently showed
+    // an empty Contacts page with no error, no matter what actually went
+    // wrong upstream. Explicitly require the shape the Apps Script backend
+    // sends on a real success (`success: true`) — anything else is treated
+    // as a real failure and reported as one, not swallowed into "0 results."
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Apps Script returned an unexpected response (not a JSON object).');
+    }
+    if (data.error) {
+      throw new Error(`Apps Script error: ${data.error}`);
+    }
+    if (data.success !== true) {
+      throw new Error(
+        `Apps Script did not confirm success for action=${params.action}. ` +
+        `Response: ${JSON.stringify(data).slice(0, 300)}`
+      );
+    }
+
     return NextResponse.json({
       success:  true,
       contacts: data.contacts || [],
       total:    data.total    || 0,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message, contacts: [], total: 0 }, { status: 200 });
+    console.error('[Contacts API] Failed to load contacts from Google Sheets:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to load contacts from Google Sheets', contacts: [], total: 0 },
+      { status: 502 }
+    );
   }
 }
 
