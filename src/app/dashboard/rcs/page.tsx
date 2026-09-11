@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { fetcher, swrConfig } from "@/lib/swr";
 import {
   Radio, AlertTriangle, Send, Loader2, Search, CheckSquare, Square,
-  CheckCircle2, XCircle, Users,
+  CheckCircle2, XCircle, Users, Sparkles,
 } from "lucide-react";
 
 interface Contact { id: string; name: string; phone: string }
@@ -104,10 +104,25 @@ export default function RcsPage() {
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Radio className="w-6 h-6 text-blue-600" />
           RCS Messaging
+          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">
+            Upcoming Feature
+          </span>
         </h1>
         <p className="text-gray-600 text-sm mt-1">
           Send RCS messages via Ping Smart, with names and numbers logged below.
         </p>
+      </div>
+
+      <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
+        <Sparkles className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-blue-900">This channel is being set up</p>
+          <p className="text-sm text-blue-800 mt-1">
+            The page and sending logic are fully built and ready to go — it just needs your
+            DLT-registered Sender ID, Content ID, and Entity ID from Ping Smart before it can send.
+            Everything below will switch on automatically once those are added.
+          </p>
+        </div>
       </div>
 
       {!configured && (

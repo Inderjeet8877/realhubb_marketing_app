@@ -22,7 +22,7 @@ const navigation = [
   { name: "WhatsApp",   href: "/dashboard/whatsapp",           icon: MessageSquare   },
   { name: "Templates",  href: "/dashboard/whatsapp/templates", icon: FileText        },
   { name: "Insights",   href: "/dashboard/whatsapp/insights",  icon: BarChart3       },
-  { name: "RCS",        href: "/dashboard/rcs",                icon: Radio           },
+  { name: "RCS",        href: "/dashboard/rcs",                icon: Radio, badge: "Soon" },
   { name: "Settings",   href: "/dashboard/settings",           icon: Settings        },
 ];
 
@@ -74,7 +74,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
               <div className="hidden lg:flex lg:space-x-1">
                 {navigation.map((item) => {
                   const isWA  = item.href === WHATSAPP_HREF;
-                  const badge = isWA && unreadCount > 0 && !waIsActive;
+                  const unreadBadge = isWA && unreadCount > 0 && !waIsActive;
                   return (
                     <Link
                       key={item.name}
@@ -87,7 +87,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                     >
                       <item.icon className="w-4 h-4 mr-1.5" />
                       {item.name}
-                      {badge && (
+                      {item.badge && (
+                        <span className="ml-1.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full leading-none">
+                          {item.badge}
+                        </span>
+                      )}
+                      {unreadBadge && (
                         <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
                           {unreadCount > 99 ? "99+" : unreadCount}
                         </span>
@@ -131,6 +136,11 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 >
                   <item.icon className="w-4 h-4 flex-shrink-0" />
                   {item.name}
+                  {item.badge && (
+                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full leading-none">
+                      {item.badge}
+                    </span>
+                  )}
                   {item.href === WHATSAPP_HREF && unreadCount > 0 && !waIsActive && (
                     <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                       {unreadCount > 99 ? "99+" : unreadCount}
