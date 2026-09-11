@@ -10,7 +10,7 @@ import NotificationSetup from "@/components/NotificationSetup";
 import { NotificationProvider, useNotifications } from "@/contexts/NotificationContext";
 import {
   LayoutDashboard, Megaphone, Users, MessageSquare,
-  Settings, LogOut, Menu, X, Target, FileText, BarChart3,
+  Settings, LogOut, Menu, X, Target, FileText, BarChart3, Radio,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -22,6 +22,7 @@ const navigation = [
   { name: "WhatsApp",   href: "/dashboard/whatsapp",           icon: MessageSquare   },
   { name: "Templates",  href: "/dashboard/whatsapp/templates", icon: FileText        },
   { name: "Insights",   href: "/dashboard/whatsapp/insights",  icon: BarChart3       },
+  { name: "RCS",        href: "/dashboard/rcs",                icon: Radio           },
   { name: "Settings",   href: "/dashboard/settings",           icon: Settings        },
 ];
 
