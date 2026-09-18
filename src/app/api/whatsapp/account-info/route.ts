@@ -17,8 +17,9 @@ export async function GET(request: Request) {
   }
 
   try {
+    const fields = 'display_phone_number,verified_name,quality_rating,messaging_limit_tier';
     const res = await fetch(
-      `${WHATSAPP_API_URL}/${phoneNumberId}?access_token=${accessToken}&fields=display_phone_number,verified_name`
+      `${WHATSAPP_API_URL}/${phoneNumberId}?access_token=${accessToken}&fields=${fields}`
     );
     const data = await res.json();
 
@@ -30,6 +31,11 @@ export async function GET(request: Request) {
       success: true,
       displayPhoneNumber: data.display_phone_number || '',
       verifiedName: data.verified_name || '',
+      // GREEN / YELLOW / RED / NA (Meta doesn't expose a numeric score, only the tier)
+      qualityRating: data.quality_rating || 'NA',
+      // e.g. TIER_50, TIER_1K, TIER_10K, TIER_100K, TIER_UNLIMITED — the current
+      // 24-hour business-initiated conversation cap, which quality rating gates.
+      messagingLimitTier: data.messaging_limit_tier || null,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Failed to fetch account info' }, { status: 500 });

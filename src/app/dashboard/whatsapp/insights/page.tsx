@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import {
   BarChart3, Send, CheckCheck, TrendingUp, Loader2, AlertCircle, IndianRupee,
-  Calendar, Clock, FileText, PenLine,
+  Calendar, Clock, FileText, PenLine, ShieldCheck, ShieldAlert, ShieldQuestion, Gauge,
 } from "lucide-react";
 
 interface InsightsData {
@@ -53,6 +53,95 @@ const RANGE_OPTIONS = [
   { label: "Last 90 days", days: 90 },
 ];
 
+interface AccountHealth {
+  displayPhoneNumber: string;
+  verifiedName: string;
+  qualityRating: "GREEN" | "YELLOW" | "RED" | "NA" | string;
+  messagingLimitTier: string | null;
+}
+
+const TIER_LABELS: Record<string, string> = {
+  TIER_50: "50 customers / 24h",
+  TIER_250: "250 customers / 24h",
+  TIER_1K: "1,000 customers / 24h",
+  TIER_10K: "10,000 customers / 24h",
+  TIER_100K: "100,000 customers / 24h",
+  TIER_UNLIMITED: "Unlimited",
+};
+
+function formatTier(tier: string | null): string {
+  if (!tier) return "Not available";
+  return TIER_LABELS[tier] || tier.replaceAll("_", " ");
+}
+
+// Meta's Graph API only ever returns the traffic-light rating itself (GREEN/YELLOW/RED) —
+// it doesn't return a machine-readable "why". The reasons and fixes below are Meta's own
+// documented drivers of quality rating (block rate, spam reports, opt-in hygiene, template
+// relevance) — shown per-rating so the page still gives an actionable answer instead of a
+// bare color, without pretending to know the one specific cause for this account.
+const QUALITY_GUIDANCE: Record<string, {
+  label: string; tone: "green" | "yellow" | "red" | "gray";
+  summary: string; reasons: string[]; improve: string[];
+}> = {
+  GREEN: {
+    label: "High quality", tone: "green",
+    summary: "Recipients are engaging well with your messages — few are blocking or reporting this number.",
+    reasons: ["Low block/report rate over recent messages", "Messages mostly go to people who opted in and expect them"],
+    improve: [
+      "Keep sending only to contacts who clearly opted in",
+      "Keep templates relevant and not overly frequent",
+      "Watch this page after any large bulk send — a spike in blocks shows up here first",
+    ],
+  },
+  YELLOW: {
+    label: "Medium quality", tone: "yellow",
+    summary: "Quality has started slipping — a meaningful share of recent recipients are blocking, reporting as spam, or ignoring your messages. Left unaddressed, this can drop to Low and reduce your messaging limit.",
+    reasons: [
+      "Rising block or spam-report rate, often after a recent bulk campaign",
+      "Messaging contacts who didn't clearly opt in, or haven't engaged in a long time",
+      "Sending the same/similar template too frequently",
+    ],
+    improve: [
+      "Pause or slow down bulk sends for a few days while this recovers",
+      "Check which recent campaign/template correlates with the drop and stop reusing it as-is",
+      "Trim your send list to contacts with clear, recent opt-in — remove long-inactive numbers",
+      "Space out repeat messages instead of sending back-to-back campaigns",
+    ],
+  },
+  RED: {
+    label: "Low quality", tone: "red",
+    summary: "This number is at real risk right now — enough recipients have blocked or reported it that Meta may pause templates or cut your messaging limit until it recovers.",
+    reasons: [
+      "High block/spam-report rate, usually traceable to one recent bulk campaign",
+      "Sending to contacts without clear consent, or to a stale/purchased list",
+      "A template that recipients found irritating or irrelevant sent at volume",
+    ],
+    improve: [
+      "Stop bulk/broadcast sends immediately until the rating recovers",
+      "Identify the specific recent campaign or template that triggered this (check Sent Messages / broadcast reports around when it dropped) and don't resend it as-is",
+      "Only message contacts with explicit, recent opt-in — cut anyone who hasn't engaged recently",
+      "Once paused, quality typically recovers over 1-2 weeks of restrained, well-targeted sending — resume slowly, not with another large batch",
+    ],
+  },
+  NA: {
+    label: "Not available yet", tone: "gray",
+    summary: "Meta hasn't assigned a quality rating yet — usually because this number hasn't sent enough messages recently for a rating to be calculated.",
+    reasons: ["Too little recent sending volume for Meta to score"],
+    improve: ["Nothing to act on yet — this fills in once the number has more message history"],
+  },
+};
+
+function getQualityGuidance(rating: string) {
+  return QUALITY_GUIDANCE[rating] || QUALITY_GUIDANCE.NA;
+}
+
+const TONE_CLASSES: Record<string, { bg: string; border: string; text: string; icon: string }> = {
+  green:  { bg: "bg-green-50",  border: "border-green-200",  text: "text-green-800",  icon: "text-green-600" },
+  yellow: { bg: "bg-amber-50",  border: "border-amber-200",  text: "text-amber-800",  icon: "text-amber-600" },
+  red:    { bg: "bg-red-50",    border: "border-red-200",    text: "text-red-800",    icon: "text-red-600" },
+  gray:   { bg: "bg-gray-50",   border: "border-gray-200",   text: "text-gray-700",   icon: "text-gray-500" },
+};
+
 interface DayStat { day: string; sent: number; delivered: number; read: number; readRate: number }
 interface HourStat { hour: number; sent: number; read: number; readRate: number }
 interface TemplateStat { template: string; sent: number; read: number; readRate: number; avgLength: number }
@@ -88,6 +177,29 @@ export default function WhatsAppInsightsPage() {
   const [engagement, setEngagement] = useState<EngagementData | null>(null);
   const [engagementLoading, setEngagementLoading] = useState(true);
   const [engagementError, setEngagementError] = useState<string | null>(null);
+
+  const [health, setHealth] = useState<AccountHealth | null>(null);
+  const [healthError, setHealthError] = useState<string | null>(null);
+
+  // Independent of the date-range selector — quality rating is a current, account-wide
+  // state from Meta, not something scoped to a 7/30/90-day window.
+  useEffect(() => {
+    fetch(`/api/whatsapp/account-info?account_id=1`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setHealth({
+            displayPhoneNumber: d.displayPhoneNumber,
+            verifiedName: d.verifiedName,
+            qualityRating: d.qualityRating,
+            messagingLimitTier: d.messagingLimitTier,
+          });
+        } else {
+          setHealthError(d.error || "Failed to load number quality");
+        }
+      })
+      .catch((e) => setHealthError(e.message || "Failed to load number quality"));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -142,6 +254,58 @@ export default function WhatsAppInsightsPage() {
           ))}
         </div>
       </div>
+
+      {/* Number quality — live from Meta, independent of the date range above */}
+      {health && (() => {
+        const guidance = getQualityGuidance(health.qualityRating);
+        const tone = TONE_CLASSES[guidance.tone];
+        const Icon = guidance.tone === "green" ? ShieldCheck : guidance.tone === "gray" ? ShieldQuestion : ShieldAlert;
+        return (
+          <div className={`mb-6 rounded-xl border p-4 ${tone.bg} ${tone.border}`}>
+            <div className="flex items-start gap-3">
+              <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${tone.icon}`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={`text-sm font-semibold ${tone.text}`}>
+                    Number Quality: {guidance.label}
+                  </p>
+                  {health.messagingLimitTier && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-white/60 text-gray-700">
+                      <Gauge className="w-3 h-3" /> {formatTier(health.messagingLimitTier)}
+                    </span>
+                  )}
+                </div>
+                <p className={`text-sm mt-1 ${tone.text}`}>{guidance.summary}</p>
+
+                {guidance.reasons.length > 0 && (
+                  <div className="mt-3">
+                    <p className={`text-xs font-semibold uppercase tracking-wide ${tone.text}`}>Common reasons</p>
+                    <ul className={`text-sm mt-1 space-y-0.5 list-disc list-inside ${tone.text}`}>
+                      {guidance.reasons.map((r, i) => <li key={i}>{r}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {guidance.improve.length > 0 && (
+                  <div className="mt-3">
+                    <p className={`text-xs font-semibold uppercase tracking-wide ${tone.text}`}>How to improve it</p>
+                    <ul className={`text-sm mt-1 space-y-0.5 list-disc list-inside ${tone.text}`}>
+                      {guidance.improve.map((tip, i) => <li key={i}>{tip}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {healthError && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <AlertCircle className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+          <p className="text-sm text-gray-600">Couldn&apos;t load number quality: {healthError}</p>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
