@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
-import { WHATSAPP_API_URL, SendConfig, buildMetaRequestBody, getMetaCredentials, validateTemplateHeaderMedia, normalizePhone } from '@/lib/whatsapp-send';
+import { WHATSAPP_API_URL, SendConfig, buildMetaRequestBody, validateTemplateHeaderMedia, normalizePhone } from '@/lib/whatsapp-send';
+import { getMetaCredentials, getAccountCredentials } from '@/lib/meta-credentials';
 import { filterOptedOutPhones } from '../broadcasts/_shared';
 
 async function getTemplateContent(templateName: string): Promise<string> {
@@ -88,8 +89,7 @@ async function handleSingleSend(body: SendMessageRequest) {
     );
   }
 
-  const { accountNum, accessToken, phoneNumberId } = getMetaCredentials(accountId);
-  const businessAccountId = process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${accountNum}`] || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
+  const { slot: accountNum, accessToken, phoneNumberId, wabaId: businessAccountId } = await getAccountCredentials(accountId);
 
   // useTemplate/imageUrl/message all feed buildMetaRequestBody below — this is
   // the same request-shape logic the backend broadcast worker uses, kept in
@@ -218,7 +218,7 @@ async function handleBulkSend(body: BulkSendRequest) {
     return NextResponse.json({ error: 'Every contact in this batch has opted out — nothing to send.' }, { status: 400 });
   }
 
-  const { accessToken, phoneNumberId } = getMetaCredentials(accountId);
+  const { accessToken, phoneNumberId } = await getMetaCredentials(accountId);
 
   if (!accessToken || !phoneNumberId) {
     return NextResponse.json({ error: 'WhatsApp not configured' }, { status: 500 });

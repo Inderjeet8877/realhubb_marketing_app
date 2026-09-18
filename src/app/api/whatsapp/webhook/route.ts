@@ -4,7 +4,8 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { getApps } from 'firebase-admin/app';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
-import { normalizePhone, getMetaCredentials, getAccountIdForPhoneNumberId, buildMetaRequestBody, WHATSAPP_API_URL } from '@/lib/whatsapp-send';
+import { normalizePhone, buildMetaRequestBody, WHATSAPP_API_URL } from '@/lib/whatsapp-send';
+import { getMetaCredentials, getAccountIdForPhoneNumberId } from '@/lib/meta-credentials';
 
 // Exact-match (after trimming trailing punctuation) rather than a substring
 // check — a message like "please stop by our office" must never be treated
@@ -158,7 +159,7 @@ export async function POST(request: NextRequest) {
       // Which of this app's 3 configured accounts actually received this
       // message — needed so any reply we send back (e.g. an opt-out
       // confirmation) goes out from the same number, not always account 1.
-      const receivingAccountId = getAccountIdForPhoneNumberId(value.metadata?.phone_number_id);
+      const receivingAccountId = await getAccountIdForPhoneNumberId(value.metadata?.phone_number_id);
 
       for (const msg of value.messages) {
         // Meta's webhook already sends `from` as the full MSISDN, so this is
@@ -247,7 +248,7 @@ async function handleOptOut(phone: string, name: string, triggerMessage: string,
   // receivingAccountId at the call site) — sending the confirmation from a
   // different account's number would either fail outright (no open session
   // with that number) or just look like the wrong business replied.
-  const { accessToken, phoneNumberId } = getMetaCredentials(accountId);
+  const { accessToken, phoneNumberId } = await getMetaCredentials(accountId);
   if (!accessToken || !phoneNumberId) return;
   try {
     await fetch(`${WHATSAPP_API_URL}/${phoneNumberId}/messages`, {

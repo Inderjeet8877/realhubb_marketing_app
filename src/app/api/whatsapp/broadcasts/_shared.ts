@@ -1,14 +1,16 @@
 // Shared constants/helpers for the backend broadcast job (start → process → cancel).
 // Not a route file itself (underscore prefix keeps Next.js from treating it as one).
 //
-// Meta request-building (buildMetaRequestBody, getMetaCredentials, etc.) lives
-// in @/lib/whatsapp-send instead of here — it's shared with the 1:1 chat send
+// Meta request-building (buildMetaRequestBody, etc.) lives in
+// @/lib/whatsapp-send instead of here — it's shared with the 1:1 chat send
 // route too, re-exported below for convenience so existing imports from this
-// file keep working unchanged.
+// file keep working unchanged. getMetaCredentials lives in the server-only
+// @/lib/meta-credentials (Firestore-backed login lookup, falls back to env
+// vars) and is re-exported here too, from a different source, for the same
+// reason.
 export {
   WHATSAPP_API_URL,
   buildMetaRequestBody,
-  getMetaCredentials,
   validateTemplateHeaderMedia,
   normalizePhone,
   isValidIndianMobile,
@@ -17,6 +19,7 @@ export {
   MESSAGING_LIMIT_ERROR_CODES,
 } from '@/lib/whatsapp-send';
 export type { SendConfig } from '@/lib/whatsapp-send';
+export { getMetaCredentials } from '@/lib/meta-credentials';
 
 import { normalizePhone } from '@/lib/whatsapp-send';
 import { adminDb } from '@/lib/firebase-admin';

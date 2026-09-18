@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    const { accountNum, accessToken, phoneNumberId } = getMetaCredentials(accountId);
+    const { accountNum, accessToken, phoneNumberId } = await getMetaCredentials(accountId);
     if (!accessToken || !phoneNumberId) {
       return NextResponse.json({ error: 'WhatsApp not configured' }, { status: 500 });
     }

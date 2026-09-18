@@ -114,7 +114,7 @@ export async function POST(request: Request) {
       const targetSnap = await reportRef.collection('targets').doc(String(claimedIndex)).get();
       const chunkContacts: { phone: string; name: string }[] = targetSnap.data()?.contacts || [];
 
-      const { accessToken, phoneNumberId } = getMetaCredentials(sendConfig.accountId);
+      const { accessToken, phoneNumberId } = await getMetaCredentials(sendConfig.accountId);
 
       let results: ContactResult[];
       if (!accessToken || !phoneNumberId) {

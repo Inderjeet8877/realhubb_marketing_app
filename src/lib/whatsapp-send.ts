@@ -100,27 +100,10 @@ export interface SendConfig {
   isTemplate?: boolean;
 }
 
-export function getMetaCredentials(accountId?: string | null) {
-  const accountNum = (accountId === '2' || accountId === '3') ? accountId : '1';
-  const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`] || process.env.META_ACCESS_TOKEN_1;
-  const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`] || process.env.WHATSAPP_PHONE_NUMBER_ID_1;
-  return { accountNum, accessToken, phoneNumberId };
-}
-
-// Reverse of getMetaCredentials — given the phone_number_id Meta's webhook
-// says actually received a message (value.metadata.phone_number_id), find
-// which of this app's 3 configured accounts that is. Used so a reply sent
-// back to a contact (e.g. an opt-out confirmation) goes out from the same
-// number they actually messaged, instead of assuming account 1 — a message
-// sent from the wrong number would fail outright (no open session with
-// that number) or just look wrong to the recipient.
-export function getAccountIdForPhoneNumberId(phoneNumberId: string | null | undefined): string {
-  if (!phoneNumberId) return '1';
-  for (const id of ['1', '2', '3']) {
-    if (process.env[`WHATSAPP_PHONE_NUMBER_ID_${id}`] === phoneNumberId) return id;
-  }
-  return '1';
-}
+// getMetaCredentials / getAccountIdForPhoneNumberId moved to
+// src/lib/meta-credentials.ts (server-only — they now read Firestore-stored
+// login credentials before falling back to env vars, which requires
+// firebase-admin, which must never end up in this file's client bundle).
 
 export function buildMetaRequestBody(to: string, config: SendConfig): Record<string, unknown> {
   if (config.isTemplate) {
