@@ -1,138 +1,307 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
-import { User, Bell, CheckCircle, XCircle, Loader2, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import useSWR from "swr";
+import {
+  User, Bell, XCircle, Loader2, Facebook, RefreshCw, Unlink,
+  AlertTriangle, CheckCircle2, Clock,
+} from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { FormSkeleton } from "@/components/Skeletons";
+import { fetcher, swrConfig } from "@/lib/swr";
 
-interface MetaAccountCredentials {
-  id: string;
-  name: string;
-  appId: string;
-  appSecret?: string;
-  accessToken: string;
-  adAccountId?: string;
-  adAccountName?: string;
-  currency?: string;
+type Slot = "1" | "2" | "3";
+const SLOTS: Slot[] = ["1", "2", "3"];
+
+interface SlotStatus {
+  slot: Slot; connected: boolean; label: string | null;
+  expiresAt: string | null; daysUntilExpiry: number | null;
+}
+interface DiscoveredAdAccount { id: string; name: string; currency?: string }
+interface DiscoveredPhoneNumber { id: string; displayPhoneNumber: string; verifiedName: string }
+interface DiscoveredWaba { id: string; name: string; phoneNumbers: DiscoveredPhoneNumber[] }
+interface PendingAssignment { adAccountId?: string; phoneNumberId?: string }
+
+function MetaConnections() {
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const { data: statusData, mutate: reloadStatus } = useSWR("/api/meta/status", fetcher, swrConfig);
+  const slots: SlotStatus[] = statusData?.slots || SLOTS.map((slot) => ({ slot, connected: false, label: null, expiresAt: null, daysUntilExpiry: null }));
+
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pendingData, setPendingData] = useState<{ connectedByName: string | null; adAccounts: DiscoveredAdAccount[]; wabas: DiscoveredWaba[] } | null>(null);
+  const [pendingError, setPendingError] = useState<string | null>(null);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [assignments, setAssignments] = useState<Partial<Record<Slot, PendingAssignment>>>({});
+  const [saving, setSaving] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [disconnectingSlot, setDisconnectingSlot] = useState<Slot | null>(null);
+
+  // Strip meta_pending/meta_error from the URL once read, same pattern the
+  // old code used for meta_error — these are one-shot redirect params, not
+  // durable page state.
+  useEffect(() => {
+    const error = searchParams.get("meta_error");
+    const pending = searchParams.get("meta_pending");
+
+    if (error) {
+      setConnectError(decodeURIComponent(error));
+      const url = new URL(window.location.href);
+      url.searchParams.delete("meta_error");
+      router.replace(url.pathname + url.search);
+    }
+    if (pending) {
+      setPendingId(pending);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("meta_pending");
+      router.replace(url.pathname + url.search);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!pendingId || !user) return;
+    setPendingLoading(true);
+    setPendingError(null);
+    user.getIdToken().then((idToken) =>
+      fetch(`/api/meta/pending/${pendingId}`, { headers: { Authorization: `Bearer ${idToken}` } })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success) setPendingData(d);
+          else setPendingError(d.error || "Failed to load discovered accounts");
+        })
+        .catch((e) => setPendingError(e.message || "Failed to load discovered accounts"))
+        .finally(() => setPendingLoading(false))
+    );
+  }, [pendingId, user]);
+
+  const handleConnect = async () => {
+    if (!user) return;
+    setConnecting(true);
+    try {
+      const idToken = await user.getIdToken();
+      window.location.href = `/api/meta/connect?idToken=${encodeURIComponent(idToken)}`;
+    } catch (e: any) {
+      setConnectError(e.message || "Could not start login");
+      setConnecting(false);
+    }
+  };
+
+  const handleAssignmentChange = (slot: Slot, field: keyof PendingAssignment, value: string) => {
+    setAssignments((prev) => ({ ...prev, [slot]: { ...prev[slot], [field]: value || undefined } }));
+  };
+
+  const handleSaveSelection = async () => {
+    if (!user || !pendingId) return;
+    const nonEmpty = Object.fromEntries(
+      Object.entries(assignments).filter(([, v]) => v?.adAccountId || v?.phoneNumberId)
+    );
+    if (Object.keys(nonEmpty).length === 0) {
+      setPendingError("Assign at least one ad account or WhatsApp number to a slot before saving.");
+      return;
+    }
+    setSaving(true);
+    setPendingError(null);
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/meta/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ pendingId, assignments: nonEmpty }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.success) throw new Error(d.error || "Failed to save");
+      setPendingId(null);
+      setPendingData(null);
+      setAssignments({});
+      reloadStatus();
+    } catch (e: any) {
+      setPendingError(e.message || "Failed to save selection");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDisconnect = async (slot: Slot) => {
+    if (!user) return;
+    setDisconnectingSlot(slot);
+    try {
+      const idToken = await user.getIdToken();
+      await fetch("/api/meta/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ slot }),
+      });
+      reloadStatus();
+    } finally {
+      setDisconnectingSlot(null);
+    }
+  };
+
+  const anyConnected = slots.some((s) => s.connected);
+  const expiringSoon = slots.filter((s) => s.connected && s.daysUntilExpiry !== null && s.daysUntilExpiry <= 7);
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+      <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Meta Connection</h2>
+          <p className="text-sm text-gray-500">Campaigns, leads, and WhatsApp all use this login.</p>
+        </div>
+        <button
+          onClick={handleConnect}
+          disabled={connecting || !user}
+          className="flex items-center gap-2 px-4 py-2 bg-[#1877F2] text-white rounded-lg hover:bg-[#1567d3] disabled:opacity-50 text-sm font-medium"
+        >
+          {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Facebook className="w-4 h-4" />}
+          {anyConnected ? "Connect another account" : "Connect with Facebook"}
+        </button>
+      </div>
+
+      {connectError && (
+        <div className="m-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+          <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+          <span className="text-red-700 text-sm flex-1">{connectError}</span>
+          <button onClick={() => setConnectError(null)} className="text-red-500 hover:text-red-700"><XCircle className="w-4 h-4" /></button>
+        </div>
+      )}
+
+      {expiringSoon.length > 0 && (
+        <div className="m-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-amber-800">
+            {expiringSoon.map((s) => `Account ${s.slot}`).join(", ")} expiring soon — reconnect before it stops working.
+          </p>
+        </div>
+      )}
+
+      {/* Asset picker — shown right after a login redirect, until assigned to a slot */}
+      {pendingId && (
+        <div className="m-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
+          <h3 className="font-semibold text-blue-900 mb-1">Choose what each account slot uses</h3>
+          {pendingData?.connectedByName && (
+            <p className="text-sm text-blue-700 mb-3">Signed in as {pendingData.connectedByName} on Facebook.</p>
+          )}
+          {pendingLoading ? (
+            <div className="flex items-center gap-2 text-sm text-blue-700 py-4"><Loader2 className="w-4 h-4 animate-spin" /> Loading discovered accounts…</div>
+          ) : pendingError ? (
+            <p className="text-sm text-red-600">{pendingError}</p>
+          ) : pendingData ? (
+            <>
+              <div className="space-y-3">
+                {SLOTS.map((slot) => (
+                  <div key={slot} className="bg-white rounded-lg border border-blue-100 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Account {slot} — Ad Account</label>
+                      <select
+                        value={assignments[slot]?.adAccountId || ""}
+                        onChange={(e) => handleAssignmentChange(slot, "adAccountId", e.target.value)}
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="">Not used</option>
+                        {pendingData.adAccounts.map((a) => (
+                          <option key={a.id} value={a.id}>{a.name} ({a.id})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Account {slot} — WhatsApp Number</label>
+                      <select
+                        value={assignments[slot]?.phoneNumberId || ""}
+                        onChange={(e) => handleAssignmentChange(slot, "phoneNumberId", e.target.value)}
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="">Not used</option>
+                        {pendingData.wabas.flatMap((w) => w.phoneNumbers.map((p) => (
+                          <option key={p.id} value={p.id}>{p.displayPhoneNumber} — {p.verifiedName}</option>
+                        )))}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={handleSaveSelection}
+                  disabled={saving}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+                >
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Save
+                </button>
+                <button
+                  onClick={() => { setPendingId(null); setPendingData(null); setAssignments({}); }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
+      )}
+
+      <div className="divide-y divide-gray-100">
+        {slots.map((s) => (
+          <div key={s.slot} className="p-4 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              <div className={`w-2.5 h-2.5 rounded-full ${s.connected ? "bg-green-500" : "bg-gray-300"}`} />
+              <div>
+                <p className="font-medium text-gray-900">Account {s.slot}{s.label ? ` — ${s.label}` : ""}</p>
+                <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                  {s.connected ? (
+                    <>
+                      <CheckCircle2 className="w-3 h-3 text-green-600" />
+                      Connected
+                      {s.daysUntilExpiry !== null && (
+                        <span className={s.daysUntilExpiry <= 7 ? "text-amber-600 font-medium" : ""}>
+                          · expires in {s.daysUntilExpiry}d
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-3 h-3 text-gray-400" />
+                      Not connected — using environment variables, if configured
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+            {s.connected && (
+              <button
+                onClick={() => handleDisconnect(s.slot)}
+                disabled={disconnectingSlot === s.slot}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+              >
+                {disconnectingSlot === s.slot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unlink className="w-3.5 h-3.5" />}
+                Disconnect
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-500">
+        <RefreshCw className="w-3 h-3" />
+        Meta logins expire after about 60 days — reconnect from here when the warning above appears.
+      </div>
+    </div>
+  );
 }
 
 function SettingsContent() {
   const { user } = useAuth();
-  const searchParams = useSearchParams();
-  const [metaAccounts, setMetaAccounts] = useState<MetaAccountCredentials[]>([]);
-  const [metaError, setMetaError] = useState<string | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [addingAccount, setAddingAccount] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
-  
-  const [newAccount, setNewAccount] = useState({
-    name: "",
-    appId: "",
-    appSecret: "",
-    accessToken: "",
-  });
-
-  const loadAccounts = useCallback(() => {
-    const stored = localStorage.getItem('meta_accounts');
-    if (stored) {
-      try {
-        const accounts = JSON.parse(stored);
-        setMetaAccounts(accounts);
-      } catch (e) {
-        console.error("Error parsing stored accounts:", e);
-      }
-    }
-    setLoading(false);
-  }, []);
 
   useEffect(() => {
-    loadAccounts();
-
-    const error = searchParams.get("meta_error");
-    if (error) {
-      setMetaError(decodeURIComponent(error));
-      const url = new URL(window.location.href);
-      url.searchParams.delete('meta_error');
-      window.history.replaceState({}, '', url.pathname);
-    }
-  }, [loadAccounts, searchParams]);
-
-  const handleAddAccount = async () => {
-    if (!newAccount.name || !newAccount.appId || !newAccount.accessToken) {
-      setMetaError("Name, App ID, and Access Token are required");
-      return;
-    }
-
-    setAddingAccount(true);
-    setMetaError(null);
-
-    try {
-      const response = await fetch(
-        `https://graph.facebook.com/v21.0/me/adaccounts?` +
-        `access_token=${newAccount.accessToken}&` +
-        `fields=id,name,account_id,account_status,currency`
-      );
-      
-      const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
-
-      const accountId = `acc_${Date.now()}`;
-      const newAcc: MetaAccountCredentials = {
-        id: accountId,
-        name: newAccount.name,
-        appId: newAccount.appId,
-        appSecret: newAccount.appSecret,
-        accessToken: newAccount.accessToken,
-        currency: data.data?.[0]?.currency || "INR",
-      };
-
-      if (data.data && data.data.length > 0) {
-        newAcc.adAccountId = data.data[0].id;
-        newAcc.adAccountName = data.data[0].name;
-      }
-
-      const updatedAccounts = [...metaAccounts, newAcc];
-      localStorage.setItem('meta_accounts', JSON.stringify(updatedAccounts));
-      setMetaAccounts(updatedAccounts);
-
-      setShowAddForm(false);
-      setNewAccount({ name: "", appId: "", appSecret: "", accessToken: "" });
-    } catch (error: any) {
-      setMetaError(error.message || "Failed to add account. Check your credentials.");
-    } finally {
-      setAddingAccount(false);
-    }
-  };
-
-  const handleRemoveAccount = (accountId: string) => {
-    const updatedAccounts = metaAccounts.filter(acc => acc.id !== accountId);
-    localStorage.setItem('meta_accounts', JSON.stringify(updatedAccounts));
-    setMetaAccounts(updatedAccounts);
-  };
-
-  const handleSelectAccount = (accountId: string) => {
-    localStorage.setItem('selected_account', accountId);
-    window.location.reload();
-  };
-
-  const toggleExpand = (accountId: string) => {
-    const newExpanded = new Set(expandedAccounts);
-    if (newExpanded.has(accountId)) {
-      newExpanded.delete(accountId);
-    } else {
-      newExpanded.add(accountId);
-    }
-    setExpandedAccounts(newExpanded);
-  };
-
-  const selectedAccountId = localStorage.getItem('selected_account');
-  const selectedAccount = metaAccounts.find(a => a.id === selectedAccountId);
+    setLoading(false);
+  }, []);
 
   const {
     browserNotificationsEnabled,
@@ -162,175 +331,7 @@ function SettingsContent() {
         <p className="text-gray-600">Manage your Meta Business accounts</p>
       </div>
 
-      {metaError && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-          <XCircle className="w-5 h-5 text-red-500" />
-          <span className="text-red-700 flex-1">{metaError}</span>
-          <button onClick={() => setMetaError(null)} className="text-red-500 hover:text-red-700">
-            <XCircle className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      <div className="mb-6">
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4" />
-          Add Meta Account
-        </button>
-      </div>
-
-      {showAddForm && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Add New Meta Account</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Account Name *</label>
-              <input
-                type="text"
-                value={newAccount.name}
-                onChange={(e) => setNewAccount({...newAccount, name: e.target.value})}
-                placeholder="e.g., Realhubb Business"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">App ID *</label>
-              <input
-                type="text"
-                value={newAccount.appId}
-                onChange={(e) => setNewAccount({...newAccount, appId: e.target.value})}
-                placeholder="1610947413287627"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">App Secret</label>
-              <input
-                type="password"
-                value={newAccount.appSecret}
-                onChange={(e) => setNewAccount({...newAccount, appSecret: e.target.value})}
-                placeholder="Your App Secret"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Access Token *</label>
-              <input
-                type="password"
-                value={newAccount.accessToken}
-                onChange={(e) => setNewAccount({...newAccount, accessToken: e.target.value})}
-                placeholder="EAAW5JexSI..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex gap-3">
-            <button
-              onClick={handleAddAccount}
-              disabled={addingAccount}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-            >
-              {addingAccount && <Loader2 className="w-4 h-4 animate-spin" />}
-              {addingAccount ? "Verifying..." : "Add Account"}
-            </button>
-            <button
-              onClick={() => {
-                setShowAddForm(false);
-                setNewAccount({ name: "", appId: "", appSecret: "", accessToken: "" });
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-        <div className="p-4 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Connected Meta Accounts ({metaAccounts.length})</h2>
-          {selectedAccount && (
-            <p className="text-sm text-green-600 mt-1 flex items-center gap-1">
-              <CheckCircle className="w-4 h-4" />
-              Active: {selectedAccount.name}
-            </p>
-          )}
-        </div>
-        
-        {metaAccounts.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-gray-500">No Meta accounts connected</p>
-            <p className="text-sm text-gray-400 mt-2">Add an account above to get started</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {metaAccounts.map((account) => (
-              <div key={account.id}>
-                <div className="p-4 flex items-center justify-between hover:bg-gray-50">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-3 h-3 rounded-full ${selectedAccountId === account.id ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                    <div>
-                      <p className="font-medium text-gray-900">{account.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {account.adAccountName ? `${account.adAccountName} (${account.adAccountId})` : `App: ${account.appId}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleSelectAccount(account.id)}
-                      className={`px-3 py-1 text-sm rounded-lg ${
-                        selectedAccountId === account.id 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                      }`}
-                    >
-                      {selectedAccountId === account.id ? 'Active' : 'Use'}
-                    </button>
-                    <button
-                      onClick={() => toggleExpand(account.id)}
-                      className="p-2 hover:bg-gray-100 rounded-lg"
-                    >
-                      {expandedAccounts.has(account.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                    <button
-                      onClick={() => handleRemoveAccount(account.id)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                {expandedAccounts.has(account.id) && (
-                  <div className="px-4 pb-4 bg-gray-50">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-500">Ad Account</p>
-                        <p className="font-mono">{account.adAccountId || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Currency</p>
-                        <p>{account.currency || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">App ID</p>
-                        <p className="font-mono">{account.appId}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Access Token</p>
-                        <p className="font-mono text-xs truncate">{account.accessToken.substring(0, 30) || 'N/A'}...</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <MetaConnections />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
