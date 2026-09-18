@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAccountCredentials } from '@/lib/meta-credentials';
 
-function getToken(accountId: string): string | null {
-  const map: Record<string, string | undefined> = {
-    '1': process.env.META_ACCESS_TOKEN_1,
-    '2': process.env.META_ACCESS_TOKEN_2,
-    '3': process.env.META_ACCESS_TOKEN_3,
-  };
-  return map[accountId] || null;
+async function getToken(accountId: string): Promise<string | null> {
+  const { accessToken } = await getAccountCredentials(accountId);
+  return accessToken;
 }
 
 const ACCOUNT_NAMES: Record<string, string> = {
@@ -114,9 +111,9 @@ export async function GET(request: NextRequest) {
 
   // Fetch ALL accounts in PARALLEL
   const results = await Promise.allSettled(
-    accountIds.map(id => {
-      const token = getToken(id);
-      if (!token) return Promise.resolve([] as any[]);
+    accountIds.map(async (id) => {
+      const token = await getToken(id);
+      if (!token) return [] as any[];
       return fetchCampaignsForAccount(id, token);
     })
   );

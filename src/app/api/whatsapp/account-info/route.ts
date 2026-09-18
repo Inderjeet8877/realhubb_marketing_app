@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getAccountCredentials } from '@/lib/meta-credentials';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
 
@@ -7,10 +8,8 @@ const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const accountId = url.searchParams.get('account_id') || '1';
-  const accountNum = (accountId === '2' || accountId === '3') ? accountId : '1';
 
-  const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`];
-  const phoneNumberId = process.env[`WHATSAPP_PHONE_NUMBER_ID_${accountNum}`];
+  const { accessToken, phoneNumberId } = await getAccountCredentials(accountId);
 
   if (!accessToken || !phoneNumberId) {
     return NextResponse.json({ error: 'WhatsApp not configured for this account' }, { status: 500 });

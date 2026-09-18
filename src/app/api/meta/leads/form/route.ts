@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAccountCredentials } from '@/lib/meta-credentials';
 
-function getAccountToken(accountId: string): string | null {
-  const map: Record<string, string | undefined> = {
-    '1': process.env.META_ACCESS_TOKEN_1,
-    '2': process.env.META_ACCESS_TOKEN_2,
-    '3': process.env.META_ACCESS_TOKEN_3,
-  };
-  return map[accountId] || null;
+async function getAccountToken(accountId: string): Promise<string | null> {
+  const { accessToken } = await getAccountCredentials(accountId);
+  return accessToken;
 }
 
 async function fetchJSON(url: string): Promise<any> {
@@ -27,7 +24,7 @@ export async function GET(request: NextRequest) {
   const accountIds = accountId === 'all' ? ['1', '2', '3'] : [accountId];
 
   for (const id of accountIds) {
-    const token = getAccountToken(id);
+    const token = await getAccountToken(id);
     if (!token) continue;
 
     try {

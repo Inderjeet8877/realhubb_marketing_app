@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
+import { getAccountCredentials } from '@/lib/meta-credentials';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v21.0';
 
 export async function POST(request: NextRequest) {
   try {
-    const { phone, wamids } = await request.json();
+    const { phone, wamids, accountId } = await request.json();
     if (!phone) return NextResponse.json({ error: 'phone required' }, { status: 400 });
 
-    const accessToken   = process.env.META_ACCESS_TOKEN_1;
-    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID_1;
+    // accountId defaults to '1' — same as this route's previous hardcoded
+    // behavior — but now accepts it, so a future multi-account inbox switcher
+    // (the WhatsApp page is currently locked to account 1 in its UI, a
+    // separate pre-existing gap, out of scope here) can mark-read on the
+    // right number without another change to this route.
+    const { accessToken, phoneNumberId } = await getAccountCredentials(accountId);
 
     if (!accessToken || !phoneNumberId) {
       return NextResponse.json({ error: 'WhatsApp not configured' }, { status: 500 });

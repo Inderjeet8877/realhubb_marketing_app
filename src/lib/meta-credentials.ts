@@ -57,18 +57,27 @@ function envAppIdFor(slot: AccountSlot): string | undefined {
   return process.env.META_APP_ID;
 }
 
-// Full credential bundle for one account slot — Firestore first, env vars as
-// fallback. Fallback is field-by-field EXCEPT appId/appSecret, which fall
-// back as a paired unit: Meta validates an App ID against its matching App
-// Secret, so mixing a stored appId with an env appSecret (or vice versa)
-// would fail opaquely rather than cleanly.
+// Full credential bundle for one account slot — Firestore first, env vars for
+// that EXACT slot as fallback. Deliberately does NOT fall back to account 1's
+// env vars when a slot's own value is missing — most consumers (account-info,
+// templates, campaigns, leads) always correctly reported "not configured"
+// for an unconfigured account 2/3 rather than silently substituting account
+// 1's data mislabeled as a different account. (One historical exception —
+// the original whatsapp-send.ts#getMetaCredentials — DID fall back to
+// account 1; that quirk is preserved, but only inside the getMetaCredentials
+// wrapper below, not here, so it doesn't leak into every other consumer.)
+//
+// Fallback is field-by-field EXCEPT appId/appSecret, which fall back as a
+// paired unit: Meta validates an App ID against its matching App Secret, so
+// mixing a stored appId with an env appSecret (or vice versa) would fail
+// opaquely rather than cleanly.
 export async function getAccountCredentials(accountId?: string | null): Promise<AccountCredentials> {
   const slot = normalizeAccountSlot(accountId);
   const stored = await readStoredCredentials(slot);
 
-  const accessToken = stored?.accessToken || process.env[`META_ACCESS_TOKEN_${slot}`] || process.env.META_ACCESS_TOKEN_1 || null;
-  const wabaId = stored?.wabaId || process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${slot}`] || (slot === '1' ? process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1 : undefined) || null;
-  const phoneNumberId = stored?.phoneNumberId || process.env[`WHATSAPP_PHONE_NUMBER_ID_${slot}`] || (slot === '1' ? process.env.WHATSAPP_PHONE_NUMBER_ID_1 : undefined) || null;
+  const accessToken = stored?.accessToken || process.env[`META_ACCESS_TOKEN_${slot}`] || null;
+  const wabaId = stored?.wabaId || process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${slot}`] || null;
+  const phoneNumberId = stored?.phoneNumberId || process.env[`WHATSAPP_PHONE_NUMBER_ID_${slot}`] || null;
   const adAccountId = stored?.adAccountId || null; // no env-var precedent — only ever comes from a stored login
 
   const hasStoredAppPair = !!(stored?.appId || stored?.appSecret);
@@ -82,7 +91,10 @@ export async function getAccountCredentials(accountId?: string | null): Promise<
 }
 
 // Preserves the exact shape/behavior of the old synchronous
-// whatsapp-send.ts#getMetaCredentials — non-throwing, callers already check
+// whatsapp-send.ts#getMetaCredentials — including its one quirk that
+// getAccountCredentials above deliberately does NOT generalize: falling back
+// to account 1's token/phone number if the requested slot has neither a
+// stored login nor its own env vars. Non-throwing, callers already check
 // `if (!accessToken || !phoneNumberId)` themselves. Kept as a thin wrapper so
 // its 5 existing call sites (webhook, send, both broadcast routes) only need
 // an `await` added, not a rewrite of their own error handling.
@@ -90,7 +102,15 @@ export async function getMetaCredentials(accountId?: string | null): Promise<{
   accountNum: AccountSlot; accessToken: string | null; phoneNumberId: string | null;
 }> {
   const creds = await getAccountCredentials(accountId);
-  return { accountNum: creds.slot, accessToken: creds.accessToken, phoneNumberId: creds.phoneNumberId };
+  if (creds.accessToken && creds.phoneNumberId) {
+    return { accountNum: creds.slot, accessToken: creds.accessToken, phoneNumberId: creds.phoneNumberId };
+  }
+  const fallback = creds.slot === '1' ? creds : await getAccountCredentials('1');
+  return {
+    accountNum: creds.slot,
+    accessToken: creds.accessToken || fallback.accessToken,
+    phoneNumberId: creds.phoneNumberId || fallback.phoneNumberId,
+  };
 }
 
 // Reverse lookup — given the phone_number_id Meta's webhook says actually

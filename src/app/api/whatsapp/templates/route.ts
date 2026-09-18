@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
+import { getAccountCredentials } from '@/lib/meta-credentials';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
 
@@ -23,12 +24,7 @@ async function uploadMediaHandle(
   accessToken: string,
   accountId: string = '1',
 ): Promise<MediaHandleResult> {
-  const appIdMap: Record<string, string | undefined> = {
-    '1': process.env.META_APP_ID,
-    '2': process.env.META_APP_ID_2,
-    '3': process.env.META_APP_ID_3,
-  };
-  const appId = appIdMap[accountId] || appIdMap['1'];
+  const { appId } = await getAccountCredentials(accountId);
   if (!appId) {
     return { handle: null, error: 'META_APP_ID is not configured for this account — cannot upload header media.' };
   }
@@ -156,9 +152,8 @@ export async function GET(request: Request) {
   
   // If syncFromMeta=true, fetch ALL templates from Meta and save to Firestore
   if (syncFromMeta) {
-    const accessToken = process.env.META_ACCESS_TOKEN_1;
-    const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
-    
+    const { accessToken, wabaId: businessAccountId } = await getAccountCredentials('1');
+
     if (!accessToken || !businessAccountId) {
       return NextResponse.json({ error: 'WhatsApp not configured' }, { status: 500 });
     }
@@ -279,15 +274,7 @@ export async function GET(request: Request) {
   // GET — Meta is the source of truth; Firestore only provides saved image URLs
   const accountId = url.searchParams.get('account_id') || '1';
 
-  // Server-side token lookup
-  const tokenMap: Record<string, string | undefined> = {
-    '1': process.env.META_ACCESS_TOKEN_1,
-    '2': process.env.META_ACCESS_TOKEN_2,
-    '3': process.env.META_ACCESS_TOKEN_3,
-  };
-  const accessToken = tokenMap[accountId] || null;
-
-  const businessAccountId = process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${accountId}`] || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID_1;
+  const { accessToken, wabaId: businessAccountId } = await getAccountCredentials(accountId);
 
   if (!accessToken || !businessAccountId) {
     return NextResponse.json({ error: 'WhatsApp not configured', templates: [] }, { status: 500 });
@@ -392,9 +379,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const accountNum = (accountId === '2' || accountId === '3') ? accountId : '1';
-    const accessToken = process.env[`META_ACCESS_TOKEN_${accountNum}`];
-    const businessAccountId = process.env[`WHATSAPP_BUSINESS_ACCOUNT_ID_${accountNum}`];
+    const { slot: accountNum, accessToken, wabaId: businessAccountId } = await getAccountCredentials(accountId);
 
     if (!accessToken || !businessAccountId) {
       return NextResponse.json(

@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAccountCredentials } from '@/lib/meta-credentials';
 
 // Server-side token lookup — tokens are NEVER exposed to the browser
-function getAccountToken(accountId: string): string | null {
-  const map: Record<string, string | undefined> = {
-    '1': process.env.META_ACCESS_TOKEN_1,
-    '2': process.env.META_ACCESS_TOKEN_2,
-    '3': process.env.META_ACCESS_TOKEN_3,
-  };
-  return map[accountId] || null;
+async function getAccountToken(accountId: string): Promise<string | null> {
+  const { accessToken } = await getAccountCredentials(accountId);
+  return accessToken;
 }
 
 async function fetchJSON(url: string): Promise<any> {
@@ -91,7 +88,7 @@ export async function GET(request: NextRequest) {
 
   // Single-account mode: keep original error response
   if (accountId !== 'all') {
-    const token = getAccountToken(accountId);
+    const token = await getAccountToken(accountId);
     if (!token) {
       return NextResponse.json(
         { error: `Account ${accountId} not configured. Add META_ACCESS_TOKEN_${accountId} to environment variables.`, forms: [], totalLeads: 0 },
@@ -105,9 +102,9 @@ export async function GET(request: NextRequest) {
 
   // Fetch ALL accounts in PARALLEL
   const results = await Promise.allSettled(
-    accountIds.map(id => {
-      const token = getAccountToken(id);
-      if (!token) return Promise.resolve([] as any[]);
+    accountIds.map(async (id) => {
+      const token = await getAccountToken(id);
+      if (!token) return [] as any[];
       return fetchFormsForAccount(id, token);
     })
   );
@@ -128,11 +125,14 @@ export async function GET(request: NextRequest) {
 
   const totalLeads = uniqueForms.reduce((s, f) => s + (f.leadsCount || 0), 0);
 
+  const accountsLoadedFlags = await Promise.all(accountIds.map(async (id) => !!(await getAccountToken(id))));
+  const accountsLoaded = accountIds.filter((_, i) => accountsLoadedFlags[i]);
+
   return NextResponse.json({
     success: true,
     forms: uniqueForms,
     totalLeads,
-    accountsLoaded: accountIds.filter(id => !!getAccountToken(id)),
+    accountsLoaded,
     errors: errors.length ? errors : undefined,
   });
 }
