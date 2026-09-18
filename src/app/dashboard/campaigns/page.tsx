@@ -3,7 +3,8 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
-import { Megaphone, TrendingUp, RefreshCw, Eye, Loader2, ChevronDown, Target, DollarSign, Users } from "lucide-react";
+import { Megaphone, TrendingUp, RefreshCw, Eye, ChevronDown, Target, DollarSign, Users } from "lucide-react";
+import { StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 
 const ACCOUNTS = [
   { id: "all", name: "All Accounts" },
@@ -87,8 +88,9 @@ export default function CampaignsPage() {
   const activeCount  = campaigns.filter(c => c.status === "ACTIVE").length;
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+    <div className="space-y-4">
+      <StatCardsSkeleton count={5} />
+      <TableSkeleton rows={6} cols={5} />
     </div>
   );
 

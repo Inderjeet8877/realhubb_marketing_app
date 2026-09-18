@@ -4,10 +4,12 @@ import { useState } from "react";
 import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
 // removed: useEffect, useCallback — replaced by useSWR
-import { BarChart3, Users, TrendingUp, Loader2, Eye, ChevronDown, Target, DollarSign, RefreshCw, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { BarChart3, Users, TrendingUp, Eye, ChevronDown, Target, DollarSign, RefreshCw, Download, FileSpreadsheet, FileText } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
+import Skeleton from "react-loading-skeleton";
+import { AppSkeletonTheme, StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -254,8 +256,19 @@ export default function DashboardPage() {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+    <div className="space-y-6">
+      <StatCardsSkeleton count={6} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <AppSkeletonTheme>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <Skeleton width={140} height={16} style={{ marginBottom: 16 }} />
+              <Skeleton height={260} />
+            </div>
+          </AppSkeletonTheme>
+        </div>
+        <TableSkeleton rows={5} cols={2} />
+      </div>
     </div>
   );
 

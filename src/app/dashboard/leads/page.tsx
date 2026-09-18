@@ -12,6 +12,7 @@ import jsPDF from "jspdf";
 // not a function" the moment it ran. The documented, version-proof API is
 // this function-call form instead.
 import autoTable from "jspdf-autotable";
+import { StatCardsSkeleton, CardGridSkeleton, ListSkeleton } from "@/components/Skeletons";
 import {
   Users,
   Loader2,
@@ -525,8 +526,9 @@ export default function LeadsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="space-y-4">
+        <StatCardsSkeleton count={4} />
+        <CardGridSkeleton count={6} />
       </div>
     );
   }
@@ -962,9 +964,7 @@ export default function LeadsPage() {
 
             <div className="flex-1 overflow-y-auto p-4">
               {loadingFormLeads ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                </div>
+                <ListSkeleton rows={6} />
               ) : formLeads.length === 0 ? (
                 <div className="text-center py-8">
                   <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />

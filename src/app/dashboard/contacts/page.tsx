@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Component, ReactNode } from "react";
 import useSWR from "swr";
 import { fetcher, swrConfig } from "@/lib/swr";
 import { Users, Upload, Tag, Loader2, Search, X, FileText, CheckCircle, Trash2, CheckSquare, Square, TriangleAlert, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
   state = { error: null };
@@ -579,8 +580,9 @@ export default function ContactsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <div className="space-y-4">
+        <StatCardsSkeleton count={4} />
+        <TableSkeleton rows={8} cols={5} />
       </div>
     );
   }

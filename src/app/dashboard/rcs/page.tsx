@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { fetcher, swrConfig } from "@/lib/swr";
+import { TableSkeleton } from "@/components/Skeletons";
 import {
   Radio, AlertTriangle, Send, Loader2, Search, CheckSquare, Square,
   CheckCircle2, XCircle, Users, Sparkles,
@@ -23,7 +24,7 @@ interface RcsMessage {
 export default function RcsPage() {
   const { data: configStatus } = useSWR("/api/rcs/config-status", fetcher, swrConfig);
   const { data: contactsData } = useSWR("/api/contacts", fetcher, swrConfig);
-  const { data: messagesData, mutate: reloadMessages } = useSWR("/api/rcs/messages", fetcher, swrConfig);
+  const { data: messagesData, isLoading: messagesLoading, mutate: reloadMessages } = useSWR("/api/rcs/messages", fetcher, swrConfig);
 
   const configured: boolean = configStatus?.configured ?? true; // assume OK until we know otherwise, avoids a flash of "not configured"
   const missing: string[] = configStatus?.missing || [];
@@ -233,7 +234,9 @@ export default function RcsPage() {
       {/* Message log */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Sent Messages</h2>
-        {messages.length === 0 ? (
+        {messagesLoading ? (
+          <TableSkeleton rows={4} cols={5} />
+        ) : messages.length === 0 ? (
           <p className="text-sm text-gray-500 py-6 text-center">No RCS messages sent yet.</p>
         ) : (
           <div className="overflow-x-auto">

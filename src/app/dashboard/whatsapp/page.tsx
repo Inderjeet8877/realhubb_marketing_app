@@ -5,6 +5,7 @@ import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search,
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, orderBy, limit, doc } from "firebase/firestore";
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
+import { ChatListSkeleton, ChatBubblesSkeleton } from "@/components/Skeletons";
 import { BulkReports } from "@/components/whatsapp/BulkReports";
 import { normalizePhone } from "@/lib/whatsapp-send";
 import { formatDuration } from "@/lib/format";
@@ -881,9 +882,7 @@ export default function WhatsAppPage() {
 
             <div className="flex-1 overflow-y-auto">
               {loadingConversations && conversations.length === 0 ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin text-gray-300" />
-                </div>
+                <ChatListSkeleton rows={7} />
               ) : displayedConversations.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">
                   <MessageSquare className="w-10 h-10 mx-auto mb-2 text-gray-200" />
@@ -962,9 +961,7 @@ export default function WhatsAppPage() {
 
                 <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4" style={{ backgroundColor: "#efeae2" }}>
                   {loadingMessages ? (
-                    <div className="flex items-center justify-center h-full">
-                      <Loader2 className="w-7 h-7 animate-spin text-gray-400" />
-                    </div>
+                    <ChatBubblesSkeleton />
                   ) : chatMessages.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center bg-white/80 rounded-xl px-6 py-5 shadow-sm">

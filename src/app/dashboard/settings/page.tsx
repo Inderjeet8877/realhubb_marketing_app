@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { User, Bell, CheckCircle, XCircle, Loader2, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { FormSkeleton } from "@/components/Skeletons";
 
 interface MetaAccountCredentials {
   id: string;
@@ -151,11 +152,7 @@ function SettingsContent() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
+    return <FormSkeleton fields={4} />;
   }
 
   return (
@@ -401,11 +398,7 @@ function SettingsContent() {
 }
 
 function SettingsFallback() {
-  return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-    </div>
-  );
+  return <FormSkeleton fields={4} />;
 }
 
 export default function SettingsPage() {

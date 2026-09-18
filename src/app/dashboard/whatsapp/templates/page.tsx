@@ -6,6 +6,7 @@ import {
   Loader2, X, Cloud, PauseCircle, Ban, AlertTriangle,
 } from "lucide-react";
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
+import { CardGridSkeleton } from "@/components/Skeletons";
 
 interface Template {
   id: string;
@@ -455,9 +456,7 @@ export default function WhatsAppTemplatesPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-green-600" />
-        </div>
+        <CardGridSkeleton count={6} />
       ) : templates.length === 0 && !fetchError ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
           <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />

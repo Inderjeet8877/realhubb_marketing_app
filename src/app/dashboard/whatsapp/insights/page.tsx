@@ -5,9 +5,11 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import {
-  BarChart3, Send, CheckCheck, TrendingUp, Loader2, AlertCircle, IndianRupee,
+  BarChart3, Send, CheckCheck, TrendingUp, AlertCircle, IndianRupee,
   Calendar, Clock, FileText, PenLine, ShieldCheck, ShieldAlert, ShieldQuestion, Gauge,
 } from "lucide-react";
+import Skeleton from "react-loading-skeleton";
+import { AppSkeletonTheme, StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 
 interface InsightsData {
   phoneNumber: string | null;
@@ -318,8 +320,15 @@ export default function WhatsAppInsightsPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+        <div className="space-y-6">
+          <StatCardsSkeleton count={3} />
+          <AppSkeletonTheme>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <Skeleton width={220} height={18} style={{ marginBottom: 16 }} />
+              <Skeleton height={280} />
+            </div>
+          </AppSkeletonTheme>
+          <TableSkeleton rows={4} cols={3} />
         </div>
       ) : data ? (
         <div className="space-y-6">
@@ -442,9 +451,7 @@ export default function WhatsAppInsightsPage() {
             </div>
 
             {engagementLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <Loader2 className="w-6 h-6 animate-spin text-green-600" />
-              </div>
+              <TableSkeleton rows={3} cols={3} />
             ) : engagementError ? (
               <p className="text-sm text-red-600">{engagementError}</p>
             ) : engagement ? (
