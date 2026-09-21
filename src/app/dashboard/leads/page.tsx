@@ -634,6 +634,19 @@ export default function LeadsPage() {
         </div>
       )}
 
+      {/* Per-account permission errors from /api/meta/leads (e.g. a missing
+          pages_manage_ads scope) — distinct from `error` above: this is a
+          partial failure (some/all forms didn't load) rather than the whole
+          request failing, so it doesn't block the rest of the page. */}
+      {Array.isArray(data?.errors) && data.errors.length > 0 && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+          <p className="font-medium mb-1">Some lead forms may be missing:</p>
+          <ul className="list-disc list-inside space-y-0.5">
+            {data.errors.map((e: string, i: number) => <li key={i}>{e}</li>)}
+          </ul>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-shadow hover:shadow-md">
           <div className="flex items-center justify-between">

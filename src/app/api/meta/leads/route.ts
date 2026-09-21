@@ -12,8 +12,11 @@ async function fetchJSON(url: string): Promise<any> {
   return res.json();
 }
 
-async function fetchFormsForAccount(accountId: string, token: string): Promise<any[]> {
+interface FormsResult { forms: any[]; permissionErrors: string[] }
+
+async function fetchFormsForAccount(accountId: string, token: string): Promise<FormsResult> {
   const forms: any[] = [];
+  const permissionErrors: string[] = [];
   const seen = new Set<string>();
 
   // 1. Via user pages
@@ -28,6 +31,13 @@ async function fetchFormsForAccount(accountId: string, token: string): Promise<a
       const fd = await fetchJSON(
         `https://graph.facebook.com/v21.0/${page.id}/leadgen_forms?access_token=${pageToken}&fields=id,name,status,created_time,leads_count`
       );
+      // Meta returns an `error` object (not a thrown exception) here when the
+      // token lacks pages_manage_ads — collect it instead of letting an empty
+      // `fd.data` look identical to "this page genuinely has no forms".
+      if (fd.error) {
+        permissionErrors.push(`${page.name}: ${fd.error.message}`);
+        continue;
+      }
       for (const f of (fd.data || [])) {
         if (seen.has(f.id)) continue;
         seen.add(f.id);
@@ -44,11 +54,15 @@ async function fetchFormsForAccount(accountId: string, token: string): Promise<a
         });
       }
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error(`[Leads] Account ${accountId} pages error:`, e);
+    permissionErrors.push(e.message || 'Failed to list pages');
   }
 
-  // 2. Via business portfolios
+  // 2. Via business portfolios — note: Business objects don't actually expose
+  // a leadgen_forms edge in the Graph API (only Pages do), so this branch is
+  // expected to always error; kept only because some forms are exclusively
+  // reachable through a page discovered this way in other accounts' setups.
   try {
     const biz = await fetchJSON(
       `https://graph.facebook.com/v21.0/me/businesses?access_token=${token}&fields=id,name`
@@ -57,6 +71,7 @@ async function fetchFormsForAccount(accountId: string, token: string): Promise<a
       const fd = await fetchJSON(
         `https://graph.facebook.com/v21.0/${b.id}/leadgen_forms?access_token=${token}&fields=id,name,status,created_time,leads_count`
       );
+      if (fd.error) continue; // expected — see note above, not worth surfacing
       for (const f of (fd.data || [])) {
         if (seen.has(f.id)) continue;
         seen.add(f.id);
@@ -77,7 +92,7 @@ async function fetchFormsForAccount(accountId: string, token: string): Promise<a
     console.error(`[Leads] Account ${accountId} business error:`, e);
   }
 
-  return forms;
+  return { forms, permissionErrors };
 }
 
 export async function GET(request: NextRequest) {
@@ -104,14 +119,17 @@ export async function GET(request: NextRequest) {
   const results = await Promise.allSettled(
     accountIds.map(async (id) => {
       const token = await getAccountToken(id);
-      if (!token) return [] as any[];
+      if (!token) return { forms: [], permissionErrors: [] } as FormsResult;
       return fetchFormsForAccount(id, token);
     })
   );
 
   results.forEach((r, i) => {
     if (r.status === 'fulfilled') {
-      allForms.push(...r.value);
+      allForms.push(...r.value.forms);
+      for (const err of r.value.permissionErrors) {
+        errors.push(`Account ${accountIds[i]}: ${err}`);
+      }
     } else {
       errors.push(`Account ${accountIds[i]}: ${r.reason?.message || 'unknown error'}`);
     }

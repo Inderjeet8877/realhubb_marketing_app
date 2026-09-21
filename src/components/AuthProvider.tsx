@@ -32,7 +32,7 @@ export default function AuthProvider({
         setUser(user);
         setLoading(false);
         if (!user && typeof window !== 'undefined') {
-          router.push("/login");
+          router.push("/auth/login");
         }
       },
       (error: Error) => {

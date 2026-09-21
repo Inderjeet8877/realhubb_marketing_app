@@ -14,6 +14,13 @@ const SCOPE = [
   'leads_retrieval',
   'business_management',
   'pages_show_list',
+  // Reading a Page's lead-gen forms (GET /{page-id}/leadgen_forms) requires
+  // this specifically — pages_show_list alone lists the pages but returns a
+  // permission error the moment leadgen_forms is queried. Confirmed live: the
+  // first login (before this was added) returned
+  // "(#200) Requires pages_manage_ads permission to manage the object" for
+  // every single page, with the leads list silently coming back empty.
+  'pages_manage_ads',
   'whatsapp_business_management',
   'whatsapp_business_messaging',
 ].join(',');
