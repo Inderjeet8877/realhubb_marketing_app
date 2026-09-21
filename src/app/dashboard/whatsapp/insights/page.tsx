@@ -7,9 +7,11 @@ import {
 import {
   BarChart3, Send, CheckCheck, TrendingUp, AlertCircle, IndianRupee,
   Calendar, Clock, FileText, PenLine, ShieldCheck, ShieldAlert, ShieldQuestion, Gauge,
+  XCircle, PauseCircle,
 } from "lucide-react";
 import Skeleton from "react-loading-skeleton";
 import { AppSkeletonTheme, StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
+import { ActionQueue, ProgressBar, type ActionItem } from "@/components/ActionQueue";
 
 interface InsightsData {
   phoneNumber: string | null;
@@ -183,6 +185,9 @@ export default function WhatsAppInsightsPage() {
   const [health, setHealth] = useState<AccountHealth | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
 
+  const [templateIssueCounts, setTemplateIssueCounts] = useState<{ rejected: number; paused: number }>({ rejected: 0, paused: 0 });
+  const [metaExpiring, setMetaExpiring] = useState<{ slot: string; daysUntilExpiry: number } | null>(null);
+
   // Independent of the date-range selector — quality rating is a current, account-wide
   // state from Meta, not something scoped to a 7/30/90-day window.
   useEffect(() => {
@@ -201,6 +206,31 @@ export default function WhatsAppInsightsPage() {
         }
       })
       .catch((e) => setHealthError(e.message || "Failed to load number quality"));
+  }, []);
+
+  // Action-queue inputs — template health and Meta login expiry. Both are
+  // account-wide/current state, independent of the date-range selector.
+  useEffect(() => {
+    fetch(`/api/whatsapp/templates?account_id=1`)
+      .then((r) => r.json())
+      .then((d) => {
+        const templates: { approvalStatus?: string }[] = d?.templates || [];
+        setTemplateIssueCounts({
+          rejected: templates.filter((t) => t.approvalStatus === "rejected").length,
+          paused: templates.filter((t) => t.approvalStatus === "paused").length,
+        });
+      })
+      .catch(() => {});
+
+    fetch(`/api/meta/status`)
+      .then((r) => r.json())
+      .then((d) => {
+        const expiring = (d?.slots || []).find(
+          (s: { connected: boolean; daysUntilExpiry: number | null }) => s.connected && s.daysUntilExpiry !== null && s.daysUntilExpiry <= 7
+        );
+        if (expiring) setMetaExpiring({ slot: expiring.slot, daysUntilExpiry: expiring.daysUntilExpiry });
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -229,6 +259,29 @@ export default function WhatsAppInsightsPage() {
       .catch((e) => setEngagementError(e.message || "Failed to load engagement analysis"))
       .finally(() => setEngagementLoading(false));
   }, []);
+
+  const actionItems: ActionItem[] = [
+    ...(health && (health.qualityRating === "RED" || health.qualityRating === "YELLOW") ? [{
+      id: "quality", icon: ShieldAlert, tone: (health.qualityRating === "RED" ? "red" : "amber") as "red" | "amber",
+      title: `Number quality is ${health.qualityRating === "RED" ? "Low" : "Medium"}`,
+      subtitle: "See reasons and fixes below", actionLabel: "View", href: "#quality",
+    }] : []),
+    ...(templateIssueCounts.rejected > 0 ? [{
+      id: "rejected", icon: XCircle, tone: "red" as const,
+      title: `${templateIssueCounts.rejected} template${templateIssueCounts.rejected === 1 ? "" : "s"} rejected`,
+      subtitle: "Meta declined these — edit and resubmit", actionLabel: "Fix", href: "/dashboard/whatsapp/templates",
+    }] : []),
+    ...(templateIssueCounts.paused > 0 ? [{
+      id: "paused", icon: PauseCircle, tone: "amber" as const,
+      title: `${templateIssueCounts.paused} template${templateIssueCounts.paused === 1 ? "" : "s"} paused`,
+      subtitle: "Suspended for quality issues", actionLabel: "Review", href: "/dashboard/whatsapp/templates",
+    }] : []),
+    ...(metaExpiring ? [{
+      id: "expiring", icon: Clock, tone: "amber" as const,
+      title: `Meta login expires in ${metaExpiring.daysUntilExpiry}d`,
+      subtitle: `Account ${metaExpiring.slot}`, actionLabel: "Reconnect", href: "/dashboard/settings",
+    }] : []),
+  ];
 
   return (
     <div>
@@ -263,7 +316,7 @@ export default function WhatsAppInsightsPage() {
         const tone = TONE_CLASSES[guidance.tone];
         const Icon = guidance.tone === "green" ? ShieldCheck : guidance.tone === "gray" ? ShieldQuestion : ShieldAlert;
         return (
-          <div className={`mb-6 rounded-xl border p-4 ${tone.bg} ${tone.border}`}>
+          <div id="quality" className={`mb-6 rounded-xl border p-4 ${tone.bg} ${tone.border}`}>
             <div className="flex items-start gap-3">
               <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${tone.icon}`} />
               <div className="flex-1 min-w-0">
@@ -332,26 +385,29 @@ export default function WhatsAppInsightsPage() {
         </div>
       ) : data ? (
         <div className="space-y-6">
-          {/* Stat cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatCard
-              icon={<Send className="w-5 h-5 text-blue-600" />}
-              label="Messages Sent"
-              value={data.totalSent.toLocaleString()}
-              bg="bg-blue-50"
-            />
-            <StatCard
-              icon={<CheckCheck className="w-5 h-5 text-green-600" />}
-              label="Messages Delivered"
-              value={data.totalDelivered.toLocaleString()}
-              bg="bg-green-50"
-            />
-            <StatCard
-              icon={<TrendingUp className="w-5 h-5 text-purple-600" />}
-              label="Delivery Rate"
-              value={`${data.deliveryRate.toFixed(1)}%`}
-              bg="bg-purple-50"
-            />
+          {/* Stat cards + Action Queue */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <StatCard
+                icon={<Send className="w-5 h-5 text-blue-600" />}
+                label="Messages Sent"
+                value={data.totalSent.toLocaleString()}
+                bg="bg-blue-50"
+              />
+              <StatCard
+                icon={<CheckCheck className="w-5 h-5 text-green-600" />}
+                label="Messages Delivered"
+                value={data.totalDelivered.toLocaleString()}
+                bg="bg-green-50"
+              />
+              <StatCard
+                icon={<TrendingUp className="w-5 h-5 text-purple-600" />}
+                label="Delivery Rate"
+                value={`${data.deliveryRate.toFixed(1)}%`}
+                bg="bg-purple-50"
+              />
+            </div>
+            <ActionQueue items={actionItems} />
           </div>
 
           {/* Chart */}
@@ -551,7 +607,13 @@ export default function WhatsAppInsightsPage() {
                             <td className="py-2 pr-4">{d.sent.toLocaleString()}</td>
                             <td className="py-2 pr-4">{d.delivered.toLocaleString()}</td>
                             <td className="py-2 pr-4">{d.read.toLocaleString()}</td>
-                            <td className="py-2">{d.readRate.toFixed(1)}%{d.sent < engagement.minSampleSize && " (low sample)"}</td>
+                            <td className="py-2 min-w-[140px]">
+                              <div className="flex items-center gap-2">
+                                <span className="w-12 shrink-0">{d.readRate.toFixed(1)}%</span>
+                                <ProgressBar percent={d.readRate} colorClass="bg-purple-500" />
+                              </div>
+                              {d.sent < engagement.minSampleSize && <span className="text-xs">(low sample)</span>}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -579,7 +641,13 @@ export default function WhatsAppInsightsPage() {
                             <tr key={t.template} className={t.sent < engagement.minSampleSize ? "text-gray-400" : "text-gray-800"}>
                               <td className="py-2 pr-4 font-medium">{t.template}</td>
                               <td className="py-2 pr-4">{t.sent.toLocaleString()}</td>
-                              <td className="py-2 pr-4">{t.readRate.toFixed(1)}%{t.sent < engagement.minSampleSize && " (low sample)"}</td>
+                              <td className="py-2 pr-4 min-w-[140px]">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-12 shrink-0">{t.readRate.toFixed(1)}%</span>
+                                  <ProgressBar percent={t.readRate} colorClass="bg-green-500" />
+                                </div>
+                                {t.sent < engagement.minSampleSize && <span className="text-xs">(low sample)</span>}
+                              </td>
                               <td className="py-2">{t.avgLength} chars</td>
                             </tr>
                           ))}

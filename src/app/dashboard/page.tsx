@@ -4,12 +4,16 @@ import { useState } from "react";
 import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
 // removed: useEffect, useCallback — replaced by useSWR
-import { BarChart3, Users, TrendingUp, Eye, ChevronDown, Target, DollarSign, RefreshCw, Download, FileSpreadsheet, FileText } from "lucide-react";
+import {
+  BarChart3, Users, TrendingUp, Eye, ChevronDown, Target, DollarSign, RefreshCw,
+  Download, FileSpreadsheet, FileText, AlertTriangle, TrendingDown, Inbox,
+} from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import Skeleton from "react-loading-skeleton";
 import { AppSkeletonTheme, StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
+import { ActionQueue, ProgressBar, type ActionItem } from "@/components/ActionQueue";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -72,9 +76,11 @@ export default function DashboardPage() {
     useSWR("/api/meta/campaigns?account_id=all", fetcher, metaSwrConfig);
   const { data: leadsData, isValidating: leadsValidating, mutate: leadsMutate } =
     useSWR("/api/meta/leads?account_id=all", fetcher, metaSwrConfig);
+  const { data: enquiriesData } = useSWR("/api/enquiries?limit=200", fetcher, metaSwrConfig);
 
   const allCampaigns: Campaign[] = campData?.campaigns || [];
   const totalLeads: number        = leadsData?.totalLeads  || 0;
+  const newEnquiriesCount: number = (enquiriesData?.enquiries || []).filter((e: any) => e.status === "new").length;
   const loading    = campLoading && allCampaigns.length === 0;
   const refreshing = campValidating || leadsValidating;
 
@@ -99,11 +105,40 @@ export default function DashboardPage() {
     const cpl    = leads > 0 ? spend / leads : 0;
     return { id, name: `Account ${id}`, camps: camps.length, spend, leads, cpl, active: camps.filter(c => c.status === "ACTIVE").length };
   });
+  const totalSpendAllAccounts = accountStats.reduce((s, a) => s + a.spend, 0);
 
   // Report data
   const reportCamps = (activeReport === "all" ? allCampaigns : allCampaigns.filter(c => c.accountId === activeReport))
     .filter(c => (c.insights?.spend || 0) > 0)
     .sort((a, b) => (a.insights?.cpl || 999999) - (b.insights?.cpl || 999999));
+
+  // Real, data-derived "needs attention" items — not decorative placeholders.
+  const highCplCampaigns = allCampaigns
+    .filter(c => c.status === "ACTIVE" && (c.insights?.cpl || 0) >= 600)
+    .sort((a, b) => (b.insights?.cpl || 0) - (a.insights?.cpl || 0));
+  const noLeadCampaigns = allCampaigns
+    .filter(c => c.status === "ACTIVE" && (c.insights?.spend || 0) > 500 && (c.insights?.leads || 0) === 0);
+
+  const actionItems: ActionItem[] = [
+    ...(newEnquiriesCount > 0 ? [{
+      id: "enquiries", icon: Inbox, tone: "blue" as const,
+      title: `${newEnquiriesCount} new enquir${newEnquiriesCount === 1 ? "y" : "ies"}`,
+      subtitle: "From the website's Get Started form",
+      actionLabel: "Review", href: "/dashboard/enquiries",
+    }] : []),
+    ...highCplCampaigns.slice(0, 3).map(c => ({
+      id: `cpl-${c.id}`, icon: AlertTriangle, tone: "red" as const,
+      title: `High CPL — ${c.name}`,
+      subtitle: `${currency(c.insights?.cpl || 0)} per lead (${c.accountName})`,
+      actionLabel: "Review", href: "/dashboard/campaigns",
+    })),
+    ...noLeadCampaigns.slice(0, 2).map(c => ({
+      id: `noleads-${c.id}`, icon: TrendingDown, tone: "amber" as const,
+      title: `No leads yet — ${c.name}`,
+      subtitle: `${currency(c.insights?.spend || 0)} spent (${c.accountName})`,
+      actionLabel: "Review", href: "/dashboard/campaigns",
+    })),
+  ];
 
   // Chart data
   const cplChart = reportCamps.filter(c => c.insights?.cpl).slice(0, 8).map(c => ({
@@ -352,38 +387,49 @@ export default function DashboardPage() {
         <StatCard label="Avg CPL"         value={currency(avgCpl)} sub={avgCpl < 300 ? "✅ Good" : avgCpl < 600 ? "⚠️ Moderate" : avgCpl > 0 ? "🔴 High" : ""} icon={Target} color={avgCpl < 300 && avgCpl > 0 ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"} />
       </div>
 
-      {/* Per-Account Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {accountStats.map(acc => {
-          const col = ACCOUNT_COLORS[acc.id] || ACCOUNT_COLORS["1"];
-          return (
-            <div key={acc.id} className={`rounded-xl border border-gray-100 shadow-sm p-5 ${col.bg}`}>
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <p className={`text-xs font-semibold uppercase tracking-wide ${col.text}`}>{acc.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{acc.camps} campaigns · {acc.active} active</p>
+      {/* Per-Account Summary Cards + Action Queue */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+          {accountStats.map(acc => {
+            const col = ACCOUNT_COLORS[acc.id] || ACCOUNT_COLORS["1"];
+            const spendShare = totalSpendAllAccounts > 0 ? (acc.spend / totalSpendAllAccounts) * 100 : 0;
+            return (
+              <div key={acc.id} className={`rounded-xl border border-gray-100 shadow-sm p-5 ${col.bg}`}>
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <p className={`text-xs font-semibold uppercase tracking-wide ${col.text}`}>{acc.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{acc.camps} campaigns · {acc.active} active</p>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${col.badge}`}>
+                    {acc.active > 0 ? "Live" : "Inactive"}
+                  </span>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${col.badge}`}>
-                  {acc.active > 0 ? "Live" : "Inactive"}
-                </span>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div>
+                    <p className="text-xs text-gray-500">Spend</p>
+                    <p className={`text-base font-bold ${col.text}`}>{currency(acc.spend)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Leads</p>
+                    <p className={`text-base font-bold ${col.text}`}>{acc.leads}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">CPL</p>
+                    <p className={`text-base font-bold ${col.text}`}>{currency(acc.cpl)}</p>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[11px] text-gray-500 mb-1">
+                    <span>Share of total spend</span>
+                    <span className="font-medium">{spendShare.toFixed(0)}%</span>
+                  </div>
+                  <ProgressBar percent={spendShare} colorClass={acc.id === "1" ? "bg-blue-500" : acc.id === "2" ? "bg-purple-500" : "bg-orange-500"} />
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <p className="text-xs text-gray-500">Spend</p>
-                  <p className={`text-base font-bold ${col.text}`}>{currency(acc.spend)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Leads</p>
-                  <p className={`text-base font-bold ${col.text}`}>{acc.leads}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">CPL</p>
-                  <p className={`text-base font-bold ${col.text}`}>{currency(acc.cpl)}</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+        <ActionQueue items={actionItems} />
       </div>
 
       {/* Charts row */}

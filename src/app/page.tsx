@@ -12,13 +12,19 @@ export default function Home() {
     <main className="min-h-screen bg-white">
       {/* Nav */}
       <nav className="border-b border-gray-100">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold text-blue-600">Realhubb</div>
-          <div className="flex items-center gap-2">
-            <Link href="/auth/login" className="px-5 py-2 text-gray-700 font-medium hover:text-blue-600">
+        <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center gap-2">
+          <div className="text-lg sm:text-2xl font-bold text-blue-600 shrink-0">Realhubb</div>
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <Link
+              href="/auth/login"
+              className="px-2.5 sm:px-5 py-1.5 sm:py-2 text-sm sm:text-base text-gray-700 font-medium hover:text-blue-600 whitespace-nowrap"
+            >
               Sign In
             </Link>
-            <a href="#enquiry" className="px-5 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+            <a
+              href="#enquiry"
+              className="px-2.5 sm:px-5 py-1.5 sm:py-2 text-sm sm:text-base bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 whitespace-nowrap"
+            >
               Get Started
             </a>
           </div>
