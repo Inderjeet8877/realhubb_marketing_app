@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getMessaging } from 'firebase-admin/messaging';
-import { getApps } from 'firebase-admin/app';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
 import { normalizePhone, buildMetaRequestBody, WHATSAPP_API_URL } from '@/lib/whatsapp-send';
 import { getMetaCredentials, getAccountIdForPhoneNumberId } from '@/lib/meta-credentials';
+import { sendPushNotification } from '@/lib/push-notifications';
 
 // Exact-match (after trimming trailing punctuation) rather than a substring
 // check — a message like "please stop by our office" must never be treated
@@ -206,9 +205,10 @@ export async function POST(request: NextRequest) {
           console.log(`[Webhook] ✅ Saved inbound from ${phone}: "${messageText.slice(0, 60)}"`);
 
           // Send push notification to all registered devices
-          sendPushNotification(senderName, messageText).catch(e =>
-            console.error('[Webhook] Push error:', e)
-          );
+          sendPushNotification(`💬 ${senderName}`, messageText, {
+            link: '/dashboard/whatsapp',
+            channelId: 'whatsapp_replies',
+          }).catch(e => console.error('[Webhook] Push error:', e));
 
           // Opt-outs are handled here, not just recorded — every broadcast
           // start (see /api/whatsapp/broadcasts/start) excludes phones in
@@ -263,59 +263,9 @@ async function handleOptOut(phone: string, name: string, triggerMessage: string,
   }
 }
 
-async function sendPushNotification(senderName: string, body: string) {
-  const snap = await adminDb.collection('fcm_tokens').get();
-  if (snap.empty) return;
-
-  const tokens = snap.docs.map(d => d.data().token as string).filter(Boolean);
-  if (tokens.length === 0) return;
-
-  const app = getApps()[0];
-  if (!app) return;
-
-  const messaging = getMessaging(app);
-
-  const response = await messaging.sendEachForMulticast({
-    tokens,
-    notification: {
-      title: `💬 ${senderName}`,
-      body:  body.slice(0, 120),
-    },
-    android: {
-      // Explicit high priority so this wakes the device out of Doze rather than
-      // waiting for the next maintenance window — the default is already high for
-      // notification-payload messages, but this removes any ambiguity. Note: this
-      // cannot override an OEM (e.g. Samsung/MIUI) killing the app's background
-      // process via its own battery manager — that's a device setting, not FCM.
-      priority: 'high',
-      notification: {
-        channelId: 'whatsapp_replies',
-        defaultVibrateTimings: true,
-        visibility: 'public',
-      },
-    },
-    webpush: {
-      notification: {
-        icon:    '/favicon.ico',
-        badge:   '/favicon.ico',
-        vibrate: [200, 100, 200],
-        requireInteraction: false,
-      },
-      fcmOptions: { link: '/dashboard/whatsapp' },
-    },
-  });
-
-  // Remove tokens that are no longer valid
-  const stale = response.responses
-    .map((r, i) => (!r.success ? tokens[i] : null))
-    .filter(Boolean) as string[];
-
-  for (const token of stale) {
-    await adminDb.collection('fcm_tokens').doc(token).delete().catch(() => {});
-  }
-
-  console.log(`[FCM] Sent to ${tokens.length} devices, ${stale.length} stale removed`);
-}
+// sendPushNotification moved to src/lib/push-notifications.ts — shared with
+// the new website enquiry notification, which needs the exact same
+// send/stale-token-cleanup logic.
 
 export async function GET(request: NextRequest) {
   const mode      = request.nextUrl.searchParams.get('hub.mode');

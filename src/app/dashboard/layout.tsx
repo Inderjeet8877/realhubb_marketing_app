@@ -10,7 +10,7 @@ import NotificationSetup from "@/components/NotificationSetup";
 import { NotificationProvider, useNotifications } from "@/contexts/NotificationContext";
 import {
   LayoutDashboard, Megaphone, Users, MessageSquare,
-  Settings, LogOut, Menu, X, Target, FileText, BarChart3, Radio,
+  Settings, LogOut, Menu, X, Target, FileText, BarChart3, Radio, Inbox,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -18,6 +18,7 @@ const navigation = [
   { name: "Dashboard",  href: "/dashboard",                    icon: LayoutDashboard },
   { name: "Campaigns",  href: "/dashboard/campaigns",          icon: Megaphone       },
   { name: "Leads",      href: "/dashboard/leads",              icon: Target          },
+  { name: "Enquiries",  href: "/dashboard/enquiries",          icon: Inbox           },
   { name: "Contacts",   href: "/dashboard/contacts",           icon: Users           },
   { name: "WhatsApp",   href: "/dashboard/whatsapp",           icon: MessageSquare   },
   { name: "Templates",  href: "/dashboard/whatsapp/templates", icon: FileText        },
