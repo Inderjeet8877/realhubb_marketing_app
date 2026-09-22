@@ -411,7 +411,7 @@ export default function WhatsAppTemplatesPage() {
     <div>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">WhatsApp Templates</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">WhatsApp Templates</h1>
           <p className="text-gray-600">Create and manage message templates</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -590,7 +590,7 @@ export default function WhatsAppTemplatesPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Template Name *
@@ -770,7 +770,7 @@ export default function WhatsAppTemplatesPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Buttons
                   </label>
-                  <div className="flex gap-2 mb-2">
+                  <div className="flex flex-wrap gap-2 mb-2">
                     <button
                       onClick={() => addButton("URL")}
                       className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"

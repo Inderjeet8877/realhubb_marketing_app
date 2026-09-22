@@ -287,7 +287,7 @@ export default function WhatsAppDashboardContent() {
     <div>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600">
             Live delivery and messaging stats, pulled directly from Meta
             {data?.phoneNumber && <> for <span className="font-medium">+{data.phoneNumber}</span></>}
@@ -444,7 +444,7 @@ export default function WhatsAppDashboardContent() {
             {data.costAvailable ? (
               data.costByCategory.length > 0 ? (
                 <div className="space-y-3">
-                  <p className="text-2xl font-bold text-gray-900">{formatMoney(data.totalCost, data.costCurrency)}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900">{formatMoney(data.totalCost, data.costCurrency)}</p>
                   <p className="text-xs text-gray-400">
                     As billed by Meta for the last {data.days} day{data.days === 1 ? "" : "s"} — matches WhatsApp Manager.
                   </p>
@@ -669,7 +669,7 @@ function StatCard({ icon, label, value, bg }: { icon: React.ReactNode; label: st
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
       <div className={`w-11 h-11 rounded-lg flex items-center justify-center ${bg}`}>{icon}</div>
       <div>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+        <p className="text-xl sm:text-2xl font-bold text-gray-900">{value}</p>
         <p className="text-sm text-gray-500">{label}</p>
       </div>
     </div>

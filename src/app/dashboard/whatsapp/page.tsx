@@ -733,10 +733,10 @@ export default function WhatsAppPage() {
       {/* Top bar */}
       <div className="mb-4 flex flex-wrap justify-between items-center gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">WhatsApp</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">WhatsApp</h1>
           <p className="text-gray-600">Send messages and manage conversations</p>
         </div>
-         <div className="flex gap-2">
+         <div className="flex flex-wrap gap-2">
            <div className="flex bg-gray-100 rounded-lg p-1">
              <button
                onClick={() => setActiveTab("send")}
@@ -1474,7 +1474,7 @@ export default function WhatsAppPage() {
       {/* ===== WEBHOOK DIAGNOSTIC PANEL ===== */}
       {showWebhookPanel && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl">
+          <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-900">Webhook Diagnostics</h2>
               <button onClick={() => setShowWebhookPanel(false)} className="p-1 hover:bg-gray-100 rounded">

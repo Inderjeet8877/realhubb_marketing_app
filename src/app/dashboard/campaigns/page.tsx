@@ -156,9 +156,9 @@ export default function CampaignsPage() {
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm font-semibold text-gray-700">Campaign Performance</span>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {(["spend", "leads", "cpl"] as const).map(s => (
               <button key={s} onClick={() => setSortBy(s)}
                 className={`px-3 py-1 text-xs rounded-lg font-medium ${sortBy === s ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>

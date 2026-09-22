@@ -49,7 +49,7 @@ function StatCard({ label, value, sub, icon: Icon, color }: { label: string; val
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs text-gray-500 font-medium mb-1">{label}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900">{value}</p>
           {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
         </div>
         <div className={`p-2.5 rounded-xl ${color}`}>
@@ -467,7 +467,7 @@ export default function MetaDashboardContent() {
             <h2 className="text-base font-bold text-gray-900">Campaign-Level Report</h2>
             <p className="text-xs text-gray-400 mt-0.5">Spend · Leads · CPL per campaign</p>
           </div>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {(["all", "1", "2", "3"] as const).map(id => (
               <button key={id} onClick={() => setActiveReport(id)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg ${activeReport === id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>

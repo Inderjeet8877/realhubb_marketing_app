@@ -23,7 +23,7 @@ export default function EnquiriesPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Inbox className="w-6 h-6 text-blue-600" />
           Enquiries
         </h1>

@@ -559,7 +559,7 @@ export default function LeadsPage() {
             </button>
 
             {showAccountDropdown && (
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+              <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                 {META_ACCOUNTS.map((account) => (
                   <button
                     key={account.id}
@@ -884,7 +884,7 @@ export default function LeadsPage() {
                       <span className="text-xs text-gray-500">{pageForms.length} forms</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-2xl font-bold text-blue-600">{pageLeads} leads</p>
+                      <p className="text-xl sm:text-2xl font-bold text-blue-600">{pageLeads} leads</p>
                       <div className="flex gap-2">
                         {pageForms.slice(0, 3).map((f) => (
                           <span
@@ -912,19 +912,19 @@ export default function LeadsPage() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Overall Statistics</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-3xl font-bold text-gray-900">{forms.length}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{forms.length}</p>
                 <p className="text-sm text-gray-500">Total Forms</p>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-3xl font-bold text-green-600">{activeForms}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-green-600">{activeForms}</p>
                 <p className="text-sm text-gray-500">Active Forms</p>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-3xl font-bold text-blue-600">{totalLeads}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-blue-600">{totalLeads}</p>
                 <p className="text-sm text-gray-500">Total Leads</p>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-3xl font-bold text-purple-600">
+                <p className="text-2xl sm:text-3xl font-bold text-purple-600">
                   {forms.length > 0 ? Math.round(totalLeads / forms.length) : 0}
                 </p>
                 <p className="text-sm text-gray-500">Avg Leads/Form</p>

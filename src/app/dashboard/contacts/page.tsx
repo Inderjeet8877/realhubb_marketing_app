@@ -147,17 +147,17 @@ function ImportModal({
             {/* Stat pills */}
             <div className="grid grid-cols-3 gap-2">
               <div className="flex flex-col items-center p-3 bg-green-50 rounded-lg border border-green-100">
-                <span className="text-2xl font-bold text-green-700">{uploadSummary.saved}</span>
+                <span className="text-lg sm:text-2xl font-bold text-green-700">{uploadSummary.saved}</span>
                 <span className="text-xs text-green-600 mt-0.5 text-center">Added</span>
               </div>
               <div className="flex flex-col items-center p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                <span className="text-2xl font-bold text-yellow-700">
+                <span className="text-lg sm:text-2xl font-bold text-yellow-700">
                   {uploadSummary.dbDuplicates + uploadSummary.intraFileDuplicates}
                 </span>
                 <span className="text-xs text-yellow-600 mt-0.5 text-center">Duplicates</span>
               </div>
               <div className="flex flex-col items-center p-3 bg-red-50 rounded-lg border border-red-100">
-                <span className="text-2xl font-bold text-red-700">{uploadSummary.corrupted}</span>
+                <span className="text-lg sm:text-2xl font-bold text-red-700">{uploadSummary.corrupted}</span>
                 <span className="text-xs text-red-600 mt-0.5 text-center">Invalid</span>
               </div>
             </div>
