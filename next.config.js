@@ -9,6 +9,13 @@ const withPWA = require('next-pwa')({
 });
 
 const nextConfig = {
+  compiler: {
+    // Correct SSR class-name generation for the one styled-components usage
+    // in this app (the Meta/WhatsApp dashboard toggle) — without this, SWC
+    // still compiles styled-components but class names can mismatch between
+    // server and client render, causing a hydration warning.
+    styledComponents: true,
+  },
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost' },

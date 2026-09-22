@@ -10,16 +10,20 @@ import NotificationSetup from "@/components/NotificationSetup";
 import { NotificationProvider, useNotifications } from "@/contexts/NotificationContext";
 import {
   LayoutDashboard, Megaphone, Users, MessageSquare,
-  Settings, LogOut, Menu, X, Target, FileText, BarChart3, Radio, Inbox, ChevronDown,
+  Settings, LogOut, Menu, X, Target, FileText, Radio, Inbox, ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
+
+// Meta and WhatsApp now share one /dashboard route (a toggle switches
+// between them there), so "Dashboard" is a single standalone nav link —
+// not duplicated inside either dropdown below.
+const dashboardNavItem = { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard };
 
 // Grouped into two dropdowns (Meta, WhatsApp) on desktop to cut top-nav
 // clutter — each group's own items still render flat in the mobile menu,
 // under a small section label, since a narrow screen doesn't have the same
 // horizontal-space problem a dropdown solves.
 const metaGroup = [
-  { name: "Dashboard", href: "/dashboard",           icon: LayoutDashboard },
   { name: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone       },
   { name: "Leads",     href: "/dashboard/leads",     icon: Target          },
 ];
@@ -27,7 +31,6 @@ const metaGroup = [
 const whatsappGroup = [
   { name: "Inbox",     href: "/dashboard/whatsapp",           icon: MessageSquare },
   { name: "Templates", href: "/dashboard/whatsapp/templates", icon: FileText      },
-  { name: "Dashboard", href: "/dashboard/whatsapp/insights",  icon: BarChart3     },
   { name: "RCS",       href: "/dashboard/rcs",                icon: Radio, badge: "Soon" },
 ];
 
@@ -83,6 +86,17 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
               </Link>
               {/* Desktop nav */}
               <div className="hidden lg:flex lg:items-center lg:space-x-1">
+                <Link
+                  href={dashboardNavItem.href}
+                  className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    isActive(dashboardNavItem.href)
+                      ? "text-blue-600 bg-blue-50"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                  }`}
+                >
+                  <dashboardNavItem.icon className="w-4 h-4 mr-1.5" />
+                  {dashboardNavItem.name}
+                </Link>
                 <NavDropdown label="Meta" icon={Megaphone} items={metaGroup} isActive={isActive} />
                 <NavDropdown
                   label="WhatsApp" icon={MessageSquare} items={whatsappGroup} isActive={isActive}
@@ -129,6 +143,16 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-gray-100 bg-white shadow-lg max-h-[calc(100vh-3.5rem)] overflow-y-auto">
             <div className="px-3 py-2 space-y-3">
+              <Link
+                href={dashboardNavItem.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg ${
+                  isActive(dashboardNavItem.href) ? "text-blue-600 bg-blue-50" : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <dashboardNavItem.icon className="w-4 h-4 flex-shrink-0" />
+                {dashboardNavItem.name}
+              </Link>
               <MobileNavSection label="Meta" items={metaGroup} isActive={isActive} onNavigate={() => setMobileMenuOpen(false)} />
               <MobileNavSection
                 label="WhatsApp" items={whatsappGroup} isActive={isActive}
