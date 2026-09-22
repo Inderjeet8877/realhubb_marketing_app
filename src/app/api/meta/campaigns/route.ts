@@ -56,20 +56,31 @@ async function fetchCampaignsForAccount(accountId: string, token: string): Promi
 
   const adAccounts: any[] = (accData.data || []).slice(0, 5);
 
-  // Step 2: fetch campaigns for ALL ad accounts in PARALLEL
+  // Step 2: fetch campaigns for ALL ad accounts in PARALLEL — paginated (a
+  // single limit=50/100 page silently dropped real campaigns for an account
+  // with 60; capped at 5 pages/500 campaigns as a sane upper bound, not an
+  // unbounded loop).
   const campaignsByAccount = await Promise.all(
     adAccounts.map(async (adAccount) => {
+      const campaigns: any[] = [];
       try {
-        const campRes  = await fetch(
+        let url: string | null =
           `https://graph.facebook.com/v21.0/${adAccount.id}/campaigns?` +
           `access_token=${token}&fields=id,name,objective,status,start_time,created_time&` +
-          `date_preset=last_30d&limit=50`
-        );
-        const campData = await campRes.json();
-        return { adAccount, campaigns: campData.data || [] };
+          `date_preset=last_30d&limit=100`;
+        let pages = 0;
+        while (url && pages < 5) {
+          const campRes: Response = await fetch(url);
+          const campData: any = await campRes.json();
+          if (campData.error) break;
+          campaigns.push(...(campData.data || []));
+          url = campData.paging?.next || null;
+          pages++;
+        }
       } catch {
-        return { adAccount, campaigns: [] };
+        // Keep whatever pages succeeded before the failure rather than discarding them
       }
+      return { adAccount, campaigns };
     })
   );
 
