@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
-  User, Bell, XCircle, Loader2, Facebook, RefreshCw, Unlink,
+  Bell, XCircle, Loader2, Facebook, RefreshCw, Unlink,
   AlertTriangle, CheckCircle2, Clock,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
@@ -333,65 +333,44 @@ function SettingsContent() {
 
       <MetaConnections />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <User className="w-5 h-5 text-gray-400" />
-              <h2 className="text-lg font-semibold text-gray-900">Profile</h2>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Display Name</label>
-                <input type="text" defaultValue={user?.displayName || ''} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                <input type="email" defaultValue={user?.email || ''} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500" />
-              </div>
-            </div>
+      <div className="max-w-md">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Bell className="w-5 h-5 text-gray-400" />
+            <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
           </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <Bell className="w-5 h-5 text-gray-400" />
-              <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
-            </div>
-            <div className="space-y-4">
-              <label className="flex items-center justify-between gap-3">
-                <span className="text-gray-700">Browser notifications</span>
-                <input
-                  type="checkbox"
-                  checked={browserNotificationsEnabled}
-                  onChange={toggleBrowserNotifications}
-                  className="w-5 h-5 text-blue-600"
-                />
-              </label>
-              <label className="flex items-center justify-between gap-3">
-                <span className="text-gray-700">Sound alerts</span>
-                <input
-                  type="checkbox"
-                  checked={soundEnabled}
-                  onChange={toggleSound}
-                  className="w-5 h-5 text-blue-600"
-                />
-              </label>
-              <label className="flex items-center justify-between gap-3">
-                <span className="text-gray-700">Background push (FCM)</span>
-                <input
-                  type="checkbox"
-                  checked={backgroundPushEnabled}
-                  onChange={toggleBackgroundPush}
-                  className="w-5 h-5 text-blue-600"
-                />
-              </label>
-            </div>
-            <p className="text-sm text-gray-500 mt-3">
-              Browser notifications work when the app is open in a browser tab. Background push is the fallback for when the browser is closed.
-            </p>
+          <div className="space-y-4">
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-gray-700">Browser notifications</span>
+              <input
+                type="checkbox"
+                checked={browserNotificationsEnabled}
+                onChange={toggleBrowserNotifications}
+                className="w-5 h-5 text-blue-600"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-gray-700">Sound alerts</span>
+              <input
+                type="checkbox"
+                checked={soundEnabled}
+                onChange={toggleSound}
+                className="w-5 h-5 text-blue-600"
+              />
+            </label>
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-gray-700">Background push (FCM)</span>
+              <input
+                type="checkbox"
+                checked={backgroundPushEnabled}
+                onChange={toggleBackgroundPush}
+                className="w-5 h-5 text-blue-600"
+              />
+            </label>
           </div>
+          <p className="text-sm text-gray-500 mt-3">
+            Browser notifications work when the app is open in a browser tab. Background push is the fallback for when the browser is closed.
+          </p>
         </div>
       </div>
     </div>
