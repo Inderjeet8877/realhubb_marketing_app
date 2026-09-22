@@ -287,7 +287,7 @@ export default function WhatsAppInsightsPage() {
     <div>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">WhatsApp Insights</h1>
+          <h1 className="text-2xl font-bold text-gray-900">WhatsApp Dashboard</h1>
           <p className="text-gray-600">
             Live delivery and messaging stats, pulled directly from Meta
             {data?.phoneNumber && <> for <span className="font-medium">+{data.phoneNumber}</span></>}

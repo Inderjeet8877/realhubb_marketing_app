@@ -19,7 +19,7 @@ import { useState } from "react";
 // under a small section label, since a narrow screen doesn't have the same
 // horizontal-space problem a dropdown solves.
 const metaGroup = [
-  { name: "Overview",  href: "/dashboard",           icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard",           icon: LayoutDashboard },
   { name: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone       },
   { name: "Leads",     href: "/dashboard/leads",     icon: Target          },
 ];
@@ -27,7 +27,7 @@ const metaGroup = [
 const whatsappGroup = [
   { name: "Inbox",     href: "/dashboard/whatsapp",           icon: MessageSquare },
   { name: "Templates", href: "/dashboard/whatsapp/templates", icon: FileText      },
-  { name: "Insights",  href: "/dashboard/whatsapp/insights",  icon: BarChart3     },
+  { name: "Dashboard", href: "/dashboard/whatsapp/insights",  icon: BarChart3     },
   { name: "RCS",       href: "/dashboard/rcs",                icon: Radio, badge: "Soon" },
 ];
 

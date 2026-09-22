@@ -6,15 +6,18 @@
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 255, 255, 255;
   --background-end-rgb: 255, 255, 255;
+  /* Tells the browser this app only has a light design, so it never
+     auto-applies dark styling to native form controls (input/select/button
+     chrome) based on the visitor's OS/browser theme. */
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
-}
+/* This app is deliberately light-themed everywhere (every page hardcodes
+   bg-white/bg-gray-50 etc. via Tailwind) with no dark-mode design of its
+   own — so the default create-next-app dark-mode override that used to be
+   here (flipping body's text to white on a dark-mode system/browser) made
+   any input or button without an explicit Tailwind text color invisible:
+   white text still sitting on a Tailwind-forced white/light background. */
 
 body {
   color: rgb(var(--foreground-rgb));
