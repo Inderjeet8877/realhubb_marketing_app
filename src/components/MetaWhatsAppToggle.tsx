@@ -32,17 +32,17 @@ const StyledWrapper = styled.div`
     background-image: -webkit-linear-gradient(hsla(0,0%,0%,.1), hsla(0,0%,100%,.1)),
                         -webkit-linear-gradient(left, #3b82f6 50%, #22c55e 50%);
     background-size: 100% 100%, 200% 100%;
-    background-position: 0 0, 15px 0;
-    border-radius: 25px;
-    box-shadow: inset 0 1px 4px hsla(0,0%,0%,.5),
-                  inset 0 0 10px hsla(0,0%,0%,.5),
+    background-position: 0 0, 11px 0;
+    border-radius: 18px;
+    box-shadow: inset 0 1px 3px hsla(0,0%,0%,.5),
+                  inset 0 0 7px hsla(0,0%,0%,.5),
                   0 0 0 1px hsla(0,0%,0%,.1),
-                  0 -1px 2px 2px hsla(0,0%,0%,.25),
-                  0 2px 2px 2px hsla(0,0%,100%,.75);
+                  0 -1px 1px 1px hsla(0,0%,0%,.25),
+                  0 1px 2px 1px hsla(0,0%,100%,.75);
     cursor: pointer;
-    height: 25px;
-    padding-right: 25px;
-    width: 75px;
+    height: 18px;
+    padding-right: 18px;
+    width: 54px;
     -webkit-appearance: none;
     appearance: none;
     -webkit-transition: .25s;
@@ -52,20 +52,20 @@ const StyledWrapper = styled.div`
   .checkbox-wrapper-25 input[type="checkbox"]:after {
     background-color: #eee;
     background-image: -webkit-linear-gradient(hsla(0,0%,100%,.1), hsla(0,0%,0%,.1));
-    border-radius: 25px;
+    border-radius: 18px;
     box-shadow: inset 0 1px 1px 1px hsla(0,0%,100%,1),
                   inset 0 -1px 1px 1px hsla(0,0%,0%,.25),
-                  0 1px 3px 1px hsla(0,0%,0%,.5),
-                  0 0 2px hsla(0,0%,0%,.25);
+                  0 1px 2px 1px hsla(0,0%,0%,.5),
+                  0 0 1px hsla(0,0%,0%,.25);
     content: '';
     display: block;
-    height: 25px;
-    width: 50px;
+    height: 18px;
+    width: 36px;
   }
 
   .checkbox-wrapper-25 input[type="checkbox"]:checked {
-    background-position: 0 0, 35px 0;
-    padding-left: 25px;
+    background-position: 0 0, 25px 0;
+    padding-left: 18px;
     padding-right: 0;
   }
 `;

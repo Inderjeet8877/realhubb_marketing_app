@@ -8,6 +8,8 @@ import { auth } from "@/lib/firebase";
 import AuthProvider from "@/components/AuthProvider";
 import NotificationSetup from "@/components/NotificationSetup";
 import { NotificationProvider, useNotifications } from "@/contexts/NotificationContext";
+import { ToastProvider } from "@/contexts/ToastContext";
+import { ConfirmProvider } from "@/contexts/ConfirmContext";
 import {
   LayoutDashboard, Megaphone, Users, MessageSquare,
   Settings, LogOut, Menu, X, Target, FileText, Radio, Inbox, ChevronDown,
@@ -341,9 +343,13 @@ function MobileNavSection({
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <NotificationProvider>
-        <DashboardContent>{children}</DashboardContent>
-      </NotificationProvider>
+      <ToastProvider>
+        <ConfirmProvider>
+          <NotificationProvider>
+            <DashboardContent>{children}</DashboardContent>
+          </NotificationProvider>
+        </ConfirmProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 }
