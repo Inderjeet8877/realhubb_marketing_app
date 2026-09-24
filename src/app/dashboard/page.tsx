@@ -24,12 +24,14 @@ function DashboardContent() {
 
   return (
     <div>
-      <div className="flex items-center justify-end gap-3 mb-4">
-        <span className={`text-sm font-semibold transition-colors ${view === "meta" ? "text-blue-600" : "text-gray-400"}`}>
+      <div className="flex items-center justify-end gap-1.5 sm:gap-3 mb-4 flex-nowrap">
+        <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${view === "meta" ? "text-blue-600" : "text-gray-400"}`}>
           Meta
         </span>
-        <MetaWhatsAppToggle checked={view === "whatsapp"} onChange={(isWhatsApp) => setView(isWhatsApp ? "whatsapp" : "meta")} />
-        <span className={`text-sm font-semibold transition-colors ${view === "whatsapp" ? "text-green-600" : "text-gray-400"}`}>
+        <span className="flex-shrink-0">
+          <MetaWhatsAppToggle checked={view === "whatsapp"} onChange={(isWhatsApp) => setView(isWhatsApp ? "whatsapp" : "meta")} />
+        </span>
+        <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${view === "whatsapp" ? "text-green-600" : "text-gray-400"}`}>
           WhatsApp
         </span>
       </div>

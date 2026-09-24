@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
 import {
@@ -83,8 +83,10 @@ export default function MetaDashboardContent() {
   const [selectedAccount, setSelectedAccount] = useState("all");
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeReport, setActiveReport] = useState<"all" | "1" | "2" | "3">("all");
+  const [reportPage, setReportPage] = useState(1);
+  const REPORT_PAGE_SIZE = 10;
 
-  const [datePreset, setDatePreset] = useState<DatePresetId>("last_30d");
+  const [datePreset, setDatePreset] = useState<DatePresetId>("maximum");
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const [customSince, setCustomSince] = useState(daysAgoISO(30));
   const [customUntil, setCustomUntil] = useState(todayISO());
@@ -141,6 +143,14 @@ export default function MetaDashboardContent() {
       if (aSpend !== bSpend) return bSpend - aSpend;
       return (a.insights?.cpl || 999999) - (b.insights?.cpl || 999999);
     });
+
+  const reportPageCount = Math.max(1, Math.ceil(reportCamps.length / REPORT_PAGE_SIZE));
+  const reportCampsPage = reportCamps.slice((reportPage - 1) * REPORT_PAGE_SIZE, reportPage * REPORT_PAGE_SIZE);
+
+  // Reset to page 1 whenever the underlying filtered set changes shape —
+  // otherwise switching accounts/date range can strand the user on a page
+  // number that no longer has any rows.
+  useEffect(() => { setReportPage(1); }, [activeReport, dateQuery, selectedAccount]);
 
   // Pages summary — derived from the leads forms list, which already carries
   // pageName/pageId per form (src/app/api/meta/leads/route.ts).
@@ -484,18 +494,18 @@ export default function MetaDashboardContent() {
                     {acc.active > 0 ? "Live" : "Inactive"}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div>
-                    <p className="text-xs text-gray-500">Spend</p>
-                    <p className={`text-base font-bold ${col.text}`}>{currency(acc.spend)}</p>
+                <div className="grid grid-cols-3 gap-x-2 gap-y-3 mb-4">
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500 mb-1">Spend</p>
+                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={currency(acc.spend)}>{currency(acc.spend)}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Leads</p>
-                    <p className={`text-base font-bold ${col.text}`}>{acc.leads}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500 mb-1">Leads</p>
+                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`}>{acc.leads}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">CPL</p>
-                    <p className={`text-base font-bold ${col.text}`}>{currency(acc.cpl)}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500 mb-1">CPL</p>
+                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={currency(acc.cpl)}>{currency(acc.cpl)}</p>
                   </div>
                 </div>
                 <div>
@@ -576,7 +586,7 @@ export default function MetaDashboardContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {reportCamps.map(c => {
+                {reportCampsPage.map(c => {
                   const col = ACCOUNT_COLORS[c.accountId || "1"];
                   const cpl = c.insights?.cpl || 0;
                   const rowBg = cpl > 0 && cpl < 300 ? "bg-green-50/40" : cpl >= 600 ? "bg-red-50/40" : "";
@@ -616,6 +626,30 @@ export default function MetaDashboardContent() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+        )}
+        {reportCamps.length > REPORT_PAGE_SIZE && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-sm">
+            <p className="text-gray-500">
+              Showing {(reportPage - 1) * REPORT_PAGE_SIZE + 1}–{Math.min(reportPage * REPORT_PAGE_SIZE, reportCamps.length)} of {reportCamps.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setReportPage(p => Math.max(1, p - 1))}
+                disabled={reportPage === 1}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="text-gray-500 px-1">Page {reportPage} of {reportPageCount}</span>
+              <button
+                onClick={() => setReportPage(p => Math.min(reportPageCount, p + 1))}
+                disabled={reportPage === reportPageCount}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
           </div>
         )}
       </div>
