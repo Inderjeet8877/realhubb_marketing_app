@@ -46,7 +46,7 @@ function buildCampaignRow(campaign: any, adAccount: any, ins: any, accountId: st
   };
 }
 
-async function fetchCampaignsForAccount(accountId: string, token: string): Promise<any[]> {
+async function fetchCampaignsForAccount(accountId: string, token: string, dateParam: string): Promise<any[]> {
   // Step 1: fetch ad accounts
   const accRes  = await fetch(
     `https://graph.facebook.com/v21.0/me/adaccounts?access_token=${token}&fields=id,name,currency`
@@ -59,15 +59,17 @@ async function fetchCampaignsForAccount(accountId: string, token: string): Promi
   // Step 2: fetch campaigns for ALL ad accounts in PARALLEL — paginated (a
   // single limit=50/100 page silently dropped real campaigns for an account
   // with 60; capped at 5 pages/500 campaigns as a sane upper bound, not an
-  // unbounded loop).
+  // unbounded loop). Note: date_preset/time_range on the /campaigns list edge
+  // itself is NOT a real filter (Meta ignores it here) — the list is always
+  // every campaign in the account, regardless of `dateParam`; the actual date
+  // filtering only applies to the per-campaign insights fetch in Step 3.
   const campaignsByAccount = await Promise.all(
     adAccounts.map(async (adAccount) => {
       const campaigns: any[] = [];
       try {
         let url: string | null =
           `https://graph.facebook.com/v21.0/${adAccount.id}/campaigns?` +
-          `access_token=${token}&fields=id,name,objective,status,start_time,created_time&` +
-          `date_preset=last_30d&limit=100`;
+          `access_token=${token}&fields=id,name,objective,status,start_time,created_time&limit=100`;
         let pages = 0;
         while (url && pages < 5) {
           const campRes: Response = await fetch(url);
@@ -96,7 +98,7 @@ async function fetchCampaignsForAccount(accountId: string, token: string): Promi
           `https://graph.facebook.com/v21.0/${campaign.id}/insights?` +
           `access_token=${token}&` +
           `fields=impressions,clicks,spend,ctr,cpc,reach,frequency,actions,cost_per_result&` +
-          `date_preset=last_30d`
+          dateParam
         );
         const insData = await insRes.json();
         return buildCampaignRow(campaign, adAccount, insData.data?.[0] || {}, accountId);
@@ -120,12 +122,21 @@ export async function GET(request: NextRequest) {
   const accountId  = request.nextUrl.searchParams.get('account_id') || '1';
   const accountIds = accountId === 'all' ? ['1', '2', '3'] : [accountId];
 
+  // Custom date range (since/until, YYYY-MM-DD) takes priority over date_preset;
+  // falls back to last_30d to preserve existing behavior when neither is passed.
+  const since = request.nextUrl.searchParams.get('since');
+  const until = request.nextUrl.searchParams.get('until');
+  const datePreset = request.nextUrl.searchParams.get('date_preset') || 'last_30d';
+  const dateParam = since && until
+    ? `time_range=${encodeURIComponent(JSON.stringify({ since, until }))}`
+    : `date_preset=${datePreset}`;
+
   // Fetch ALL accounts in PARALLEL
   const results = await Promise.allSettled(
     accountIds.map(async (id) => {
       const token = await getToken(id);
       if (!token) return [] as any[];
-      return fetchCampaignsForAccount(id, token);
+      return fetchCampaignsForAccount(id, token, dateParam);
     })
   );
 

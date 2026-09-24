@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
 import {
   BarChart3, Users, TrendingUp, Eye, ChevronDown, Target, DollarSign, RefreshCw,
-  Download, FileSpreadsheet, FileText, AlertTriangle, TrendingDown, Inbox,
+  Download, FileSpreadsheet, FileText, AlertTriangle, TrendingDown, Inbox, Calendar, FileBadge,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -30,6 +30,19 @@ const ACCOUNTS = [
   { id: "2",   name: "Account 2"   },
   { id: "3",   name: "Account 3"   },
 ];
+
+const DATE_PRESETS = [
+  { id: "last_7d",  label: "Last 7 days"  },
+  { id: "last_30d", label: "Last 30 days" },
+  { id: "last_90d", label: "Last 90 days" },
+  { id: "this_month", label: "This month" },
+  { id: "maximum",  label: "All time"     },
+  { id: "custom",   label: "Custom range" },
+] as const;
+type DatePresetId = typeof DATE_PRESETS[number]["id"];
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function daysAgoISO(n: number) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 
 interface Campaign {
   id: string; name: string; objective: string; status: string; start_time?: string;
@@ -71,8 +84,20 @@ export default function MetaDashboardContent() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeReport, setActiveReport] = useState<"all" | "1" | "2" | "3">("all");
 
+  const [datePreset, setDatePreset] = useState<DatePresetId>("last_30d");
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
+  const [customSince, setCustomSince] = useState(daysAgoISO(30));
+  const [customUntil, setCustomUntil] = useState(todayISO());
+
+  const dateQuery = datePreset === "custom"
+    ? `since=${customSince}&until=${customUntil}`
+    : `date_preset=${datePreset}`;
+  const dateLabel = datePreset === "custom"
+    ? `${customSince} → ${customUntil}`
+    : DATE_PRESETS.find(d => d.id === datePreset)?.label || "Last 30 days";
+
   const { data: campData, isLoading: campLoading, isValidating: campValidating, mutate: campMutate } =
-    useSWR("/api/meta/campaigns?account_id=all", fetcher, metaSwrConfig);
+    useSWR(`/api/meta/campaigns?account_id=all&${dateQuery}`, fetcher, metaSwrConfig);
   const { data: leadsData, isValidating: leadsValidating, mutate: leadsMutate } =
     useSWR("/api/meta/leads?account_id=all", fetcher, metaSwrConfig);
   const { data: enquiriesData } = useSWR("/api/enquiries?limit=200", fetcher, metaSwrConfig);
@@ -106,10 +131,28 @@ export default function MetaDashboardContent() {
   });
   const totalSpendAllAccounts = accountStats.reduce((s, a) => s + a.spend, 0);
 
-  // Report data
+  // Report data — show every campaign for the selected account/date range, not
+  // just ones with spend > 0 (that filter used to hide all 60 campaigns
+  // whenever every one of them happened to be paused/zero-spend in the window,
+  // even though the account cards above correctly showed the full count).
   const reportCamps = (activeReport === "all" ? allCampaigns : allCampaigns.filter(c => c.accountId === activeReport))
-    .filter(c => (c.insights?.spend || 0) > 0)
-    .sort((a, b) => (a.insights?.cpl || 999999) - (b.insights?.cpl || 999999));
+    .sort((a, b) => {
+      const aSpend = a.insights?.spend || 0, bSpend = b.insights?.spend || 0;
+      if (aSpend !== bSpend) return bSpend - aSpend;
+      return (a.insights?.cpl || 999999) - (b.insights?.cpl || 999999);
+    });
+
+  // Pages summary — derived from the leads forms list, which already carries
+  // pageName/pageId per form (src/app/api/meta/leads/route.ts).
+  const pagesSummary = Object.values(
+    (leadsData?.forms || []).reduce((acc: Record<string, { pageId: string; pageName: string; forms: number; leads: number }>, f: any) => {
+      const key = f.pageId || f.pageName || "unknown";
+      if (!acc[key]) acc[key] = { pageId: f.pageId, pageName: f.pageName || "Unknown Page", forms: 0, leads: 0 };
+      acc[key].forms += 1;
+      acc[key].leads += f.leadsCount || 0;
+      return acc;
+    }, {})
+  ).sort((a: any, b: any) => b.leads - a.leads);
 
   // Real, data-derived "needs attention" items — not decorative placeholders.
   const highCplCampaigns = allCampaigns
@@ -157,7 +200,7 @@ export default function MetaDashboardContent() {
 
     // Sheet 1 — Summary
     const summaryData = [
-      ["Realhubb Campaign Report — Last 30 days"],
+      [`Realhubb Campaign Report — ${dateLabel}`],
       [`Generated: ${new Date().toLocaleString()}`],
       [],
       ["KPI", "Value"],
@@ -208,7 +251,7 @@ export default function MetaDashboardContent() {
     doc.text("Realhubb — Campaign Performance Report", 14, 14);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`Last 30 days  ·  Generated: ${new Date().toLocaleString()}`, pw - 14, 14, { align: "right" });
+    doc.text(`${dateLabel}  ·  Generated: ${new Date().toLocaleString()}`, pw - 14, 14, { align: "right" });
 
     // KPI summary row
     doc.setTextColor(40, 40, 40);
@@ -312,9 +355,47 @@ export default function MetaDashboardContent() {
       <div className="flex flex-wrap justify-between items-center gap-2">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 text-sm">Meta Ads performance · last 30 days</p>
+          <p className="text-gray-500 text-sm">Meta Ads performance · {dateLabel}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <div className="relative">
+            <button onClick={() => setShowDateDropdown(!showDateDropdown)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
+              <Calendar className="w-4 h-4 text-gray-400" />
+              {dateLabel}
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            </button>
+            {showDateDropdown && (
+              <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2">
+                {DATE_PRESETS.map(d => (
+                  <button key={d.id} onClick={() => { setDatePreset(d.id); if (d.id !== "custom") setShowDateDropdown(false); }}
+                    className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-50 ${datePreset === d.id ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}>
+                    {d.label}
+                  </button>
+                ))}
+                {datePreset === "custom" && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 space-y-2 px-1">
+                    <div>
+                      <label className="text-xs text-gray-500">From</label>
+                      <input type="date" value={customSince} max={customUntil}
+                        onChange={e => setCustomSince(e.target.value)}
+                        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">To</label>
+                      <input type="date" value={customUntil} min={customSince} max={todayISO()}
+                        onChange={e => setCustomUntil(e.target.value)}
+                        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm" />
+                    </div>
+                    <button onClick={() => setShowDateDropdown(false)}
+                      className="w-full bg-blue-600 text-white text-sm font-medium rounded-md py-1.5 hover:bg-blue-700">
+                      Apply
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <div className="relative">
             <button onClick={() => setShowDropdown(!showDropdown)}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
@@ -534,6 +615,41 @@ export default function MetaDashboardContent() {
                   </td>
                 </tr>
               </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── PAGES ── */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="text-base font-bold text-gray-900">Connected Pages</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Facebook Pages granted access · lead forms per page</p>
+        </div>
+        {pagesSummary.length === 0 ? (
+          <div className="p-10 text-center text-gray-400 text-sm">No connected Pages found</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <th className="px-5 py-3 text-left">Page</th>
+                  <th className="px-4 py-3 text-right">Lead Forms</th>
+                  <th className="px-4 py-3 text-right">Leads</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {pagesSummary.map((p: any) => (
+                  <tr key={p.pageId || p.pageName} className="hover:bg-gray-50">
+                    <td className="px-5 py-3 flex items-center gap-2">
+                      <FileBadge className="w-4 h-4 text-gray-400" />
+                      <span className="font-medium text-gray-900">{p.pageName}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-600">{p.forms}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-800">{p.leads}</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         )}
