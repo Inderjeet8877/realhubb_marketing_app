@@ -135,6 +135,11 @@ function getLeadCity(lead: Lead): string {
   return cityField?.values?.[0] || "-";
 }
 
+interface CampaignLeadRow {
+  id: string; name: string; status: string; accountId?: string; accountName?: string;
+  insights: { spend?: number; leads?: number; cpl?: number } | null;
+}
+
 export default function LeadsPage() {
   const [selectedAccount, setSelectedAccount] = useState<string>("1");
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
@@ -149,13 +154,37 @@ export default function LeadsPage() {
     { ...metaSwrConfig, refreshInterval: autoRefresh ? 30_000 : 0 }
   );
 
+  // Real lead counts for this business come from Conversions API / Pixel
+  // "Lead" events attributed at the campaign level, NOT from Facebook's
+  // native Instant Forms product (`leadgen_forms.leads_count` below is
+  // genuinely 0 for every form here — confirmed live against Meta, not a
+  // bug). This is the same source already powering the correct totals on
+  // /dashboard.
+  const { data: campData, isValidating: campValidating, mutate: campMutate } = useSWR(
+    "/api/meta/campaigns?account_id=all&date_preset=maximum",
+    fetcher,
+    metaSwrConfig
+  );
+  const campaignLeadRows: CampaignLeadRow[] = (campData?.campaigns || [])
+    .filter((c: CampaignLeadRow) => selectedAccount === "all" || c.accountId === selectedAccount)
+    .filter((c: CampaignLeadRow) => (c.insights?.leads || 0) > 0 || (c.insights?.spend || 0) > 0)
+    .sort((a: CampaignLeadRow, b: CampaignLeadRow) => (b.insights?.leads || 0) - (a.insights?.leads || 0));
+  const realTotalLeads = campaignLeadRows.reduce((s, c) => s + (c.insights?.leads || 0), 0);
+  const realTotalSpend = campaignLeadRows.reduce((s, c) => s + (c.insights?.spend || 0), 0);
+  const realAvgCpl = realTotalLeads > 0 ? realTotalSpend / realTotalLeads : 0;
+  const [campaignPage, setCampaignPage] = useState(1);
+  const CAMPAIGN_PAGE_SIZE = 10;
+  const campaignPageCount = Math.max(1, Math.ceil(campaignLeadRows.length / CAMPAIGN_PAGE_SIZE));
+  const campaignRowsPage = campaignLeadRows.slice((campaignPage - 1) * CAMPAIGN_PAGE_SIZE, campaignPage * CAMPAIGN_PAGE_SIZE);
+  useEffect(() => { setCampaignPage(1); }, [selectedAccount]);
+
   const [localError, setError] = useState<string | null>(null);
   const forms: LeadForm[]    = data?.forms      || [];
-  const totalLeads: number   = data?.totalLeads  || 0;
+  const totalLeads: number   = realTotalLeads;
   const loading    = isLoading && forms.length === 0;
-  const refreshing = isValidating;
+  const refreshing = isValidating || campValidating;
   const error: string | null = localError || swrErr?.message || (data?.error ?? null);
-  const [activeTab, setActiveTab] = useState<"forms" | "summary">("forms");
+  const [activeTab, setActiveTab] = useState<"campaigns" | "forms" | "summary">("campaigns");
   const [selectedForm, setSelectedForm] = useState<LeadForm | null>(null);
   const [formLeads, setFormLeads] = useState<Lead[]>([]);
   const [loadingFormLeads, setLoadingFormLeads] = useState(false);
@@ -181,7 +210,8 @@ export default function LeadsPage() {
     if (data && !isValidating) setLastUpdated(new Date());
   }, [data, isValidating]);
 
-  const fetchForms = () => mutate();
+  const fetchForms = () => { mutate(); campMutate(); };
+  const inr = (n: number) => n > 0 ? `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : "—";
 
   const handleAccountChange = (accountId: string) => {
     setSelectedAccount(accountId);
@@ -710,18 +740,28 @@ export default function LeadsPage() {
 
       <div className="flex gap-4 mb-6 border-b border-gray-200 overflow-x-auto">
         <button
+          onClick={() => setActiveTab("campaigns")}
+          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
+            activeTab === "campaigns"
+              ? "border-b-2 border-blue-600 text-blue-600"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          By Campaign ({campaignLeadRows.length})
+        </button>
+        <button
           onClick={() => setActiveTab("forms")}
-          className={`pb-3 px-1 text-sm font-medium transition-colors ${
+          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
             activeTab === "forms"
               ? "border-b-2 border-blue-600 text-blue-600"
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
-          All Forms ({filteredForms.length})
+          Instant Forms ({filteredForms.length})
         </button>
         <button
           onClick={() => setActiveTab("summary")}
-          className={`pb-3 px-1 text-sm font-medium transition-colors ${
+          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
             activeTab === "summary"
               ? "border-b-2 border-blue-600 text-blue-600"
               : "text-gray-500 hover:text-gray-700"
@@ -730,6 +770,77 @@ export default function LeadsPage() {
           Summary
         </button>
       </div>
+
+      {activeTab === "campaigns" && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="text-base font-bold text-gray-900">Leads by Campaign</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Real conversion-tracked leads per campaign · Total: {realTotalLeads} leads, {inr(realTotalSpend)} spend, {inr(realAvgCpl)} avg CPL
+            </p>
+          </div>
+          {campaignLeadRows.length === 0 ? (
+            <div className="p-10 text-center text-gray-400 text-sm">No campaigns with leads or spend found</div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
+                      <th className="px-5 py-3 text-left">Campaign</th>
+                      <th className="px-4 py-3 text-left">Account</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-right">Spend</th>
+                      <th className="px-4 py-3 text-right">Leads</th>
+                      <th className="px-4 py-3 text-right">CPL</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {campaignRowsPage.map(c => (
+                      <tr key={c.id} className="hover:bg-gray-50">
+                        <td className="px-5 py-3 font-medium text-gray-900 max-w-xs truncate" title={c.name}>{c.name}</td>
+                        <td className="px-4 py-3 text-gray-600">{c.accountName}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${c.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                            {c.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-800 font-semibold">{inr(c.insights?.spend || 0)}</td>
+                        <td className="px-4 py-3 text-right text-gray-800 font-semibold">{c.insights?.leads || 0}</td>
+                        <td className="px-4 py-3 text-right text-gray-600">{inr(c.insights?.cpl || 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {campaignLeadRows.length > CAMPAIGN_PAGE_SIZE && (
+                <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-sm">
+                  <p className="text-gray-500">
+                    Showing {(campaignPage - 1) * CAMPAIGN_PAGE_SIZE + 1}–{Math.min(campaignPage * CAMPAIGN_PAGE_SIZE, campaignLeadRows.length)} of {campaignLeadRows.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCampaignPage(p => Math.max(1, p - 1))}
+                      disabled={campaignPage === 1}
+                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-gray-500 px-1">Page {campaignPage} of {campaignPageCount}</span>
+                    <button
+                      onClick={() => setCampaignPage(p => Math.min(campaignPageCount, p + 1))}
+                      disabled={campaignPage === campaignPageCount}
+                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {activeTab === "forms" && (
         <>
