@@ -40,6 +40,13 @@ export async function sendPushNotification(
         channelId: options?.channelId || 'general',
         defaultVibrateTimings: true,
         visibility: 'public',
+        // Belt-and-suspenders alongside the client's notification channel
+        // (which already sets its own sound) — on Android 8+ the channel's
+        // sound takes precedence once the channel exists, but this covers
+        // older Android versions and any device where channel creation
+        // hasn't happened yet. FCM expects the raw resource name without
+        // its extension here (res/raw/notification_sound.mp3).
+        sound: 'notification_sound',
       },
     },
     webpush: {

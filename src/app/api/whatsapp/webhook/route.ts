@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
           // Send push notification to all registered devices
           sendPushNotification(`💬 ${senderName}`, messageText, {
             link: '/dashboard/whatsapp',
-            channelId: 'whatsapp_replies',
+            channelId: 'whatsapp_replies_v2',
           }).catch(e => console.error('[Webhook] Push error:', e));
 
           // Opt-outs are handled here, not just recorded — every broadcast

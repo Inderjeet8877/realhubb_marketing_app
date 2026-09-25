@@ -14,8 +14,12 @@ interface ToastMsg {
   phone: string;
 }
 
-// ── Web Audio ping (no audio file needed) ─────────────────────────────────
-function playPing() {
+const NOTIFICATION_SOUND_URL = "/universfield-new-notification-059-494262.mp3";
+
+// ── Synthesized fallback ping (no audio file needed) — used only if the mp3
+// fails to play (e.g. blocked by browser autoplay policy before any user
+// gesture, or the file fails to load) so a notification is never silent.
+function playSynthesizedPing() {
   try {
     const ac   = new (window.AudioContext || (window as any).webkitAudioContext)();
     const now  = ac.currentTime;
@@ -38,6 +42,19 @@ function playPing() {
     tone(1100, now + 0.18, 0.35, 0.3); // second ping (brighter)
     setTimeout(() => ac.close(), 800);
   } catch {}
+}
+
+// ── Notification tone — the real mp3 everywhere it can play (web foreground,
+// and inside the Capacitor WebView, which does support <audio>), falling
+// back to the synthesized ping only if playback actually fails.
+function playPing() {
+  try {
+    const audio = new Audio(NOTIFICATION_SOUND_URL);
+    audio.volume = 0.85;
+    audio.play().catch(() => playSynthesizedPing());
+  } catch {
+    playSynthesizedPing();
+  }
 }
 
 // ── Fire a browser notification (works when tab not focused) ─────────────
@@ -106,13 +123,20 @@ export default function NotificationSetup() {
         // Must exist before the server can target it by channelId — an unknown
         // channel ID on an incoming FCM message can cause Android to silently drop
         // the notification instead of falling back to a default channel.
+        //
+        // Channel ID is versioned ("_v2") because a notification channel's sound
+        // is immutable once created on a device — bumping the ID (rather than
+        // reusing "whatsapp_replies") is required for the custom sound to
+        // actually take effect for anyone who already has the app installed
+        // with the old, soundless channel.
         await PushNotifications.createChannel({
-          id: "whatsapp_replies",
+          id: "whatsapp_replies_v2",
           name: "WhatsApp replies",
           description: "Alerts when a lead replies on WhatsApp",
           importance: 5, // IMPORTANCE_HIGH — heads-up popup + sound
           visibility: 1, // VISIBILITY_PUBLIC
           vibration: true,
+          sound: "notification_sound.mp3", // res/raw/notification_sound.mp3
         }).catch((err) => console.error("[Native Push] createChannel error:", err));
 
         await PushNotifications.register();
@@ -131,11 +155,14 @@ export default function NotificationSetup() {
           console.error("[Native Push] registration error:", err);
         });
 
-        // Foreground handler — background delivery is handled by the OS/FCM directly.
+        // Foreground handler — background delivery (and its sound, via the
+        // channel's `sound` field) is handled by the OS/FCM directly; only the
+        // foreground case needs an explicit playPing() call here.
         PushNotifications.addListener("pushNotificationReceived", (notification) => {
           const name = notification.title?.replace("💬 ", "") || "WhatsApp";
           const body = notification.body || "";
           addToast(name, body, "native");
+          if (soundEnabled) playPing();
         });
 
         // Tapping the notification (from background/killed state) should open the inbox.
@@ -178,7 +205,7 @@ export default function NotificationSetup() {
     } catch (err) {
       console.error("[FCM] setup error:", err);
     }
-  }, [addToast, router]);
+  }, [addToast, router, soundEnabled]);
 
   // ── Primary: Firestore real-time listener ─────────────────────────────
   // Fires the instant the webhook writes a new inbound message to Firestore.
