@@ -3,7 +3,8 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
-import { Megaphone, TrendingUp, RefreshCw, Eye, ChevronDown, Target, DollarSign, Users } from "lucide-react";
+import { Megaphone, TrendingUp, RefreshCw, Eye, Target, DollarSign, Users } from "lucide-react";
+import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 import { StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 
 const ACCOUNTS = [
@@ -108,7 +109,7 @@ export default function CampaignsPage() {
             <button onClick={() => setShowDropdown(!showDropdown)}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
               {ACCOUNTS.find(a => a.id === selectedAccount)?.name}
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+              <AnimatedChevronDown open={showDropdown} className="w-4 h-4 text-gray-500" />
             </button>
             {showDropdown && (
               <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">

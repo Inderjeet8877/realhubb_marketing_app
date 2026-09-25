@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef, Component, ReactNode } from "react";
 import useSWR from "swr";
 import { fetcher, swrConfig } from "@/lib/swr";
-import { Users, Upload, Tag, Loader2, Search, X, FileText, CheckCircle, Trash2, CheckSquare, Square, TriangleAlert, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, Upload, Tag, Loader2, Search, X, FileText, CheckCircle, CheckSquare, Square, TriangleAlert, Plus } from "lucide-react";
 import { StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
+import { AnimatedDeleteIcon, AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
   state = { error: null };
@@ -185,7 +186,7 @@ function ImportModal({
                     <TriangleAlert className="w-3.5 h-3.5" />
                     {uploadSummary.corruptedRows.length} invalid row{uploadSummary.corruptedRows.length > 1 ? 's' : ''} — click to review
                   </span>
-                  {showCorrupted ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  <AnimatedChevronDown open={showCorrupted} className="w-4 h-4" />
                 </button>
                 {showCorrupted && (
                   <div className="divide-y divide-red-100 max-h-48 overflow-y-auto">
@@ -731,7 +732,7 @@ export default function ContactsPage() {
               <button onClick={handleDeleteSelected} disabled={deleting}
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
               >
-                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedDeleteIcon className="w-4 h-4" />}
                 Delete ({selectedIds.size})
               </button>
             )}

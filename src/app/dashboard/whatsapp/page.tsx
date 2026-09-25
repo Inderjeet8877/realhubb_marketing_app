@@ -9,6 +9,7 @@ import { ChatListSkeleton, ChatBubblesSkeleton } from "@/components/Skeletons";
 import { BulkReports } from "@/components/whatsapp/BulkReports";
 import { normalizePhone } from "@/lib/whatsapp-send";
 import { formatDuration } from "@/lib/format";
+import { AnimatedCopyIcon, AnimatedSendIcon } from "@/components/icons/AnimatedIcons";
 
 interface Conversation {
   id: string;
@@ -949,10 +950,11 @@ export default function WhatsAppPage() {
                   </div>
                   <button
                     onClick={handleCopyDetails}
-                    className="px-2 py-1 text-[10px] bg-white/10 hover:bg-white/20 text-white/80 rounded border border-white/20"
+                    className="flex items-center gap-1 px-2 py-1 text-[10px] bg-white/10 hover:bg-white/20 text-white/80 rounded border border-white/20"
                     title="Copy this contact's name and phone number"
                   >
-                    {copiedDetails ? "✓ Copied" : "Copy Details"}
+                    <AnimatedCopyIcon copied={copiedDetails} className="w-3 h-3" />
+                    {copiedDetails ? "Copied" : "Copy Details"}
                   </button>
                   <button onClick={() => setSelectedConversation(null)} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-full">
                     <X className="w-4 h-4" />
@@ -1025,7 +1027,7 @@ export default function WhatsAppPage() {
                     className="w-10 h-10 rounded-full flex items-center justify-center text-white transition-colors disabled:opacity-50"
                     style={{ backgroundColor: sendingReply || !replyText.trim() ? "#aaa" : "#075e54" }}
                   >
-                    {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedSendIcon className="w-4 h-4" />}
                   </button>
                 </div>
               </>
@@ -1162,7 +1164,7 @@ export default function WhatsAppPage() {
                       disabled={loading || missingMedia}
                       className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <AnimatedSendIcon className="w-5 h-5" />}
                       {loading ? "Sending..." : "Send Message"}
                     </button>
                   </>
@@ -1461,7 +1463,7 @@ export default function WhatsAppPage() {
                     }
                     className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    <Send className="w-5 h-5" />
+                    <AnimatedSendIcon sending={sendingBulk} className="w-5 h-5" />
                     {bulkMissingMedia ? "Attach the template's media first" : `Send to ${selectedContacts.length} Contacts`}
                   </button>
                 );

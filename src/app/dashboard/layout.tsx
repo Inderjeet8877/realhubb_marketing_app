@@ -12,9 +12,10 @@ import { ToastProvider } from "@/contexts/ToastContext";
 import { ConfirmProvider } from "@/contexts/ConfirmContext";
 import {
   LayoutDashboard, Megaphone, Users, MessageSquare,
-  Settings, LogOut, Menu, X, Target, FileText, Radio, Inbox, ChevronDown,
+  Settings, LogOut, Menu, X, Target, FileText, Radio, Inbox,
 } from "lucide-react";
 import { useState } from "react";
+import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 
 // Meta and WhatsApp now share one /dashboard route (a toggle switches
 // between them there), so "Dashboard" is a single standalone nav link —
@@ -265,7 +266,7 @@ function NavDropdown({
       >
         <Icon className="w-4 h-4 mr-1.5" />
         {label}
-        <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform ${open ? "rotate-180" : ""}`} />
+        <AnimatedChevronDown open={open} className="w-3.5 h-3.5 ml-1" />
         {!!badge && badge > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
             {badge > 99 ? "99+" : badge}

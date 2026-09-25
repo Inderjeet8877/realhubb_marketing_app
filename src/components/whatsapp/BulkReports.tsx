@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import useSWR from "swr";
 import {
-  Loader2, BarChart3, MessageSquare, ChevronDown, ChevronUp, X, FileDown,
+  Loader2, BarChart3, MessageSquare, X, FileDown,
   FileText, Layers, LayoutGrid, Search, CheckCircle2, AlertCircle, Clock,
   RefreshCw,
 } from "lucide-react";
@@ -13,6 +13,7 @@ import { describeMetaErrorCode } from "@/lib/whatsapp-send";
 import { formatDuration } from "@/lib/format";
 import { fetcher, reportSwrConfig } from "@/lib/swr";
 import { buildBroadcastReportPdf, type BroadcastReportRow, type EngagementReportData } from "@/lib/broadcast-report-pdf";
+import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 
 const NO_TEMPLATE_KEY = "__none__";
 const NO_TEMPLATE_LABEL = "Custom / No Template";
@@ -397,7 +398,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
           }`}
         >
           <FileDown className="w-4 h-4" /> Generate Report
-          <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${reportPanelOpen ? "rotate-180" : ""}`} />
+          <AnimatedChevronDown open={reportPanelOpen} className="w-4 h-4" />
         </button>
       </div>
 
@@ -712,7 +713,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                     onClick={() => toggleExpanded(r.id)}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors active:scale-[0.98]"
                   >
-                    {isLoadingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />} Details
+                    {isLoadingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <AnimatedChevronDown open={isExpanded} className="w-3.5 h-3.5" />} Details
                   </button>
                 </div>
               </div>

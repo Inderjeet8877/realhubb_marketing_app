@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
 import {
-  BarChart3, Users, TrendingUp, Eye, ChevronDown, Target, DollarSign, RefreshCw,
+  BarChart3, Users, TrendingUp, Eye, Target, DollarSign, RefreshCw,
   Download, FileSpreadsheet, FileText, AlertTriangle, TrendingDown, Inbox, Calendar, FileBadge,
 } from "lucide-react";
+import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
@@ -373,7 +374,7 @@ export default function MetaDashboardContent() {
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
               <Calendar className="w-4 h-4 text-gray-400" />
               {dateLabel}
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <AnimatedChevronDown open={showDateDropdown} className="w-4 h-4 text-gray-400" />
             </button>
             {showDateDropdown && (
               <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2">
@@ -410,7 +411,7 @@ export default function MetaDashboardContent() {
             <button onClick={() => setShowDropdown(!showDropdown)}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
               {ACCOUNTS.find(a => a.id === selectedAccount)?.name}
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <AnimatedChevronDown open={showDropdown} className="w-4 h-4 text-gray-400" />
             </button>
             {showDropdown && (
               <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
@@ -436,7 +437,7 @@ export default function MetaDashboardContent() {
             >
               <Download className="w-4 h-4" />
               Download
-              <ChevronDown className="w-3 h-3" />
+              <AnimatedChevronDown open={showDlDropdown} className="w-3 h-3" />
             </button>
             {showDlDropdown && (
               <div className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-lg shadow-xl z-30">

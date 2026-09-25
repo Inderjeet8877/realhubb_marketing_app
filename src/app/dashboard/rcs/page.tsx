@@ -4,8 +4,9 @@ import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { fetcher, swrConfig } from "@/lib/swr";
 import { TableSkeleton } from "@/components/Skeletons";
+import { AnimatedSendIcon } from "@/components/icons/AnimatedIcons";
 import {
-  Radio, AlertTriangle, Send, Loader2, Search, CheckSquare, Square,
+  Radio, AlertTriangle, Loader2, Search, CheckSquare, Square,
   CheckCircle2, XCircle, Users, Sparkles,
 } from "lucide-react";
 
@@ -226,7 +227,7 @@ export default function RcsPage() {
           disabled={!configured || sending || recipientCount === 0}
           className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
         >
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedSendIcon className="w-4 h-4" />}
           {sending ? "Sending..." : `Send${recipientCount > 0 ? ` to ${recipientCount}` : ""}`}
         </button>
       </div>

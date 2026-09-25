@@ -13,10 +13,10 @@ import jsPDF from "jspdf";
 // this function-call form instead.
 import autoTable from "jspdf-autotable";
 import { StatCardsSkeleton, CardGridSkeleton, ListSkeleton } from "@/components/Skeletons";
+import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 import {
   Users,
   Loader2,
-  ChevronDown,
   RefreshCw,
   Search,
   Filter,
@@ -585,7 +585,7 @@ export default function LeadsPage() {
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               <span className="text-sm font-medium text-gray-700">{selectedAccountName}</span>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+              <AnimatedChevronDown open={showAccountDropdown} className="w-4 h-4 text-gray-500" />
             </button>
 
             {showAccountDropdown && (

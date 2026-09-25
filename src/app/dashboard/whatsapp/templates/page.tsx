@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  Plus, Trash2, CheckCircle, Clock, XCircle, Send, FileText, Eye,
+  Plus, Trash2, CheckCircle, Clock, XCircle, FileText, Eye,
   Loader2, X, Cloud, PauseCircle, Ban, AlertTriangle,
 } from "lucide-react";
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 import { CardGridSkeleton } from "@/components/Skeletons";
+import { AnimatedCopyIcon, AnimatedDeleteIcon, AnimatedSendIcon } from "@/components/icons/AnimatedIcons";
 
 interface Template {
   id: string;
@@ -495,8 +496,9 @@ export default function WhatsAppTemplatesPage() {
                     </p>
                     <button
                       onClick={() => copyMediaUrl(template.id, template.headerContent)}
-                      className="text-xs font-medium text-blue-700 hover:text-blue-900 shrink-0"
+                      className="flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-900 shrink-0"
                     >
+                      <AnimatedCopyIcon copied={copiedId === template.id} className="w-3.5 h-3.5" />
                       {copiedId === template.id ? "Copied!" : "Copy URL"}
                     </button>
                   </div>
@@ -535,7 +537,7 @@ export default function WhatsAppTemplatesPage() {
                     className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
                     title="Delete"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <AnimatedDeleteIcon className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -875,7 +877,7 @@ export default function WhatsAppTemplatesPage() {
                 disabled={saving || !name || !content}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedSendIcon sending={saving} className="w-4 h-4" />}
                 {saving ? 'Submitting...' : editingTemplate ? 'Create on Meta' : 'Create Template'}
               </button>
             </div>
