@@ -10,6 +10,7 @@ import { BulkReports } from "@/components/whatsapp/BulkReports";
 import { normalizePhone } from "@/lib/whatsapp-send";
 import { formatDuration } from "@/lib/format";
 import { AnimatedCopyIcon, AnimatedSendIcon } from "@/components/icons/AnimatedIcons";
+import { useToast } from "@/contexts/ToastContext";
 
 interface Conversation {
   id: string;
@@ -111,6 +112,7 @@ function MsgTick({ status }: { status?: string }) {
 }
 
 export default function WhatsAppPage() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"send" | "inbox" | "reports">("send");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -361,13 +363,13 @@ export default function WhatsAppPage() {
       const r = await fetch("/api/whatsapp/templates?syncFromMeta=true");
       const d = await r.json();
       if (d.success) {
-        alert(`Synced ${d.count} templates from Meta!`);
+        toast(`Synced ${d.count} templates from Meta!`, "success");
         fetchTemplates();
       } else {
-        alert(d.error || "Sync failed");
+        toast(d.error || "Sync failed", "error");
       }
     } catch (e) {
-      alert("Sync error: " + e);
+      toast("Sync error: " + e, "error");
     } finally {
       setSyncingTemplates(false);
     }
@@ -452,7 +454,7 @@ export default function WhatsAppPage() {
       setCopiedDetails(true);
       setTimeout(() => setCopiedDetails(false), 1500);
     } catch {
-      alert("Couldn't copy — your browser may be blocking clipboard access.");
+      toast("Couldn't copy — your browser may be blocking clipboard access.", "error");
     }
   };
 
@@ -481,17 +483,17 @@ export default function WhatsAppPage() {
           prev.map(c => c.phone === selectedConversation.phone ? { ...c, lastMessage: replyText, lastMessageAt: new Date().toISOString(), lastMessageDirection: "outbound" } : c)
         );
       } else {
-        alert(data.error || "Failed to send message");
+        toast(data.error || "Failed to send message", "error");
       }
     } catch {
-      alert("Failed to send message");
+      toast("Failed to send message", "error");
     } finally {
       setSendingReply(false);
     }
   };
 
   const handleSend = async () => {
-    if (!phoneNumber) { alert("Please enter phone number"); return; }
+    if (!phoneNumber) { toast("Please enter phone number", "warning"); return; }
     setLoading(true);
     try {
       const templateObj = templates.find((t: any) => t.name === selectedTemplate);
@@ -516,12 +518,12 @@ export default function WhatsAppPage() {
         setMessages([{ id: Date.now().toString(), to: phoneNumber, message: messageType === "template" ? `Template: ${selectedTemplate}` : messageText, status: "sent", sentAt: new Date() }, ...messages]);
         setMessageText("");
         if (messageType === "template") setSelectedTemplate("");
-        alert(`Message sent to ${phoneNumber}! (ID: ${data.messageId})`);
+        toast(`Message sent to ${phoneNumber}! (ID: ${data.messageId})`, "success");
       } else {
-        alert("Error: " + (data.error || "Failed to send") + "\n" + (data.debug ? JSON.stringify(data.debug) : ""));
+        toast("Error: " + (data.error || "Failed to send") + "\n" + (data.debug ? JSON.stringify(data.debug) : ""), "error");
       }
     } catch (error) {
-      alert("Failed to send message: " + error);
+      toast("Failed to send message: " + error, "error");
     } finally {
       setLoading(false);
     }
@@ -645,9 +647,9 @@ export default function WhatsAppPage() {
         body:    JSON.stringify({ broadcastId: activeBroadcastId, reason }),
       });
       const d = await res.json();
-      if (!res.ok || !d.success) alert(d.error || "Failed to cancel broadcast");
+      if (!res.ok || !d.success) toast(d.error || "Failed to cancel broadcast", "error");
     } catch (err: any) {
-      alert("Failed to cancel broadcast: " + (err.message || "Network error"));
+      toast("Failed to cancel broadcast: " + (err.message || "Network error"), "error");
     } finally {
       setCancellingBroadcast(false);
     }
@@ -666,11 +668,11 @@ export default function WhatsAppPage() {
       const d = await res.json();
       if (!res.ok || !d.success) {
         if (opts?.silent) console.warn("[Auto-resume] nudge response:", d.error || res.status);
-        else alert(d.error || "Failed to resume broadcast");
+        else toast(d.error || "Failed to resume broadcast", "error");
       }
     } catch (err: any) {
       if (opts?.silent) console.warn("[Auto-resume] failed:", err);
-      else alert("Failed to resume broadcast: " + (err.message || "Network error"));
+      else toast("Failed to resume broadcast: " + (err.message || "Network error"), "error");
     }
   };
 
@@ -950,11 +952,10 @@ export default function WhatsAppPage() {
                   </div>
                   <button
                     onClick={handleCopyDetails}
-                    className="flex items-center gap-1 px-2 py-1 text-[10px] bg-white/10 hover:bg-white/20 text-white/80 rounded border border-white/20"
+                    className="flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-black/40 hover:bg-black/60 text-white transition-colors"
                     title="Copy this contact's name and phone number"
                   >
-                    <AnimatedCopyIcon copied={copiedDetails} className="w-3 h-3" />
-                    {copiedDetails ? "Copied" : "Copy Details"}
+                    <AnimatedCopyIcon copied={copiedDetails} className="w-4 h-4" />
                   </button>
                   <button onClick={() => setSelectedConversation(null)} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-full">
                     <X className="w-4 h-4" />

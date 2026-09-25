@@ -14,6 +14,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { StatCardsSkeleton, CardGridSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
+import { useToast } from "@/contexts/ToastContext";
 import {
   Users,
   Loader2,
@@ -141,6 +142,7 @@ interface CampaignLeadRow {
 }
 
 export default function LeadsPage() {
+  const { toast } = useToast();
   const [selectedAccount, setSelectedAccount] = useState<string>("1");
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -305,7 +307,7 @@ export default function LeadsPage() {
     console.log("META_ACCOUNTS:", META_ACCOUNTS);
     
     if (filteredForms.length === 0 && forms.length === 0) {
-      alert("No forms loaded. Please wait for forms to load or refresh.");
+      toast("No forms loaded. Please wait for forms to load or refresh.", "warning");
       return;
     }
 
@@ -358,7 +360,7 @@ export default function LeadsPage() {
       setExportProgress({ current: filteredForms.length, total: filteredForms.length, currentForm: "Generating file...", leadsCount: allRows.length });
 
       if (allRows.length === 0) {
-        alert("No leads found to export");
+        toast("No leads found to export", "warning");
         setExporting(false);
         return;
       }
@@ -379,10 +381,10 @@ export default function LeadsPage() {
       a.click();
       URL.revokeObjectURL(url);
       console.log("CSV export complete:", allRows.length, "leads exported");
-      alert(`CSV exported successfully! ${allRows.length} leads saved.`);
+      toast(`CSV exported successfully! ${allRows.length} leads saved.`, "success");
     } catch (error) {
       console.error("Error exporting CSV:", error);
-      alert("Failed to export CSV");
+      toast("Failed to export CSV", "error");
     } finally {
       setExporting(false);
     }
@@ -391,7 +393,7 @@ export default function LeadsPage() {
   const exportFormsPDF = async () => {
     console.log("Starting PDF export", filteredForms.length, "forms", forms.length, "total forms");
     if (filteredForms.length === 0 && forms.length === 0) {
-      alert("No forms loaded. Please wait for forms to load or refresh.");
+      toast("No forms loaded. Please wait for forms to load or refresh.", "warning");
       setExporting(false);
       return;
     }
@@ -493,7 +495,7 @@ export default function LeadsPage() {
       doc.save(`leads_report_${new Date().toISOString().split("T")[0]}.pdf`);
     } catch (error) {
       console.error("Error exporting PDF:", error);
-      alert("Failed to export PDF");
+      toast("Failed to export PDF", "error");
     } finally {
       setExporting(false);
     }
@@ -533,13 +535,13 @@ export default function LeadsPage() {
       const result = await response.json();
       
       if (result.success) {
-        alert(`Successfully saved ${result.imported || contacts.length} leads to database!`);
+        toast(`Successfully saved ${result.imported || contacts.length} leads to database!`, "success");
       } else {
-        alert(result.error || "Failed to save leads");
+        toast(result.error || "Failed to save leads", "error");
       }
     } catch (error) {
       console.error("Error saving to database:", error);
-      alert("Failed to save leads to database");
+      toast("Failed to save leads to database", "error");
     } finally {
       setSavingToDb(false);
     }

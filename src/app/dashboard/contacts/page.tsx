@@ -6,6 +6,8 @@ import { fetcher, swrConfig } from "@/lib/swr";
 import { Users, Upload, Tag, Loader2, Search, X, FileText, CheckCircle, CheckSquare, Square, TriangleAlert, Plus } from "lucide-react";
 import { StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 import { AnimatedDeleteIcon, AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
+import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
   state = { error: null };
@@ -281,6 +283,8 @@ function ImportModal({
 }
 
 export default function ContactsPage() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const { data: contactsData, error: contactsError, isLoading: contactsLoading, mutate: reloadContacts } =
     useSWR("/api/contacts", fetcher, swrConfig);
   const { data: failedData, isLoading: failedLoading } =
@@ -356,11 +360,11 @@ export default function ContactsPage() {
   const handleFileUpload = async (file: File) => {
     const ext = file.name.toLowerCase().split('.').pop();
     if (ext !== 'csv' && ext !== 'xlsx' && ext !== 'xls') {
-      alert('Please upload a CSV or Excel file (.csv / .xlsx / .xls)');
+      toast('Please upload a CSV or Excel file (.csv / .xlsx / .xls)', 'warning');
       return;
     }
     if (!dataName.trim()) {
-      alert('Please enter a Batch Name before uploading.');
+      toast('Please enter a Batch Name before uploading.', 'warning');
       return;
     }
 
@@ -377,7 +381,7 @@ export default function ContactsPage() {
       const parseData = await parseRes.json();
 
       if (!parseRes.ok || !parseData.success) {
-        alert(parseData.error || 'Failed to parse file');
+        toast(parseData.error || 'Failed to parse file', 'error');
         resetUpload();
         return;
       }
@@ -387,7 +391,7 @@ export default function ContactsPage() {
       const intraFileDups: number = parseData.intraFileDuplicates || 0;
 
       if (validContacts.length === 0) {
-        alert(`No valid contacts found.\n${corrupted.length} rows had errors (missing name or invalid phone).`);
+        toast(`No valid contacts found.\n${corrupted.length} rows had errors (missing name or invalid phone).`, 'warning');
         resetUpload();
         return;
       }
@@ -452,13 +456,13 @@ export default function ContactsPage() {
       setDataName("");
       fetchContacts();
     } catch (err: any) {
-      alert('Upload failed: ' + (err.message || 'Network error'));
+      toast('Upload failed: ' + (err.message || 'Network error'), 'error');
       resetUpload();
     }
   };
 
   const handleDedupe = async (batchName: string) => {
-    if (!confirm(`Scan "${batchName}" for contacts with the same phone number and delete the extra copies (keeping the first of each)?`)) return;
+    if (!(await confirm(`Scan "${batchName}" for contacts with the same phone number and delete the extra copies (keeping the first of each)?`))) return;
     setDeduping(true);
     try {
       const res = await fetch('/api/contacts', {
@@ -468,15 +472,15 @@ export default function ContactsPage() {
       });
       const d = await res.json();
       if (!res.ok || !d.success) {
-        alert(d.error || 'Failed to remove duplicates');
+        toast(d.error || 'Failed to remove duplicates', 'error');
         return;
       }
-      alert(d.duplicatesRemoved > 0
+      toast(d.duplicatesRemoved > 0
         ? `Removed ${d.duplicatesRemoved} duplicate contact(s). ${d.remaining} remain in this batch.`
-        : 'No duplicates found in this batch.');
+        : 'No duplicates found in this batch.', d.duplicatesRemoved > 0 ? 'success' : 'info');
       fetchContacts();
     } catch (err: any) {
-      alert('Failed to remove duplicates: ' + (err.message || 'Network error'));
+      toast('Failed to remove duplicates: ' + (err.message || 'Network error'), 'error');
     } finally {
       setDeduping(false);
     }
@@ -520,9 +524,9 @@ export default function ContactsPage() {
 
   const handleDeleteSelected = async () => {
     if (selectedIds.size === 0) return;
-    
-    if (!confirm(`Delete ${selectedIds.size} selected contact(s)?`)) return;
-    
+
+    if (!(await confirm(`Delete ${selectedIds.size} selected contact(s)?`, { title: 'Delete contacts', confirmLabel: 'Delete', tone: 'danger' }))) return;
+
     setDeleting(true);
     try {
       const response = await fetch('/api/contacts', {

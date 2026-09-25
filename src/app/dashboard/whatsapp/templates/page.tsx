@@ -8,6 +8,8 @@ import {
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 import { CardGridSkeleton } from "@/components/Skeletons";
 import { AnimatedCopyIcon, AnimatedDeleteIcon, AnimatedSendIcon } from "@/components/icons/AnimatedIcons";
+import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 interface Template {
   id: string;
@@ -27,6 +29,8 @@ interface Template {
 }
 
 export default function WhatsAppTemplatesPage() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -134,11 +138,11 @@ export default function WhatsAppTemplatesPage() {
       if (data.success) {
         setHeaderContent(data.url);
       } else {
-        alert(data.error || 'Upload failed');
+        toast(data.error || 'Upload failed', "error");
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Failed to upload image');
+      toast('Failed to upload image', "error");
     } finally {
       setUploading(false);
     }
@@ -152,18 +156,18 @@ export default function WhatsAppTemplatesPage() {
 
   // Always creates a NEW template on Meta (POST) — works from both create and edit mode
   const handleCreateOnMeta = async () => {
-    if (!name || !content) { alert("Template name and content are required"); return; }
-    
+    if (!name || !content) { toast("Template name and content are required", "warning"); return; }
+
     // Check if editing and name is same as original (would cause duplicate on Meta)
     if (editingTemplate?.name && name === editingTemplate.name) {
-      alert(`Template name "${name}" already exists on Meta. Change the name to create a new template, or use "Save Locally" to update without creating.`);
+      toast(`Template name "${name}" already exists on Meta. Change the name to create a new template, or use "Save Locally" to update without creating.`, "warning");
       return;
     }
-    
+
     // Check if this name already exists in our local templates
     const existing = templates.find(t => t.name.toLowerCase() === name.toLowerCase() && t.id !== editingTemplate?.id);
     if (existing) {
-      alert(`Template name "${name}" already exists locally. Change the name to create new.`);
+      toast(`Template name "${name}" already exists locally. Change the name to create new.`, "warning");
       return;
     }
     
@@ -176,16 +180,16 @@ export default function WhatsAppTemplatesPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(data.message || "Template submitted to Meta for review!");
+        toast(data.message || "Template submitted to Meta for review!", "success");
         fetchTemplates();
         resetForm();
         setShowModal(false);
       } else {
         // Show exact Meta error
-        alert(data.error?.meta_error || data.error || "Failed to create template on Meta");
+        toast(data.error?.meta_error || data.error || "Failed to create template on Meta", "error");
       }
     } catch (err: any) {
-      alert("Failed to create template: " + (err.message || "Unknown error"));
+      toast("Failed to create template: " + (err.message || "Unknown error"), "error");
     } finally {
       setSaving(false);
     }
@@ -203,22 +207,22 @@ export default function WhatsAppTemplatesPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert("Template saved locally (not submitted to Meta).");
+        toast("Template saved locally (not submitted to Meta).", "success");
         fetchTemplates();
         resetForm();
         setShowModal(false);
       } else {
-        alert(data.error || "Failed to update template");
+        toast(data.error || "Failed to update template", "error");
       }
     } catch {
-      alert("Failed to update template");
+      toast("Failed to update template", "error");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteTemplate = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this template?")) return;
+    if (!(await confirm("Are you sure you want to delete this template?", { tone: "danger" }))) return;
 
     try {
       const response = await fetch("/api/whatsapp/templates", {
@@ -231,11 +235,11 @@ export default function WhatsAppTemplatesPage() {
       if (data.success) {
         fetchTemplates();
       } else {
-        alert(data.error || "Failed to delete template");
+        toast(data.error || "Failed to delete template", "error");
       }
     } catch (error) {
       console.error("Error deleting template:", error);
-      alert("Failed to delete template");
+      toast("Failed to delete template", "error");
     }
   };
 

@@ -14,6 +14,7 @@ import { formatDuration } from "@/lib/format";
 import { fetcher, reportSwrConfig } from "@/lib/swr";
 import { buildBroadcastReportPdf, type BroadcastReportRow, type EngagementReportData } from "@/lib/broadcast-report-pdf";
 import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
+import { useToast } from "@/contexts/ToastContext";
 
 const NO_TEMPLATE_KEY = "__none__";
 const NO_TEMPLATE_LABEL = "Custom / No Template";
@@ -23,6 +24,7 @@ const NO_TEMPLATE_LABEL = "Custom / No Template";
 // re-renders of the much larger Send/Inbox tab tree, and vice versa —
 // previously all three tabs were one ~1,500-line component.
 export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[], batchName: string) => void }) {
+  const { toast } = useToast();
   const [reports, setReports]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -176,9 +178,9 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
         body:    JSON.stringify({ broadcastId: id, reason }),
       });
       const d = await res.json();
-      if (!res.ok || !d.success) alert(d.error || "Failed to cancel broadcast");
+      if (!res.ok || !d.success) toast(d.error || "Failed to cancel broadcast", "error");
     } catch (err: any) {
-      alert("Failed to cancel broadcast: " + (err.message || "Network error"));
+      toast("Failed to cancel broadcast: " + (err.message || "Network error"), "error");
     } finally {
       setCancellingId(null);
     }
@@ -196,9 +198,9 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
         body:    JSON.stringify({ broadcastId: id }),
       });
       const d = await res.json();
-      if (!res.ok || !d.success) alert(d.error || "Failed to resume broadcast");
+      if (!res.ok || !d.success) toast(d.error || "Failed to resume broadcast", "error");
     } catch (err: any) {
-      alert("Failed to resume broadcast: " + (err.message || "Network error"));
+      toast("Failed to resume broadcast: " + (err.message || "Network error"), "error");
     } finally {
       setResumingId(null);
     }
