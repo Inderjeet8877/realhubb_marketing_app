@@ -1,9 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useState } from "react";
-import Alert from "@mui/material/Alert";
-import Button from "@mui/material/Button";
-import Stack from "@mui/material/Stack";
+import { Alert } from "@/components/ui/Alert";
 
 interface ConfirmOptions {
   title?: string;
@@ -29,11 +27,11 @@ interface PendingConfirm extends ConfirmOptions {
 
 // Replaces window.confirm() — same reasoning as ToastContext: a native
 // confirm() dialog is an unstyled OS-level popup out of place next to the
-// rest of this app. Rendered as a top-anchored MUI Alert (same slot/position
-// as toasts) rather than a center-screen modal, per explicit preference —
-// window.confirm() is synchronous; this is Promise-based instead
-// (`if (!(await confirm("..."))) return;`), so every call site using it
-// needs its enclosing function to be async.
+// rest of this app. Rendered as a top-anchored local Alert (same slot/
+// position as toasts) rather than a center-screen modal, per explicit
+// preference — window.confirm() is synchronous; this is Promise-based
+// instead (`if (!(await confirm("..."))) return;`), so every call site
+// using it needs its enclosing function to be async.
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const [pending, setPending] = useState<PendingConfirm | null>(null);
 
@@ -53,29 +51,28 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
       {children}
       {pending && (
         <div className="fixed top-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:left-auto z-[110] sm:w-96 animate-fade-in">
-          <Alert
-            severity={pending.tone === "danger" ? "error" : "info"}
-            sx={{ boxShadow: 3, alignItems: "flex-start" }}
-          >
-            <Stack spacing={1.5}>
-              <div>
-                {pending.title && <p className="font-semibold mb-0.5">{pending.title}</p>}
-                <p className="text-sm">{pending.message}</p>
-              </div>
-              <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
-                <Button size="small" color="inherit" onClick={() => handle(false)}>
+          <Alert status={pending.tone === "danger" ? "danger" : "info"}>
+            <Alert.Indicator />
+            <Alert.Content>
+              {pending.title && <Alert.Title>{pending.title}</Alert.Title>}
+              <Alert.Description>{pending.message}</Alert.Description>
+              <div className="flex justify-end gap-2 mt-3">
+                <button
+                  onClick={() => handle(false)}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 bg-white"
+                >
                   {pending.cancelLabel || "Cancel"}
-                </Button>
-                <Button
-                  size="small"
-                  variant="contained"
-                  color={pending.tone === "danger" ? "error" : "primary"}
+                </button>
+                <button
                   onClick={() => handle(true)}
+                  className={`px-3 py-1.5 text-sm font-medium text-white rounded-lg ${
+                    pending.tone === "danger" ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
+                  }`}
                 >
                   {pending.confirmLabel || "Confirm"}
-                </Button>
-              </Stack>
-            </Stack>
+                </button>
+              </div>
+            </Alert.Content>
           </Alert>
         </div>
       )}

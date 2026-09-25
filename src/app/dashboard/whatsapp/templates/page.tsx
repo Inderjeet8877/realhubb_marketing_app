@@ -61,6 +61,10 @@ export default function WhatsAppTemplatesPage() {
   const [buttons, setButtons] = useState<{ type: string; text: string; url?: string; phone_number?: string }[]>([]);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [accountLabel, setAccountLabel] = useState("");
+  // Below `lg`, the form and the live phone preview can't sit side-by-side without
+  // squeezing both unusably — this toggles which one is shown on small screens.
+  // At `lg` and up both panels render regardless of this value.
+  const [mobileView, setMobileView] = useState<"edit" | "preview">("edit");
 
   useEffect(() => {
     fetchTemplates();
@@ -253,6 +257,7 @@ export default function WhatsAppTemplatesPage() {
     setHeaderContent(template.headerContent || '');
     setFooterContent(template.footerContent || '');
     setButtons(template.buttons || []);
+    setMobileView("edit");
     setShowModal(true);
   };
 
@@ -266,6 +271,7 @@ export default function WhatsAppTemplatesPage() {
     setContent("");
     setFooterContent("");
     setButtons([]);
+    setMobileView("edit");
   };
 
   const addButton = (type: string) => {
@@ -551,20 +557,50 @@ export default function WhatsAppTemplatesPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center mb-4 shrink-0">
-              <h2 className="text-xl font-bold text-gray-900">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 sm:p-4">
+          <div className="bg-white w-full h-full sm:h-auto sm:rounded-xl sm:max-h-[90vh] sm:max-w-4xl overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-gray-100 shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate pr-2">
                 {editingTemplate ? `Edit: ${editingTemplate.name}` : "Create Template"}
               </h2>
-              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => setShowModal(false)} className="p-2 -mr-2 hover:bg-gray-100 rounded-lg shrink-0">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-4 flex-1 overflow-hidden">
+            {/* Edit/Preview tabs — only needed below `lg`, where the form and the phone
+                preview can't both fit at a usable width. At `lg`+ they sit side by side
+                and this bar is hidden. */}
+            <div className="lg:hidden flex border-b border-gray-100 shrink-0">
+              <button
+                onClick={() => setMobileView("edit")}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold border-b-2 transition-colors ${
+                  mobileView === "edit"
+                    ? "border-green-600 text-green-700"
+                    : "border-transparent text-gray-500"
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                Edit
+              </button>
+              <button
+                onClick={() => setMobileView("preview")}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold border-b-2 transition-colors ${
+                  mobileView === "preview"
+                    ? "border-green-600 text-green-700"
+                    : "border-transparent text-gray-500"
+                }`}
+              >
+                <Eye className="w-4 h-4" />
+                Preview
+              </button>
+            </div>
+
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
               {/* Form Section */}
-              <div className="flex-1 overflow-y-auto lg:pr-4 space-y-4">
+              <div
+                className={`${mobileView === "edit" ? "flex" : "hidden"} lg:flex flex-1 flex-col overflow-y-auto lg:pr-4 p-4 sm:p-6 space-y-6`}
+              >
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-sm text-green-800 flex items-center gap-2">
                     Using WhatsApp Account: {accountLabel || "Loading account..."}
@@ -596,245 +632,279 @@ export default function WhatsAppTemplatesPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Template Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="my_template"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
-                    />
+                {/* Section 1 — Basic Info */}
+                <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">1</span>
+                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Basic Info</h3>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Language
-                    </label>
-                    <select
-                      value={language}
-                      onChange={(e) => setLanguage(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
-                    >
-                      <option value="en_US">English (US)</option>
-                      <option value="en_GB">English (UK)</option>
-                      <option value="hi_IN">Hindi</option>
-                      <option value="kn_IN">Kannada</option>
-                      <option value="ta_IN">Tamil</option>
-                      <option value="te_IN">Telugu</option>
-                    </select>
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
-                  >
-                    <option value="MARKETING">Marketing</option>
-                    <option value="UTILITY">Utility</option>
-                    <option value="AUTHENTICATION">Authentication</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Header Type
-                  </label>
-                  <select
-                    value={headerType}
-                    onChange={(e) => setHeaderType(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
-                  >
-                    <option value="none">No Header</option>
-                    <option value="text">Text</option>
-                    <option value="image">Image</option>
-                    <option value="video">Video</option>
-                    <option value="document">Document</option>
-                  </select>
-                </div>
-
-                {headerType !== 'none' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Header Content {headerType === 'text' ? '(Text)' : '(Upload Image/Video)'}
-                    </label>
-                    {headerType === 'text' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Template Name *
+                      </label>
                       <input
                         type="text"
-                        value={headerContent}
-                        onChange={(e) => setHeaderContent(e.target.value)}
-                        placeholder="Header text here"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="my_template"
+                        className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
                       />
-                    ) : (
-                      <div className="space-y-2">
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Language
+                      </label>
+                      <select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                      >
+                        <option value="en_US">English (US)</option>
+                        <option value="en_GB">English (UK)</option>
+                        <option value="hi_IN">Hindi</option>
+                        <option value="kn_IN">Kannada</option>
+                        <option value="ta_IN">Tamil</option>
+                        <option value="te_IN">Telugu</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category
+                    </label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                    >
+                      <option value="MARKETING">Marketing</option>
+                      <option value="UTILITY">Utility</option>
+                      <option value="AUTHENTICATION">Authentication</option>
+                    </select>
+                  </div>
+                </section>
+
+                {/* Section 2 — Header */}
+                <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">2</span>
+                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Header</h3>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Header Type
+                    </label>
+                    <select
+                      value={headerType}
+                      onChange={(e) => setHeaderType(e.target.value)}
+                      className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                    >
+                      <option value="none">No Header</option>
+                      <option value="text">Text</option>
+                      <option value="image">Image</option>
+                      <option value="video">Video</option>
+                      <option value="document">Document</option>
+                    </select>
+                  </div>
+
+                  {headerType !== 'none' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Header Content {headerType === 'text' ? '(Text)' : '(Upload Image/Video)'}
+                      </label>
+                      {headerType === 'text' ? (
                         <input
                           type="text"
                           value={headerContent}
                           onChange={(e) => setHeaderContent(e.target.value)}
-                          placeholder="Paste URL or upload file"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
+                          placeholder="Header text here"
+                          className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
                         />
-                        <div className="flex items-center gap-2">
+                      ) : (
+                        <div className="space-y-2">
                           <input
-                            type="file"
-                            ref={fileInputRef}
-                            accept="image/*,video/*"
-                            onChange={handleImageUpload}
-                            className="hidden"
+                            type="text"
+                            value={headerContent}
+                            onChange={(e) => setHeaderContent(e.target.value)}
+                            placeholder="Paste URL or upload file"
+                            className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
                           />
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={uploading}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {uploading ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Cloud className="w-4 h-4" />
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              accept="image/*,video/*"
+                              onChange={handleImageUpload}
+                              className="hidden"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={uploading}
+                              className="flex items-center gap-2 px-4 py-3 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-base sm:text-sm"
+                            >
+                              {uploading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Cloud className="w-4 h-4" />
+                              )}
+                              {uploading ? 'Uploading...' : 'Upload to Cloudinary'}
+                            </button>
+                            {headerContent && (
+                              <span className="text-sm text-green-600">✓ Uploaded</span>
                             )}
-                            {uploading ? 'Uploading...' : 'Upload to Cloudinary'}
-                          </button>
-                          {headerContent && (
-                            <span className="text-sm text-green-600">✓ Uploaded</span>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Message Content *
-                  </label>
-                  <textarea
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    rows={4}
-                    placeholder="Enter your message here... Use {{1}}, {{2}} for variables"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Use {"{{1}}"}, {"{{2}}"} for dynamic placeholders
-                  </p>
-                  {(() => {
-                    const analysis = analyzeTemplateContent(content);
-                    return (
-                      <>
-                        {content.trim() && (
-                          <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50 p-2.5">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-semibold text-indigo-900">Predicted Content Score</span>
-                              <span className="text-xs font-bold text-indigo-900">{analysis.score}/100 — {analysis.label}</span>
-                            </div>
-                            <div className="h-1.5 w-full rounded-full bg-indigo-100 overflow-hidden">
-                              <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${analysis.score}%` }} />
-                            </div>
-                            <p className="text-[10px] text-indigo-700 mt-1">
-                              Our own estimate from this text alone, before submission — not Meta&apos;s official quality rating (shown after approval, on each template card below).
-                            </p>
-                          </div>
-                        )}
-                        {analysis.warnings.length > 0 && (
-                          <div className="mt-2 bg-orange-50 border border-orange-200 rounded-lg p-2.5 space-y-1">
-                            <p className="text-xs font-semibold text-orange-800">
-                              Won&apos;t block submission, but worth considering — these patterns raise the odds recipients block/report this template later:
-                            </p>
-                            <ul className="text-xs text-orange-700 list-disc list-inside space-y-0.5">
-                              {analysis.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Footer Text (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={footerContent}
-                    onChange={(e) => setFooterContent(e.target.value)}
-                    placeholder="Footer text"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Buttons
-                  </label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    <button
-                      onClick={() => addButton("URL")}
-                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
-                    >
-                      + URL Button
-                    </button>
-                    <button
-                      onClick={() => addButton("PHONE")}
-                      className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200"
-                    >
-                      + Call Button
-                    </button>
-                    <button
-                      onClick={() => addButton("QUICK_REPLY")}
-                      className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200"
-                    >
-                      + Quick Reply
-                    </button>
-                  </div>
-                  
-                  {buttons.map((btn, index) => (
-                    <div key={index} className="flex gap-2 mb-2 items-center">
-                      <span className="text-sm text-gray-500 w-20">{btn.type}</span>
-                      <input
-                        type="text"
-                        value={btn.text}
-                        onChange={(e) => updateButton(index, 'text', e.target.value)}
-                        placeholder="Button text"
-                        className="flex-1 px-3 py-1 border border-gray-300 rounded-lg text-gray-900 text-sm"
-                      />
-                      {btn.type === 'URL' && (
-                        <input
-                          type="text"
-                          value={btn.url || ''}
-                          onChange={(e) => updateButton(index, 'url', e.target.value)}
-                          placeholder="https://..."
-                          className="flex-1 px-3 py-1 border border-gray-300 rounded-lg text-gray-900 text-sm"
-                        />
                       )}
-                      {btn.type === 'PHONE' && (
-                        <input
-                          type="text"
-                          value={btn.phone_number || ''}
-                          onChange={(e) => updateButton(index, 'phone_number', e.target.value)}
-                          placeholder="+91..."
-                          className="flex-1 px-3 py-1 border border-gray-300 rounded-lg text-gray-900 text-sm"
-                        />
-                      )}
-                      <button onClick={() => removeButton(index)} className="text-red-500 hover:text-red-700">
-                        <XCircle className="w-4 h-4" />
+                    </div>
+                  )}
+                </section>
+
+                {/* Section 3 — Body */}
+                <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">3</span>
+                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Body</h3>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Message Content *
+                    </label>
+                    <textarea
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      rows={4}
+                      placeholder="Enter your message here... Use {{1}}, {{2}} for variables"
+                      className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Use {"{{1}}"}, {"{{2}}"} for dynamic placeholders
+                    </p>
+                    {(() => {
+                      const analysis = analyzeTemplateContent(content);
+                      return (
+                        <>
+                          {content.trim() && (
+                            <div className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50 p-2.5">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-semibold text-indigo-900">Predicted Content Score</span>
+                                <span className="text-xs font-bold text-indigo-900">{analysis.score}/100 — {analysis.label}</span>
+                              </div>
+                              <div className="h-1.5 w-full rounded-full bg-indigo-100 overflow-hidden">
+                                <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${analysis.score}%` }} />
+                              </div>
+                              <p className="text-[10px] text-indigo-700 mt-1">
+                                Our own estimate from this text alone, before submission — not Meta&apos;s official quality rating (shown after approval, on each template card below).
+                              </p>
+                            </div>
+                          )}
+                          {analysis.warnings.length > 0 && (
+                            <div className="mt-2 bg-orange-50 border border-orange-200 rounded-lg p-2.5 space-y-1">
+                              <p className="text-xs font-semibold text-orange-800">
+                                Won&apos;t block submission, but worth considering — these patterns raise the odds recipients block/report this template later:
+                              </p>
+                              <ul className="text-xs text-orange-700 list-disc list-inside space-y-0.5">
+                                {analysis.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </section>
+
+                {/* Section 4 — Footer & Buttons */}
+                <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">4</span>
+                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Footer &amp; Buttons</h3>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Footer Text (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={footerContent}
+                      onChange={(e) => setFooterContent(e.target.value)}
+                      placeholder="Footer text"
+                      className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Buttons
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      <button
+                        onClick={() => addButton("URL")}
+                        className="px-3 py-2 sm:py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
+                      >
+                        + URL Button
+                      </button>
+                      <button
+                        onClick={() => addButton("PHONE")}
+                        className="px-3 py-2 sm:py-1 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200"
+                      >
+                        + Call Button
+                      </button>
+                      <button
+                        onClick={() => addButton("QUICK_REPLY")}
+                        className="px-3 py-2 sm:py-1 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200"
+                      >
+                        + Quick Reply
                       </button>
                     </div>
-                  ))}
-                </div>
+
+                    {buttons.map((btn, index) => (
+                      <div key={index} className="flex flex-wrap gap-2 mb-2 items-center">
+                        <span className="text-sm text-gray-500 w-20">{btn.type}</span>
+                        <input
+                          type="text"
+                          value={btn.text}
+                          onChange={(e) => updateButton(index, 'text', e.target.value)}
+                          placeholder="Button text"
+                          className="flex-1 min-w-[120px] px-3 py-2 sm:py-1 border border-gray-300 rounded-lg text-gray-900 text-sm"
+                        />
+                        {btn.type === 'URL' && (
+                          <input
+                            type="text"
+                            value={btn.url || ''}
+                            onChange={(e) => updateButton(index, 'url', e.target.value)}
+                            placeholder="https://..."
+                            className="flex-1 min-w-[120px] px-3 py-2 sm:py-1 border border-gray-300 rounded-lg text-gray-900 text-sm"
+                          />
+                        )}
+                        {btn.type === 'PHONE' && (
+                          <input
+                            type="text"
+                            value={btn.phone_number || ''}
+                            onChange={(e) => updateButton(index, 'phone_number', e.target.value)}
+                            placeholder="+91..."
+                            className="flex-1 min-w-[120px] px-3 py-2 sm:py-1 border border-gray-300 rounded-lg text-gray-900 text-sm"
+                          />
+                        )}
+                        <button onClick={() => removeButton(index)} className="p-1 text-red-500 hover:text-red-700">
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
               </div>
 
               {/* Preview Section — live WhatsApp phone mockup */}
-              <div className="w-full lg:w-72 shrink-0 flex flex-col lg:overflow-y-auto lg:border-l lg:border-gray-100 lg:pl-4">
+              <div
+                className={`${mobileView === "preview" ? "flex" : "hidden"} lg:flex w-full lg:w-72 shrink-0 flex-col overflow-y-auto lg:border-l lg:border-gray-100 p-4 sm:p-6 lg:pl-4`}
+              >
                 <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <Eye className="w-4 h-4" />
                   Live Preview
@@ -855,35 +925,39 @@ export default function WhatsAppTemplatesPage() {
               </div>
             </div>
 
-            <div className="mt-4 flex justify-end gap-3 flex-wrap">
-              <button
-                onClick={() => { resetForm(); setShowModal(false); }}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-              >
-                Cancel
-              </button>
-
-              {/* Show "Save Locally" only in edit mode */}
-              {editingTemplate && (
+            {/* Sticky action bar — keeps Save/Create reachable without hunting for it
+                at the bottom of a long scroll, especially on mobile. */}
+            <div className="shrink-0 border-t border-gray-100 bg-white p-4 sm:p-6">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
                 <button
-                  onClick={handleUpdateLocal}
-                  disabled={saving || !name || !content}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
+                  onClick={() => { resetForm(); setShowModal(false); }}
+                  className="w-full sm:w-auto px-4 py-3 sm:py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-base sm:text-sm"
                 >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                  Save Locally
+                  Cancel
                 </button>
-              )}
 
-              {/* Always visible — creates a new template on Meta */}
-              <button
-                onClick={handleCreateOnMeta}
-                disabled={saving || !name || !content}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedSendIcon sending={saving} className="w-4 h-4" />}
-                {saving ? 'Submitting...' : editingTemplate ? 'Create on Meta' : 'Create Template'}
-              </button>
+                {/* Show "Save Locally" only in edit mode */}
+                {editingTemplate && (
+                  <button
+                    onClick={handleUpdateLocal}
+                    disabled={saving || !name || !content}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 text-base sm:text-sm"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                    Save Locally
+                  </button>
+                )}
+
+                {/* Always visible — creates a new template on Meta */}
+                <button
+                  onClick={handleCreateOnMeta}
+                  disabled={saving || !name || !content}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-base sm:text-sm"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedSendIcon sending={saving} className="w-4 h-4" />}
+                  {saving ? 'Submitting...' : editingTemplate ? 'Create on Meta' : 'Create Template'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
