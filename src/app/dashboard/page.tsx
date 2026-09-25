@@ -24,16 +24,18 @@ function DashboardContent() {
 
   return (
     <div>
-      <div className="flex items-center justify-end gap-1.5 sm:gap-3 mb-4 flex-nowrap">
-        <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${view === "meta" ? "text-blue-600" : "text-gray-400"}`}>
-          Meta
-        </span>
-        <span className="flex-shrink-0">
-          <MetaWhatsAppToggle checked={view === "whatsapp"} onChange={(isWhatsApp) => setView(isWhatsApp ? "whatsapp" : "meta")} />
-        </span>
-        <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${view === "whatsapp" ? "text-green-600" : "text-gray-400"}`}>
-          WhatsApp
-        </span>
+      <div className="flex justify-end mb-4">
+        <div className="inline-flex items-center gap-2 sm:gap-3 bg-gray-100 rounded-full pl-3 pr-2.5 py-1.5 sm:pl-4 sm:pr-3 sm:py-2 flex-nowrap">
+          <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${view === "meta" ? "text-blue-600" : "text-gray-400"}`}>
+            Meta
+          </span>
+          <span className="flex-shrink-0">
+            <MetaWhatsAppToggle checked={view === "whatsapp"} onChange={(isWhatsApp) => setView(isWhatsApp ? "whatsapp" : "meta")} />
+          </span>
+          <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${view === "whatsapp" ? "text-green-600" : "text-gray-400"}`}>
+            WhatsApp
+          </span>
+        </div>
       </div>
 
       {view === "meta" ? <MetaDashboardContent /> : <WhatsAppDashboardContent />}
