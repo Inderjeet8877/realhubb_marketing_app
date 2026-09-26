@@ -142,10 +142,27 @@ export default function NotificationSetup() {
         await PushNotifications.register();
 
         PushNotifications.addListener("registration", async (token) => {
+          // Device details for the admin-facing "registered devices" list —
+          // the token alone (a long opaque string that also rotates) tells
+          // an admin nothing about which physical device it belongs to.
+          let deviceInfo: Record<string, string> = { platform: "unknown" };
+          try {
+            const { Device } = await import("@capacitor/device");
+            const info = await Device.getInfo();
+            deviceInfo = {
+              platform: info.platform,
+              model: info.model || "",
+              manufacturer: info.manufacturer || "",
+              osVersion: info.osVersion || "",
+            };
+          } catch (err) {
+            console.error("[Native Push] Device.getInfo error:", err);
+          }
+
           await fetch("/api/notifications/register", {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ token: token.value }),
+            body:    JSON.stringify({ token: token.value, ...deviceInfo }),
           });
           localStorage.setItem("fcm_registered", "1");
           localStorage.setItem("fcm_device_token", token.value);
@@ -189,7 +206,11 @@ export default function NotificationSetup() {
         await fetch("/api/notifications/register", {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ token }),
+          body:    JSON.stringify({
+            token,
+            platform: "web",
+            userAgent: navigator.userAgent,
+          }),
         });
         localStorage.setItem("fcm_registered", "1");
         localStorage.setItem("fcm_device_token", token);

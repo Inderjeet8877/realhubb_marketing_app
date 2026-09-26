@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import {
   Bell, XCircle, Loader2, Facebook, RefreshCw, Unlink,
-  AlertTriangle, CheckCircle2, Clock,
+  AlertTriangle, CheckCircle2, Clock, Smartphone, Globe, Trash2,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -295,6 +295,100 @@ function MetaConnections() {
   );
 }
 
+interface RegisteredDevice {
+  token: string;
+  platform: string;
+  model: string | null;
+  manufacturer: string | null;
+  osVersion: string | null;
+  label: string;
+  registeredAt: string | null;
+  updatedAt: string | null;
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return "Unknown";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function PlatformIcon({ platform }: { platform: string }) {
+  if (platform === "web") return <Globe className="w-4 h-4 text-blue-600 shrink-0" />;
+  return <Smartphone className="w-4 h-4 text-green-600 shrink-0" />;
+}
+
+// Answers "how many devices is this app installed on" — the fcm_tokens
+// collection previously stored only a bare token string with no way to tell
+// devices apart; registration now captures model/OS (native) or browser/OS
+// (web) so this list actually means something. Existing pre-upgrade tokens
+// show as "Unknown device" until they next re-register (happens automatically
+// on next app open), not retroactively backfilled.
+function RegisteredDevices() {
+  const { data, mutate } = useSWR<{ devices: RegisteredDevice[] }>("/api/notifications/register", fetcher, swrConfig);
+  const devices = data?.devices || [];
+  const [removingToken, setRemovingToken] = useState<string | null>(null);
+
+  const handleRemove = async (token: string) => {
+    setRemovingToken(token);
+    try {
+      await fetch("/api/notifications/register", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      mutate();
+    } finally {
+      setRemovingToken(null);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 mt-6 overflow-hidden">
+      <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
+        <Smartphone className="w-5 h-5 text-gray-400" />
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Registered Devices</h2>
+          <p className="text-sm text-gray-500">
+            {devices.length} device{devices.length === 1 ? "" : "s"} receiving push notifications
+          </p>
+        </div>
+      </div>
+      {devices.length === 0 ? (
+        <p className="p-6 text-sm text-gray-400 text-center">No devices registered yet</p>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {devices.map((d) => (
+            <div key={d.token} className="p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <PlatformIcon platform={d.platform} />
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-900 truncate">{d.label}</p>
+                  <p className="text-xs text-gray-500">
+                    {d.platform}{d.osVersion ? ` ${d.osVersion}` : ""} · Last active {timeAgo(d.updatedAt)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleRemove(d.token)}
+                disabled={removingToken === d.token}
+                className="text-red-500 hover:text-red-700 disabled:opacity-50 shrink-0 p-1"
+                title="Remove this device"
+              >
+                {removingToken === d.token ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsContent() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -373,6 +467,8 @@ function SettingsContent() {
           </p>
         </div>
       </div>
+
+      <RegisteredDevices />
     </div>
   );
 }
