@@ -317,6 +317,11 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function formatDate(iso: string | null): string {
+  if (!iso) return "before device tracking was added";
+  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
 function PlatformIcon({ platform }: { platform: string }) {
   if (platform === "web") return <Globe className="w-4 h-4 text-blue-600 shrink-0" />;
   return <Smartphone className="w-4 h-4 text-green-600 shrink-0" />;
@@ -370,6 +375,9 @@ function RegisteredDevices() {
                   <p className="font-medium text-gray-900 truncate">{d.label}</p>
                   <p className="text-xs text-gray-500">
                     {d.platform}{d.osVersion ? ` ${d.osVersion}` : ""} · Last active {timeAgo(d.updatedAt)}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Installed {formatDate(d.registeredAt)}
                   </p>
                 </div>
               </div>
