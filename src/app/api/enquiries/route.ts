@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { sendPushNotification } from '@/lib/push-notifications';
@@ -56,15 +56,23 @@ export async function POST(request: NextRequest) {
   }
 
   // Notification failures never fail the visitor's submission — the enquiry
-  // is already safely stored either way.
-  notifyByEmail({ name, email, phone, company, message }).catch((e) =>
-    console.error('[Enquiries] Email notification failed:', e)
+  // is already safely stored either way. Wrapped in after() so Vercel keeps
+  // this invocation alive until these actually complete — fire-and-forget
+  // without it risked the function being torn down before either the email
+  // or push notification ever left the server (confirmed happening on the
+  // WhatsApp webhook's identical pattern).
+  after(() =>
+    notifyByEmail({ name, email, phone, company, message }).catch((e) =>
+      console.error('[Enquiries] Email notification failed:', e)
+    )
   );
-  sendPushNotification(
-    `📩 New enquiry: ${name}`,
-    company ? `${company} — ${phone}` : phone,
-    { link: '/dashboard/enquiries' }
-  ).catch((e) => console.error('[Enquiries] Push notification failed:', e));
+  after(() =>
+    sendPushNotification(
+      `📩 New enquiry: ${name}`,
+      company ? `${company} — ${phone}` : phone,
+      { link: '/dashboard/enquiries' }
+    ).catch((e) => console.error('[Enquiries] Push notification failed:', e))
+  );
 
   return NextResponse.json({ success: true, id: docId });
 }

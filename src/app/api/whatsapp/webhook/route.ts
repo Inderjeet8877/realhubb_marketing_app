@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { adminDb } from '@/lib/firebase-admin';
@@ -204,11 +204,20 @@ export async function POST(request: NextRequest) {
           });
           console.log(`[Webhook] ✅ Saved inbound from ${phone}: "${messageText.slice(0, 60)}"`);
 
-          // Send push notification to all registered devices
-          sendPushNotification(`💬 ${senderName}`, messageText, {
-            link: '/dashboard/whatsapp',
-            channelId: 'whatsapp_replies_v2',
-          }).catch(e => console.error('[Webhook] Push error:', e));
+          // Send push notification to all registered devices — wrapped in
+          // after() so Vercel keeps this serverless invocation alive until
+          // the send actually completes. Fire-and-forget without this was a
+          // real bug: the function can (and, confirmed via production logs,
+          // sometimes did) get torn down the instant the response is
+          // returned, silently killing the notification mid-flight before
+          // it ever reached FCM — not a sound/channel issue, the push
+          // simply never got sent.
+          after(() =>
+            sendPushNotification(`💬 ${senderName}`, messageText, {
+              link: '/dashboard/whatsapp',
+              channelId: 'whatsapp_replies_v2',
+            }).catch(e => console.error('[Webhook] Push error:', e))
+          );
 
           // Opt-outs are handled here, not just recorded — every broadcast
           // start (see /api/whatsapp/broadcasts/start) excludes phones in
@@ -217,8 +226,10 @@ export async function POST(request: NextRequest) {
           // block/report-driven quality score; there's no way to appeal a
           // low score after the fact, only to avoid triggering it.
           if (isOptOutMessage(messageText)) {
-            handleOptOut(phone, senderName, messageText, receivingAccountId).catch(e =>
-              console.error('[Webhook] Opt-out handling error:', e)
+            after(() =>
+              handleOptOut(phone, senderName, messageText, receivingAccountId).catch(e =>
+                console.error('[Webhook] Opt-out handling error:', e)
+              )
             );
           }
         } catch (err) {
