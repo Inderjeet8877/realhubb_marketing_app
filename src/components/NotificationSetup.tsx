@@ -332,23 +332,40 @@ export default function NotificationSetup() {
   useEffect(() => {
     const isNative = typeof window !== "undefined" && (window as any).Capacitor?.isNativePlatform?.();
 
-    if (isNative) {
-      (async () => {
-        try {
-          const { PushNotifications } = await import("@capacitor/push-notifications");
-          const status = await PushNotifications.checkPermissions();
-          setPermission(status.receive === "granted" ? "granted" : status.receive === "denied" ? "denied" : "default");
+    const checkNativePermissionAndRegister = async () => {
+      try {
+        const { PushNotifications } = await import("@capacitor/push-notifications");
+        const status = await PushNotifications.checkPermissions();
+        setPermission(status.receive === "granted" ? "granted" : status.receive === "denied" ? "denied" : "default");
 
-          if (status.receive === "granted" && backgroundPushEnabled) {
-            registerFCM();
-          } else if (status.receive === "prompt" && browserNotificationsEnabled && !localStorage.getItem("notif_banner_dismissed")) {
-            setShowBanner(true);
-          }
-        } catch (err) {
-          console.error("[Native Push] permission check error:", err);
+        if (status.receive === "granted" && backgroundPushEnabled) {
+          registerFCM();
+        } else if (status.receive === "prompt" && browserNotificationsEnabled && !localStorage.getItem("notif_banner_dismissed")) {
+          setShowBanner(true);
         }
-      })();
-      return;
+      } catch (err) {
+        console.error("[Native Push] permission check error:", err);
+      }
+    };
+
+    if (isNative) {
+      checkNativePermissionAndRegister();
+
+      // The WebView's JS context typically survives a simple app-switch
+      // (backgrounding then reopening without actually killing the process),
+      // so the mount-only effect above never re-runs on its own — meaning a
+      // device's registered token/details could silently go stale forever if
+      // registration only ever happened once per cold start. Re-running on
+      // every resume (foreground) makes the "Registered Devices" list stay
+      // accurate without requiring a full force-quit.
+      let removeListener: (() => void) | undefined;
+      import("@capacitor/app").then(({ App }) => {
+        App.addListener("resume", checkNativePermissionAndRegister).then((handle) => {
+          removeListener = () => handle.remove();
+        });
+      }).catch((err) => console.error("[Native Push] App resume listener setup error:", err));
+
+      return () => removeListener?.();
     }
 
     if (typeof Notification === "undefined") {
