@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.realhubb.realhubb"
+    namespace = "com.broadzen.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,8 +15,8 @@ android {
     }
 
     defaultConfig {
-        // New app identity (not an update of the old Capacitor app com.realhubb.marketing).
-        applicationId = "com.realhubb.app"
+        // Broadzen: new app identity (not an update of the old Capacitor app com.realhubb.marketing).
+        applicationId = "com.broadzen.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

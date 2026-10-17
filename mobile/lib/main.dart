@@ -7,16 +7,16 @@ import 'theme/tokens.dart';
 import 'widgets/brand_mark.dart';
 
 void main() {
-  runApp(const ProviderScope(child: RealhubbApp()));
+  runApp(const ProviderScope(child: BroadzenApp()));
 }
 
-class RealhubbApp extends StatelessWidget {
-  const RealhubbApp({super.key});
+class BroadzenApp extends StatelessWidget {
+  const BroadzenApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Realhubb',
+      title: 'Broadzen',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),

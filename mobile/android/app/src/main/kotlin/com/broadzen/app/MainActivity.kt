@@ -1,4 +1,4 @@
-package com.realhubb.realhubb
+package com.broadzen.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:realhubb/main.dart';
-import 'package:realhubb/theme/tokens.dart';
+import 'package:broadzen/main.dart';
+import 'package:broadzen/theme/tokens.dart';
 
 double _luminance(Color c) => c.computeLuminance();
 double contrast(Color a, Color b) {
@@ -50,7 +50,7 @@ void main() {
   }
 
   testWidgets('splash shows the wordmark', (tester) async {
-    await tester.pumpWidget(const RealhubbApp());
-    expect(find.text('realhubb'), findsOneWidget);
+    await tester.pumpWidget(const BroadzenApp());
+    expect(find.text('broadzen'), findsOneWidget);
   });
 }

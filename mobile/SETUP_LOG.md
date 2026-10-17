@@ -113,6 +113,25 @@ flutter test      # 3 passed
   ```
   Or in Android Studio: Device Manager → Pixel_9a → Edit → *Emulated Performance → Graphics acceleration: Software*.
 
+### 13. Result
+- Splash renders correctly in **light** (blue) and **dark** (#0B1120) mode. Status-bar icons were forced to light, because they were dark on blue.
+- Committed as `a13e0ca`: *feat: add Flutter app scaffold (M0) and redesign plan docs*.
+
+---
+
+## 2026-10-17: App renamed to **Broadzen**
+| What | Before | After |
+|---|---|---|
+| App name (launcher, iOS display name) | Realhubb | **Broadzen** |
+| Android applicationId + namespace | com.realhubb.app / com.realhubb.realhubb | **com.broadzen.app** |
+| iOS bundle ID | com.realhubb.realhubb | **com.broadzen.app** |
+| Dart package | `realhubb` | **`broadzen`** |
+| Wordmark | realhubb | **broadzen** |
+- `MainActivity.kt` moved to `android/app/src/main/kotlin/com/broadzen/app/`.
+- The old `com.realhubb.app` debug build was uninstalled from the emulator.
+- Checked: analyze clean, 3 tests pass, the app drawer shows "Broadzen".
+- **Firebase must register `com.broadzen.app`**, not `com.realhubb.app`.
+
 ---
 
 ## How to open and run in Android Studio

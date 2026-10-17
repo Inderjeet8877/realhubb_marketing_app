@@ -64,7 +64,7 @@ class _SignalBubblePainter extends CustomPainter {
   bool shouldRepaint(_SignalBubblePainter old) => old.inverted != inverted;
 }
 
-/// Horizontal lock-up: symbol + "realhubb" wordmark (Sora Bold, −3%).
+/// Horizontal lock-up: symbol + "broadzen" wordmark (Sora Bold, −3%).
 class BrandLockup extends StatelessWidget {
   const BrandLockup({super.key, this.height = 40, this.onBrand = false});
 
@@ -80,7 +80,7 @@ class BrandLockup extends StatelessWidget {
         BrandMark(size: height, inverted: onBrand),
         SizedBox(width: height * 0.3),
         Text(
-          'realhubb',
+          'broadzen',
           style: TextStyle(
             fontFamily: 'Sora',
             fontWeight: FontWeight.w700,

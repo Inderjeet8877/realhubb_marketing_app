@@ -1,17 +1,9 @@
-# realhubb
+# Broadzen (Flutter app)
 
-Realhubb - WhatsApp and Meta Ads marketing
+Broadzen: WhatsApp and Meta Ads marketing for small businesses.
 
-## Getting Started
+- Plan: [PLAN.md](PLAN.md)
+- Setup steps (toolchain, Android Studio): [SETUP_LOG.md](SETUP_LOG.md)
+- Design: [../design/figma/](../design/figma/)
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Run: `flutter run`, or open this folder in Android Studio and press Run.
