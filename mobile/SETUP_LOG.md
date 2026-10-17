@@ -169,6 +169,27 @@ Dashboard + Campaigns · Inbox + Chat + Single send · Bulk send + Broadcasts ·
 
 ---
 
+## 2026-10-18: Run from VS Code (no Android Studio needed)
+- Installed VS Code extensions **Flutter** + **Dart** (`dart-code.flutter`, `dart-code.dart-code` v3.144):
+  ```powershell
+  code --install-extension Dart-Code.flutter   # retry if the marketplace returns 503
+  ```
+- `.vscode/launch.json` (repo root): configs **"Broadzen (Flutter)"** (debug, hot reload) and **"Broadzen (Flutter, release)"**, both with `"cwd": "mobile"`.
+- `.vscode/settings.json`: `dart.flutterSdkPath = C:\src\flutter`, hot reload on save, format on save, 120 ruler.
+  > The root `.gitignore` excludes `.vscode/`, so these two files stay local to this PC.
+- Verified 2026-10-18: emulator started with no flags (hardware GPU, NVIDIA RTX 3050), then `flutter run -d emulator-5554` (same as VS Code F5) → built, installed, debug session attached, login renders correctly. The `android.hardware…` SIGABRT lines in logcat are an emulator-image service and don't affect the app.
+- If you ever get a **black screen** again: Device Manager / `emulator -avd Pixel_9a -gpu swiftshader_indirect` (software graphics).
+
+**Run from VS Code:**
+1. Open the `Broadzen` folder in VS Code (reload the window once after installing the extensions).
+2. Bottom-right status bar → click the device name → choose **Pixel 9a** (VS Code starts the emulator), or plug in a phone with USB debugging on.
+3. Run and Debug (Ctrl+Shift+D) → **Broadzen (Flutter)** → **F5**.
+4. While it runs: save a file to **hot reload**; `Ctrl+Shift+F5` hot restart; `Shift+F5` stop.
+
+Terminal alternative: `cd mobile; flutter run`.
+
+---
+
 ## How to open and run in Android Studio
 1. Android Studio → **Open** → select `C:\my folder\Broadzen\mobile`.
 2. If asked, set the Flutter SDK path to `C:\src\flutter` (Settings → Languages & Frameworks → Flutter).
