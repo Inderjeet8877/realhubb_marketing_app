@@ -48,6 +48,16 @@ void main() {
     expect(find.text('Sign in'), findsOneWidget);
   });
 
+  testWidgets('login with animations disabled: instant layout, empty submit shows error', (tester) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await pumpApp(tester, {});
+    expect(find.text('Welcome back'), findsOneWidget);
+    await tester.tap(find.text('Sign in'));
+    await tester.pump();
+    expect(find.text('Enter your email and password.'), findsOneWidget);
+  });
+
   testWidgets('dev preview opens the shell with five tabs', (tester) async {
     await pumpApp(tester, {'dev_preview': true});
     for (final tab in ['Home', 'Inbox', 'Leads', 'Contacts', 'More']) {
