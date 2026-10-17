@@ -57,6 +57,10 @@ ThemeData buildTheme(Brightness brightness) {
     onPrimaryContainer: c.brandText,
     secondary: c.mint,
     onSecondary: const Color(0xFF064E3B),
+    // M3 uses secondaryContainer for selected segments/chips; the design wants
+    // brand-subtle blue there, not mint (DESIGN_PLAN §3.2).
+    secondaryContainer: c.brandSubtle,
+    onSecondaryContainer: c.brandText,
     error: c.dangerFg,
     onError: c.onBrand,
     surface: c.surface,

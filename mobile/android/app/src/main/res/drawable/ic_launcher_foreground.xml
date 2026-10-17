@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Broadzen icon Concept A "Signal bubble" (Figma 00 Cover & Brand).
+     Paths use the 192-unit master grid, scaled into the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.52" android:scaleY="0.52" android:translateX="4.08" android:translateY="1.48">
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M64,44 H128 A24,24 0 0 1 152,68 V108 A24,24 0 0 1 128,132 H90 L50,158 L58,132 H64 A24,24 0 0 1 40,108 V68 A24,24 0 0 1 64,44 Z" />
+        <path android:fillColor="#2563EB"
+            android:pathData="M70,96 H78 A4,4 0 0 1 82,100 V112 A4,4 0 0 1 78,116 H70 A4,4 0 0 1 66,112 V100 A4,4 0 0 1 70,96 Z M93,82 H101 A4,4 0 0 1 105,86 V112 A4,4 0 0 1 101,116 H93 A4,4 0 0 1 89,112 V86 A4,4 0 0 1 93,82 Z" />
+        <path android:fillColor="#34D399"
+            android:pathData="M116,66 H124 A4,4 0 0 1 128,70 V112 A4,4 0 0 1 124,116 H116 A4,4 0 0 1 112,112 V70 A4,4 0 0 1 116,66 Z" />
+    </group>
+</vector>

@@ -134,6 +134,41 @@ flutter test      # 3 passed
 
 ---
 
+## 2026-10-17: App foundation + full app build
+### Foundation (commit `cb6dcd8`)
+- Added packages: `file_picker`, `csv`, `share_plus`, `url_launcher`. All packages are added up front, so the parallel feature builds never edit `pubspec.yaml` at the same time.
+- `analysis_options.yaml`: formatter page width 120.
+- Code layout:
+  | Path | What |
+  |---|---|
+  | `lib/core/config.dart` | `API_BASE` (default `https://www.realhubb.co.in`; override with `--dart-define=API_BASE=...`) |
+  | `lib/core/api_client.dart` | Dio client, Bearer-token hook (filled in once Firebase sign-in exists), errors carry the server's message |
+  | `lib/core/format.dart` | ₹ en-IN, phone normalise/display, chat times, Firestore-timestamp parsing, initials |
+  | `lib/widgets/ui.dart` | Shared design-system widgets: StatusBadge (one status map), StatCard/StatGrid, AppCard, EmptyState, ErrorView, LoadingList, AlertBanner, AsyncBody, confirm(), showSnack() |
+  | `lib/app/providers.dart` | SharedPreferences, theme mode (System/Light/Dark), Meta account selection |
+  | `lib/app/router.dart` | go_router: `/login` + 5 tab branches (Home, Inbox, Leads, Contacts, More → campaigns, send, broadcasts, templates, rcs, enquiries, settings) |
+  | `lib/features/shell/` | NavigationBar on phones, NavigationRail on ≥600dp |
+  | `lib/features/auth/` | Login screen (email/password + Google). **Firebase not wired yet**. Debug builds show "Continue in dev preview" |
+- Tests: 9 passing (WCAG contrast, formatters, login screen, shell tabs).
+- Live API check: most endpoints answer **without auth** (security issue S2 in DATABASE_SCHEMA.md). `/api/contacts` returns **502** (Google Sheets backend failing server-side).
+
+### Feature screens (built in parallel, one agent per area)
+Dashboard + Campaigns · Inbox + Chat + Single send · Bulk send + Broadcasts · Leads + Contacts + Import · Templates · Enquiries + RCS + Settings.
+
+### Integration
+- Whole app: `flutter analyze` clean, **60 tests pass** (contrast, formatters, shell, dashboard/CPL, inbox, broadcasts, leads/contacts/import, templates content score, settings/RCS/enquiries).
+- Fixed: shell widget test (flush data-loading timers on unmount).
+- Theme: `secondaryContainer` → brand-subtle blue, so selected segments/chips aren't mint.
+- **Android icon + splash:** `res/drawable/ic_launcher_foreground.xml` (vector, Concept A), `ic_launcher_monochrome.xml` (Android 13 themed icons), `mipmap-anydpi-v26/ic_launcher.xml` (adaptive), `values-v31` / `values-night-v31` splash on brand blue / #0B1120. Pre-Android 8 devices still have the default PNG icon.
+- **Build problem:** Android Studio's bundled Java (`…\Android Studio\jbr`) is damaged (`lib\jvm.cfg` missing). Flutter now uses the separate JDK:
+  ```powershell
+  flutter config --jdk-dir "C:\Program Files\Java\jdk-17"
+  ```
+  The user `JAVA_HOME` still points at the broken jbr, so `gradlew` run directly and Android Studio itself may fail until Studio is repaired (reinstall/update Android Studio, or set `JAVA_HOME` to `C:\Program Files\Java\jdk-17`).
+- Checked on the emulator against **live data** in light and dark: Dashboard (Meta + WhatsApp), Inbox, Chat, Leads, Contacts, More, Campaigns, Send, Broadcasts, Templates, RCS, Enquiries, Settings.
+
+---
+
 ## How to open and run in Android Studio
 1. Android Studio → **Open** → select `C:\my folder\Broadzen\mobile`.
 2. If asked, set the Flutter SDK path to `C:\src\flutter` (Settings → Languages & Frameworks → Flutter).

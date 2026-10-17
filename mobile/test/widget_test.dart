@@ -53,5 +53,8 @@ void main() {
     for (final tab in ['Home', 'Inbox', 'Leads', 'Contacts', 'More']) {
       expect(find.text(tab), findsWidgets);
     }
+    // Home starts real data loads; unmount and flush their zero-delay timers.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
   });
 }
