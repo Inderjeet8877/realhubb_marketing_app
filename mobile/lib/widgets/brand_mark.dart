@@ -23,9 +23,7 @@ class _SignalBubblePainter extends CustomPainter {
   _SignalBubblePainter({required this.inverted});
 
   final bool inverted;
-  static const _blue = Color(0xFF2563EB),
-      _white = Color(0xFFFFFFFF),
-      _mint = Color(0xFF34D399);
+  static const _blue = Color(0xFF2563EB), _white = Color(0xFFFFFFFF), _mint = Color(0xFF34D399);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -35,14 +33,8 @@ class _SignalBubblePainter extends CustomPainter {
     final bubble = Paint()..color = inverted ? _blue : _white;
     final bar = Paint()..color = inverted ? _white : _blue;
 
-    canvas.drawRRect(
-      RRect.fromLTRBR(0, 0, 192, 192, const Radius.circular(44)),
-      tile,
-    );
-    canvas.drawRRect(
-      RRect.fromLTRBR(40, 44, 152, 132, const Radius.circular(24)),
-      bubble,
-    );
+    canvas.drawRRect(RRect.fromLTRBR(0, 0, 192, 192, const Radius.circular(44)), tile);
+    canvas.drawRRect(RRect.fromLTRBR(40, 44, 152, 132, const Radius.circular(24)), bubble);
     canvas.drawPath(
       Path()
         ..moveTo(60, 118)
@@ -54,10 +46,7 @@ class _SignalBubblePainter extends CustomPainter {
     const r = Radius.circular(4);
     canvas.drawRRect(RRect.fromLTRBR(66, 96, 82, 116, r), bar);
     canvas.drawRRect(RRect.fromLTRBR(89, 82, 105, 116, r), bar);
-    canvas.drawRRect(
-      RRect.fromLTRBR(112, 66, 128, 116, r),
-      Paint()..color = _mint,
-    );
+    canvas.drawRRect(RRect.fromLTRBR(112, 66, 128, 116, r), Paint()..color = _mint);
   }
 
   @override

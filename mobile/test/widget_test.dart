@@ -1,21 +1,27 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:broadzen/app/providers.dart';
 import 'package:broadzen/main.dart';
 import 'package:broadzen/theme/tokens.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-double _luminance(Color c) => c.computeLuminance();
 double contrast(Color a, Color b) {
-  final l1 = _luminance(a), l2 = _luminance(b);
+  final l1 = a.computeLuminance(), l2 = b.computeLuminance();
   return (l1 > l2 ? l1 + 0.05 : l2 + 0.05) / (l1 > l2 ? l2 + 0.05 : l1 + 0.05);
+}
+
+Future<void> pumpApp(WidgetTester tester, Map<String, Object> prefs) async {
+  SharedPreferences.setMockInitialValues(prefs);
+  final p = await SharedPreferences.getInstance();
+  await tester.pumpWidget(ProviderScope(overrides: [prefsProvider.overrideWithValue(p)], child: const BroadzenApp()));
+  await tester.pump();
 }
 
 void main() {
   // Guards the design rule "all text tokens pass WCAG AA (4.5:1) on surface"
   // so a future colour tweak can't silently break readability.
-  for (final (name, c) in [
-    ('light', AppColors.light),
-    ('dark', AppColors.dark),
-  ]) {
+  for (final (name, c) in [('light', AppColors.light), ('dark', AppColors.dark)]) {
     test('$name text tokens meet WCAG AA on surface and canvas', () {
       final texts = {
         'textPrimary': c.textPrimary,
@@ -28,29 +34,24 @@ void main() {
         'infoFg': c.infoFg,
       };
       for (final e in texts.entries) {
-        expect(
-          contrast(e.value, c.surface),
-          greaterThanOrEqualTo(4.5),
-          reason: '${e.key} on surface',
-        );
+        expect(contrast(e.value, c.surface), greaterThanOrEqualTo(4.5), reason: '${e.key} on surface');
       }
-      // tertiary is allowed on white only in light mode (documented in DESIGN_PLAN §3.2)
       expect(contrast(c.textSecondary, c.canvas), greaterThanOrEqualTo(4.5));
-      expect(
-        contrast(c.onBrand, c.brand),
-        greaterThanOrEqualTo(4.5),
-        reason: 'white on brand button',
-      );
-      expect(
-        contrast(c.onBrand, c.successSolid),
-        greaterThanOrEqualTo(4.5),
-        reason: 'white on success button',
-      );
+      expect(contrast(c.onBrand, c.brand), greaterThanOrEqualTo(4.5), reason: 'white on brand button');
+      expect(contrast(c.onBrand, c.successSolid), greaterThanOrEqualTo(4.5), reason: 'white on success button');
     });
   }
 
-  testWidgets('splash shows the wordmark', (tester) async {
-    await tester.pumpWidget(const BroadzenApp());
+  testWidgets('signed-out start shows the login screen', (tester) async {
+    await pumpApp(tester, {});
     expect(find.text('broadzen'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
+  });
+
+  testWidgets('dev preview opens the shell with five tabs', (tester) async {
+    await pumpApp(tester, {'dev_preview': true});
+    for (final tab in ['Home', 'Inbox', 'Leads', 'Contacts', 'More']) {
+      expect(find.text(tab), findsWidgets);
+    }
   });
 }

@@ -134,8 +134,7 @@ class AppColors extends ThemeExtension<AppColors> {
   AppColors copyWith() => this;
 
   @override
-  AppColors lerp(AppColors? other, double t) =>
-      t < 0.5 || other == null ? this : other;
+  AppColors lerp(AppColors? other, double t) => t < 0.5 || other == null ? this : other;
 }
 
 /// Spacing (4px base) and radius tokens — Figma "Spacing" / "Radius".

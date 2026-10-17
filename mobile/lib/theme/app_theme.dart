@@ -24,18 +24,8 @@ abstract final class AppText {
     height: 32 / 24,
     fontWeight: FontWeight.w600,
   );
-  static const h2 = TextStyle(
-    fontFamily: _inter,
-    fontSize: 18,
-    height: 28 / 18,
-    fontWeight: FontWeight.w600,
-  );
-  static const h3 = TextStyle(
-    fontFamily: _inter,
-    fontSize: 16,
-    height: 24 / 16,
-    fontWeight: FontWeight.w600,
-  );
+  static const h2 = TextStyle(fontFamily: _inter, fontSize: 18, height: 28 / 18, fontWeight: FontWeight.w600);
+  static const h3 = TextStyle(fontFamily: _inter, fontSize: 16, height: 24 / 16, fontWeight: FontWeight.w600);
   static const kpi = TextStyle(
     fontFamily: _sora,
     fontFamilyFallback: _soraFallback,
@@ -44,30 +34,10 @@ abstract final class AppText {
     fontWeight: FontWeight.w600,
     fontFeatures: _tabular,
   );
-  static const bodyL = TextStyle(
-    fontFamily: _inter,
-    fontSize: 16,
-    height: 24 / 16,
-    fontWeight: FontWeight.w400,
-  );
-  static const body = TextStyle(
-    fontFamily: _inter,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w400,
-  );
-  static const label = TextStyle(
-    fontFamily: _inter,
-    fontSize: 14,
-    height: 20 / 14,
-    fontWeight: FontWeight.w500,
-  );
-  static const caption = TextStyle(
-    fontFamily: _inter,
-    fontSize: 12,
-    height: 16 / 12,
-    fontWeight: FontWeight.w500,
-  );
+  static const bodyL = TextStyle(fontFamily: _inter, fontSize: 16, height: 24 / 16, fontWeight: FontWeight.w400);
+  static const body = TextStyle(fontFamily: _inter, fontSize: 14, height: 20 / 14, fontWeight: FontWeight.w400);
+  static const label = TextStyle(fontFamily: _inter, fontSize: 14, height: 20 / 14, fontWeight: FontWeight.w500);
+  static const caption = TextStyle(fontFamily: _inter, fontSize: 12, height: 16 / 12, fontWeight: FontWeight.w500);
   static const overline = TextStyle(
     fontFamily: _inter,
     fontSize: 12,
@@ -100,11 +70,8 @@ ThemeData buildTheme(Brightness brightness) {
     outline: c.borderStrong,
     outlineVariant: c.border,
   );
-  TextStyle t(TextStyle s, [Color? color]) =>
-      s.copyWith(color: color ?? c.textPrimary);
-  final buttonShape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(Radii.md),
-  );
+  TextStyle t(TextStyle s, [Color? color]) => s.copyWith(color: color ?? c.textPrimary);
+  final buttonShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md));
   const buttonSize = Size(64, 48); // 48dp minimum tap target (Android)
 
   return ThemeData(
@@ -172,10 +139,7 @@ ThemeData buildTheme(Brightness brightness) {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: c.surface,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: Space.s4,
-        vertical: 14,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: Space.s4, vertical: 14),
       labelStyle: t(AppText.label, c.textSecondary),
       hintStyle: t(AppText.bodyL, c.textTertiary),
       border: OutlineInputBorder(
@@ -201,18 +165,10 @@ ThemeData buildTheme(Brightness brightness) {
       indicatorColor: c.brandSubtle,
       height: 64,
       labelTextStyle: WidgetStateProperty.resolveWith(
-        (s) => t(
-          AppText.caption,
-          s.contains(WidgetState.selected) ? c.brandText : c.textSecondary,
-        ),
+        (s) => t(AppText.caption, s.contains(WidgetState.selected) ? c.brandText : c.textSecondary),
       ),
       iconTheme: WidgetStateProperty.resolveWith(
-        (s) => IconThemeData(
-          size: 22,
-          color: s.contains(WidgetState.selected)
-              ? c.brandText
-              : c.textSecondary,
-        ),
+        (s) => IconThemeData(size: 22, color: s.contains(WidgetState.selected) ? c.brandText : c.textSecondary),
       ),
     ),
     navigationRailTheme: NavigationRailThemeData(
@@ -228,24 +184,14 @@ ThemeData buildTheme(Brightness brightness) {
       backgroundColor: c.surfaceRaised,
       surfaceTintColor: Colors.transparent,
       showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl))),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: c.surfaceRaised,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Radii.xl),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xl)),
     ),
-    snackBarTheme: SnackBarThemeData(
-      behavior: SnackBarBehavior.floating,
-      shape: buttonShape,
-    ),
-    progressIndicatorTheme: ProgressIndicatorThemeData(
-      color: c.brand,
-      linearTrackColor: c.border,
-    ),
+    snackBarTheme: SnackBarThemeData(behavior: SnackBarBehavior.floating, shape: buttonShape),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: c.brand, linearTrackColor: c.border),
   );
 }
