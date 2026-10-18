@@ -9,6 +9,7 @@ import {
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
@@ -105,11 +106,10 @@ export default function LoginPage() {
 
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4" style={{ backgroundColor: "#075e54" }}>
-              <span className="text-white font-bold text-xl">R</span>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Realhubb</h1>
-            <p className="text-gray-500 text-sm mt-1">Marketing Platform</p>
+            <h1>
+              <Image src="/brand/logo_light.png" alt="Broadzen" width={226} height={48} priority className="mx-auto h-12 w-auto" />
+            </h1>
+            <p className="text-emerald-700 text-sm font-medium mt-3">Broadcast smarter. Grow faster.</p>
           </div>
 
           {/* Error */}

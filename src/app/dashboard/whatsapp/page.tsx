@@ -1441,7 +1441,7 @@ export default function WhatsAppPage() {
                     {bulkResult.durationMs != null && (
                       <p className="text-xs mt-1 text-green-600">Took {formatDuration(bulkResult.durationMs)}</p>
                     )}
-                    <p className="text-xs mt-1 text-green-600">Thanks for using RealHubb WhatsApp Broadcast — your messages are on their way.</p>
+                    <p className="text-xs mt-1 text-green-600">Thanks for using Broadzen WhatsApp Broadcast — your messages are on their way.</p>
                   </div>
                 )}
               </div>

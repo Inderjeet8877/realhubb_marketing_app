@@ -211,7 +211,7 @@ export default function MetaDashboardContent() {
 
     // Sheet 1 — Summary
     const summaryData = [
-      [`Realhubb Campaign Report — ${dateLabel}`],
+      [`Broadzen Campaign Report — ${dateLabel}`],
       [`Generated: ${new Date().toLocaleString()}`],
       [],
       ["KPI", "Value"],
@@ -245,7 +245,7 @@ export default function MetaDashboardContent() {
     ws2["!cols"] = [{ wch: 45 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws2, "Campaigns");
 
-    XLSX.writeFile(wb, `realhubb-campaign-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `broadzen-campaign-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
     setShowDlDropdown(false);
   };
 
@@ -259,7 +259,7 @@ export default function MetaDashboardContent() {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("Realhubb — Campaign Performance Report", 14, 14);
+    doc.text("Broadzen — Campaign Performance Report", 14, 14);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(`${dateLabel}  ·  Generated: ${new Date().toLocaleString()}`, pw - 14, 14, { align: "right" });
@@ -339,7 +339,7 @@ export default function MetaDashboardContent() {
       },
     });
 
-    doc.save(`realhubb-campaign-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`broadzen-campaign-report-${new Date().toISOString().slice(0, 10)}.pdf`);
     setShowDlDropdown(false);
   };
 

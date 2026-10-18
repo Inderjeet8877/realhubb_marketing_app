@@ -7,6 +7,7 @@ import '../../core/api_client.dart';
 import '../../core/config.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/brand_mark.dart';
 import '../../widgets/ui.dart';
 import '../auth/auth_controller.dart';
 import 'legal_pages.dart';
@@ -63,6 +64,8 @@ class SettingsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const BrandLockup(height: 44),
+                  const SizedBox(height: Space.s3),
                   Text('Broadzen 1.0.0', style: AppText.label.copyWith(color: c.textPrimary)),
                   const SizedBox(height: Space.s1),
                   Text(AppConfig.apiBase, style: AppText.caption.copyWith(color: c.textTertiary)),

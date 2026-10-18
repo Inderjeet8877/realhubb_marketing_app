@@ -8,14 +8,14 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
-import '../../widgets/brand_mark.dart';
 import '../../widgets/ui.dart';
 import 'auth_controller.dart';
 import 'login_hero.dart';
 
-/// Animated login: brand-blue hero (drifting bubbles + self-building logo)
-/// over a sheet that slides up with a staggered form. Honours the system
-/// "remove animations" setting by showing the final state immediately.
+/// Animated login: navy aurora hero with the logo intro (symbol springs in,
+/// wordmark pops in letter by letter, tagline types) over a sheet that slides up
+/// with a staggered form. Honours the system "remove animations" setting by
+/// showing the final state immediately with no looping motion.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -26,8 +26,11 @@ class LoginScreen extends ConsumerStatefulWidget {
 enum _Phase { idle, busy, done }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderStateMixin {
-  late final _intro = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
-  late final _drift = AnimationController(vsync: this, duration: const Duration(seconds: 24));
+  late final _intro = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: introMs),
+  );
+  late final _ambient = AnimationController(vsync: this, duration: const Duration(seconds: 24));
   late final _shake = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -42,17 +45,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     _reduceMotion = MediaQuery.disableAnimationsOf(context);
     if (_reduceMotion) {
       _intro.value = 1;
-      _drift.stop();
+      _ambient.stop();
     } else {
       if (!_intro.isAnimating && _intro.value == 0) _intro.forward();
-      if (!_drift.isAnimating) _drift.repeat();
+      if (!_ambient.isAnimating) _ambient.repeat();
     }
   }
 
   @override
   void dispose() {
     _intro.dispose();
-    _drift.dispose();
+    _ambient.dispose();
     _shake.dispose();
     _email.dispose();
     _password.dispose();
@@ -86,6 +89,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     if (!_reduceMotion) _shake.forward(from: 0);
   }
 
+  /// Light band over the symbol: one bright pass during the intro (500–1200 ms),
+  /// then a faint one every 6 s (first 0.9 s of each quarter of the 24 s ambient loop).
+  (double, double)? _sweep() {
+    if (_reduceMotion) return null;
+    if (!_intro.isCompleted) {
+      final ms = _intro.value * introMs;
+      return ms >= 500 && ms <= 1200 ? ((ms - 500) / 700, 0.55) : null;
+    }
+    final phase = (_ambient.value * 4) % 1;
+    return phase < 0.15 ? (phase / 0.15, 0.25) : null;
+  }
+
   /// Fade + rise for the slice [start, start+0.25] of the intro.
   Widget _reveal(double start, Widget child, {double rise = 18}) {
     final a = CurvedAnimation(
@@ -109,19 +124,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
     final wide = size.width >= 720;
 
-    final hero = AnimatedBuilder(
-      animation: Listenable.merge([_intro, _drift]),
-      builder: (_, _) => Stack(
-        fit: StackFit.expand,
-        children: [
-          HeroBackdrop(t: _drift.value, dark: dark),
-          SafeArea(
-            bottom: false,
-            child: Center(
-              child: _HeroBrand(intro: _intro.value, compact: keyboard && !wide),
+    // Clipped so the aurora never bleeds past the hero onto the sheet area.
+    final hero = ClipRect(
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_intro, _ambient]),
+        builder: (_, _) => Stack(
+          fit: StackFit.expand,
+          children: [
+            HeroBackdrop(t: _ambient.value),
+            SafeArea(
+              bottom: false,
+              child: Center(
+                child: HeroBrand(ms: _intro.value * introMs, compact: keyboard && !wide, sweep: _sweep()),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
 
@@ -137,7 +155,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: wide && !dark ? SystemUiOverlayStyle.dark : SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: context.colors.surface,
+        // Phone: navy behind everything, so the sheet rises over the brand colour (no white gap).
+        backgroundColor: wide ? context.colors.surface : heroNavy,
         body: wide
             ? Row(
                 children: [
@@ -172,7 +191,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     final c = context.colors;
     final slide = CurvedAnimation(
       parent: _intro,
-      curve: const Interval(0.3, 0.75, curve: Curves.easeOutCubic),
+      curve: const Interval(1500 / introMs, 2200 / introMs, curve: Curves.easeOutCubic),
     );
     return AnimatedBuilder(
       animation: slide,
@@ -207,7 +226,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     final busy = _phase != _Phase.idle;
     void signIn() => _run(() => auth.signInWithEmail(_email.text.trim(), _password.text), needsFields: true);
     var i = 0;
-    double next() => 0.5 + (i++) * 0.06;
+    double next() => 0.62 + (i++) * 0.035;
 
     return AutofillGroup(
       child: Column(
@@ -345,67 +364,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
   }
 }
 
-/// Logo builds itself, then wordmark and tagline rise in.
-class _HeroBrand extends StatelessWidget {
-  const _HeroBrand({required this.intro, required this.compact});
-  final double intro;
-  final bool compact;
-
-  double _seg(double a, double b) => Curves.easeOutCubic.transform(((intro - a) / (b - a)).clamp(0.0, 1.0));
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final word = _seg(0.4, 0.65), tag = _seg(0.5, 0.75);
-    final mark = BrandMark(
-      size: compact ? 48 : 76,
-      inverted: Theme.of(context).brightness == Brightness.light, // white tile on blue; blue tile on dark
-      progress: (intro / 0.6).clamp(0.0, 1.0),
-    );
-    final wordmark = Text(
-      'broadzen',
-      style: TextStyle(
-        fontFamily: 'Sora',
-        fontWeight: FontWeight.w700,
-        fontSize: compact ? 26 : 36,
-        letterSpacing: compact ? -0.8 : -1.1,
-        color: c.onBrand,
-      ),
-    );
-    Widget rise(double v, Widget w) => Opacity(
-      opacity: v,
-      child: Transform.translate(offset: Offset(0, (1 - v) * 14), child: w),
-    );
-
-    if (compact) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          mark,
-          const SizedBox(width: Space.s3),
-          rise(word, wordmark),
-        ],
-      );
-    }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        mark,
-        const SizedBox(height: Space.s4),
-        rise(word, wordmark),
-        const SizedBox(height: Space.s1),
-        rise(
-          tag,
-          Text(
-            'WhatsApp + Meta Ads, made simple',
-            style: AppText.bodyL.copyWith(color: c.onBrand.withValues(alpha: 0.85)),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 /// Soft brand glow around a focused field.
 class _GlowField extends StatefulWidget {
   const _GlowField({required this.child});
@@ -427,7 +385,7 @@ class _GlowFieldState extends State<_GlowField> {
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(Radii.md),
-          boxShadow: [if (_focused) BoxShadow(color: c.brand.withValues(alpha: 0.22), blurRadius: 14, spreadRadius: 1)],
+          boxShadow: [if (_focused) BoxShadow(color: c.focus.withValues(alpha: 0.22), blurRadius: 14, spreadRadius: 1)],
         ),
         child: widget.child,
       ),

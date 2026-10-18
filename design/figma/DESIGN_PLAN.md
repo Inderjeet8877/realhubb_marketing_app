@@ -2,7 +2,12 @@
 
 **Goal:** turn Realhubb (Meta Ads + WhatsApp marketing for small businesses) into a premium, consistent product. It must meet Google Play, Apple and WCAG 2.2 AA standards on both the web app and the Android app.
 
-**Direction:** Royal Blue + Mint. Bright, approachable, energetic, and still calm enough for a tool people use all day.
+> **Update 2026-10-18: official Broadzen logo adopted.** The app was re-themed to the logo palette: **navy #0F1A38** as the brand anchor and the **mint→cyan gradient #00F5E9 → #00C471** for accents. teal-700 #0F766E is used for links and active states; in dark mode, primary buttons are mint #2DD4BF with navy text. Tagline: "Broadcast smarter. Grow faster."
+> - **Logo source files:** `public/Broadzen Refined Logo Direction/` (2 = full logo, 3 = symbol/favicon, 4 = dark-background version, plus the animated MP4).
+> - **Transparent app assets:** `mobile/assets/brand/` and `public/brand/`.
+> - **The Royal Blue values and the "signal bubble" icon below are superseded.** The current token values live in `mobile/lib/theme/tokens.dart`, and Figma will be updated once its plan limits allow.
+
+**Direction (original):** Royal Blue + Mint. Bright, approachable, energetic, and still calm enough for a tool people use all day.
 
 **Platforms:**
 - **Web:** React / Next.js (current stack). Tokens map to Tailwind.

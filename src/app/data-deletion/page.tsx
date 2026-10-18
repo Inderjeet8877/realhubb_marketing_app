@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Data Deletion Request — Realhubb",
-  description: "How to request deletion of your data from the Realhubb platform.",
+  title: "Data Deletion Request — Broadzen",
+  description: "How to request deletion of your data from the Broadzen platform.",
 };
 
 export default function DataDeletionPage() {
@@ -9,13 +9,13 @@ export default function DataDeletionPage() {
       <div className="max-w-2xl mx-auto px-4 py-16 prose prose-slate">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Data Deletion Request</h1>
         <p className="text-sm text-gray-500 mb-10">
-          Applies to accounts and data associated with the Realhubb marketing automation platform
+          Applies to accounts and data associated with the Broadzen marketing automation platform
           (web and Android app).
         </p>
 
         <p>
-          If you are an authorised Realhubb user, or an individual whose contact information or
-          WhatsApp message history is held within the Realhubb platform, you may request deletion of
+          If you are an authorised Broadzen user, or an individual whose contact information or
+          WhatsApp message history is held within the Broadzen platform, you may request deletion of
           that data at any time.
         </p>
 
@@ -28,7 +28,7 @@ export default function DataDeletionPage() {
           with the subject line &quot;Data Deletion Request&quot;, including:
         </p>
         <ul>
-          <li>Your name and, if applicable, the email address associated with your Realhubb account</li>
+          <li>Your name and, if applicable, the email address associated with your Broadzen account</li>
           <li>The phone number(s) or contact record(s) you want removed, if requesting deletion of contact/message data rather than an account</li>
           <li>Whether you want your full account deleted, or specific data removed while keeping the account active</li>
         </ul>

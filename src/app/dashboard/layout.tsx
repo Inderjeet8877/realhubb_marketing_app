@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { signOut } from "firebase/auth";
@@ -70,7 +71,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   // Show unread count in browser tab title
   useEffect(() => {
-    const base = "Realhubb";
+    const base = "Broadzen";
     document.title = unreadCount > 0 ? `(${unreadCount}) ${base}` : base;
     return () => { document.title = base; };
   }, [unreadCount]);
@@ -84,8 +85,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex justify-between h-14">
             <div className="flex items-center">
-              <Link href="/dashboard" className="text-lg font-bold text-blue-600 mr-6 flex-shrink-0">
-                Realhubb
+              <Link href="/dashboard" className="mr-6 flex-shrink-0">
+                <Image src="/brand/logo_light.png" alt="Broadzen" width={141} height={30} priority className="h-[30px] w-auto" />
               </Link>
               {/* Desktop nav */}
               <div className="hidden lg:flex lg:items-center lg:space-x-1">

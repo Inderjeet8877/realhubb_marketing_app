@@ -502,7 +502,7 @@ export default function NotificationSetup() {
             <MessageSquare className="w-5 h-5 text-blue-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900">Install Realhubb</p>
+            <p className="text-sm font-semibold text-gray-900">Install Broadzen</p>
             <p className="text-xs text-gray-500 mt-0.5">
               Add to your home screen for faster access and better notifications on mobile.
             </p>

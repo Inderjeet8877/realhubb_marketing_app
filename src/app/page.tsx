@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight, BarChart3, MessageSquare, Users, Radio, ShieldCheck,
   Zap, CheckCircle2, Loader2, Mail, Phone, Building2,
@@ -13,7 +14,7 @@ export default function Home() {
       {/* Nav */}
       <nav className="border-b border-gray-100">
         <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center gap-2">
-          <div className="text-lg sm:text-2xl font-bold text-blue-600 shrink-0">Realhubb</div>
+          <Image src="/brand/logo_light.png" alt="Broadzen" width={170} height={36} priority className="h-7 sm:h-9 w-auto shrink-0" />
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <Link
               href="/auth/login"
@@ -105,7 +106,7 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-gray-100 py-8 text-center text-sm text-gray-500">
-        © {new Date().getFullYear()} Realhubb. All rights reserved.
+        © {new Date().getFullYear()} Broadzen. All rights reserved.
       </footer>
     </main>
   );

@@ -1,28 +1,35 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Realhubb Platform - Marketing Automation",
-  description: "Manage your Meta Ads and WhatsApp campaigns in one place",
+  title: "Broadzen – WhatsApp & Meta Ads marketing",
+  description: "Broadcast smarter. Grow faster. Manage your WhatsApp and Meta Ads campaigns in one place.",
   manifest: "/manifest.json",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-    viewportFit: "cover",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icons/favicon-64.png", type: "image/png", sizes: "64x64" },
+    ],
+    apple: { url: "/icons/apple-touch-icon.png", sizes: "180x180" },
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Realhubb",
+    title: "Broadzen",
   },
   formatDetection: {
     telephone: false,
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0F1A38",
 };
 
 export default function RootLayout({

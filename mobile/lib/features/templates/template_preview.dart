@@ -41,7 +41,7 @@ class TemplatePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final onHeader = c.onBrand;
+    const onHeader = Colors.white; // header is always the fixed dark chrome
     final small = AppText.caption.copyWith(color: c.textSecondary);
     final name = businessName.trim().isEmpty ? 'Your business' : businessName.trim();
 

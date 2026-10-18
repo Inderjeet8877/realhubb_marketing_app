@@ -68,6 +68,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    - assets/brand/
+
   # Brand fonts, bundled (no runtime download). Sora has no ₹ glyph, so the
   # theme sets Inter as its fallback.
   fonts:
