@@ -1,7 +1,9 @@
+import { desc } from 'drizzle-orm';
 import { NextRequest, NextResponse, after } from 'next/server';
-import { FieldValue } from 'firebase-admin/firestore';
-import { adminDb } from '@/lib/firebase-admin';
 import { sendPushNotification } from '@/lib/push-notifications';
+import { withSystem } from '@/server/db';
+import { enquiries } from '@/server/db/schema';
+import { requireAdmin, route } from '@/server/auth/core';
 
 const NOTIFY_EMAIL = 'inderjeet.kumar8184@gmail.com';
 
@@ -42,16 +44,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
   }
 
+  if (name.length > 120 || email.length > 254 || phone.length > 30 || company.length > 120 || message.length > 2000) {
+    return NextResponse.json({ error: 'One of the fields is too long.' }, { status: 400 });
+  }
+
   let docId: string;
   try {
-    const docRef = await adminDb.collection('enquiries').add({
-      name, email, phone, company, message,
-      status: 'new',
-      createdAt: FieldValue.serverTimestamp(),
-    });
-    docId = docRef.id;
+    const [row] = await withSystem((tx) =>
+      tx
+        .insert(enquiries)
+        .values({ name, email, phone, company: company || null, message: message || null })
+        .returning({ id: enquiries.id }),
+    );
+    docId = row.id;
   } catch (err: any) {
-    console.error('[Enquiries] Firestore write failed:', err);
+    console.error('[Enquiries] Database write failed:', err);
     return NextResponse.json({ error: 'Could not submit right now — please try again shortly.' }, { status: 500 });
   }
 
@@ -106,32 +113,15 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// Admin listing — read-only, matches the dashboard's existing convention of
-// GET routes that aren't identity-gated at the API layer because the page
-// itself sits behind the Firebase-authenticated /dashboard shell.
-export async function GET(request: NextRequest) {
-  const limitParam = request.nextUrl.searchParams.get('limit');
-  const parsedLimit = limitParam ? parseInt(limitParam, 10) : 100;
-  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 1000) : 100;
-
-  try {
-    const snap = await adminDb.collection('enquiries').orderBy('createdAt', 'desc').limit(limit).get();
-    const enquiries = snap.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        name: data.name || '',
-        email: data.email || '',
-        phone: data.phone || '',
-        company: data.company || '',
-        message: data.message || '',
-        status: data.status || 'new',
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
-      };
-    });
-    return NextResponse.json({ success: true, enquiries });
-  } catch (err: any) {
-    console.error('[Enquiries] Fetch failed:', err);
-    return NextResponse.json({ success: false, error: err.message, enquiries: [] }, { status: 502 });
-  }
-}
+// Listing is admin-only now (it used to be public — security issue S2).
+// The admin panel uses /api/admin/enquiries; this keeps the old response shape.
+export const GET = route(async (request) => {
+  await requireAdmin(request);
+  const limitParam = Number(request.nextUrl.searchParams.get('limit'));
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 1000) : 100;
+  const rows = await withSystem((tx) => tx.select().from(enquiries).orderBy(desc(enquiries.createdAt)).limit(limit));
+  return NextResponse.json({
+    success: true,
+    enquiries: rows.map((r) => ({ ...r, company: r.company ?? '', message: r.message ?? '', createdAt: r.createdAt.toISOString() })),
+  });
+});

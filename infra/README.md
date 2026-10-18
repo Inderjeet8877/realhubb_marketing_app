@@ -29,6 +29,7 @@ adminer (dev only) 127.0.0.1:8081 ───────────────�
 | DB browser | `docker compose --profile dev up -d adminer`, then http://127.0.0.1:8081 (server `postgres`, user `broadzen_owner`, db `broadzen`) |
 | psql shell | `docker compose exec postgres psql -U broadzen_owner -d broadzen` |
 | **Isolation test** (proves workspaces can't see each other) | `docker compose run --rm migrate node scripts/test-isolation.mjs` |
+| **Auth/admin end-to-end test** (sign-up → approval → isolation → lockout → CSRF, 37 checks) | `docker run --rm --network broadzen_default -e BASE=http://app:3000 -e ADMIN_EMAIL=... -e ADMIN_PASSWORD=... -v "<repo>/scripts:/s:ro" node:22-alpine node /s/test-auth-flow.mjs` |
 | New migration (after editing `src/server/db/schema.ts`, run in repo root) | `npx drizzle-kit generate --name <change>`, then `docker compose up -d --build migrate app` |
 | Backup | `sh scripts/backup.sh` → `infra/backups/*.sql.gz` (keeps 14) |
 | Restore | `gunzip -c backups/<file>.sql.gz \| docker compose exec -T postgres psql -U broadzen_owner -d broadzen` |
