@@ -4,16 +4,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import AuthProvider from "@/components/AuthProvider";
+import { signOut } from "@/lib/api";
 import NotificationSetup from "@/components/NotificationSetup";
 import { NotificationProvider, useNotifications } from "@/contexts/NotificationContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { ConfirmProvider } from "@/contexts/ConfirmContext";
 import {
   LayoutDashboard, Megaphone, Users, MessageSquare,
-  Settings, LogOut, Menu, X, Target, FileText, Radio, Inbox,
+  Settings, LogOut, Menu, X, Target, FileText, Radio, Inbox, ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
@@ -42,6 +41,7 @@ const standaloneNav = [
   { name: "Enquiries", href: "/dashboard/enquiries", icon: Inbox    },
   { name: "Contacts",  href: "/dashboard/contacts",  icon: Users    },
   { name: "Settings",  href: "/dashboard/settings",  icon: Settings },
+  { name: "Admin",     href: "/admin",               icon: ShieldCheck },
 ];
 
 const bottomNav = [
@@ -59,7 +59,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { unreadCount, clearUnread }   = useNotifications();
 
-  const handleSignOut = async () => { await signOut(auth); };
+  const handleSignOut = () => signOut();
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === href : pathname.startsWith(href);

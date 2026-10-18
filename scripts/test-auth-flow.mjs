@@ -131,7 +131,12 @@ check('invited user can sign in with the temp password', r.status === 200);
 // --- web cookie session: CSRF guard ---
 r = await call('POST', '/api/auth/login', { body: { email: B.email.replace('-b-', '-a-'), password: pw }, headers: { 'x-client': 'web' } });
 const cookie = (r.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0]).join('; ');
-check('web login sets httpOnly cookies', /bz_at=/.test(cookie) && (r.headers.getSetCookie?.() ?? []).every((c) => /HttpOnly/i.test(c)));
+const setCookies = r.headers.getSetCookie?.() ?? [];
+const token = (n) => setCookies.find((c) => c.startsWith(`${n}=`)) ?? '';
+check(
+  'web login sets httpOnly session cookies (bz_at, bz_rt); bz_session is only a non-secret hint',
+  /HttpOnly/i.test(token('bz_at')) && /HttpOnly/i.test(token('bz_rt')) && /^bz_session=1;/.test(token('bz_session')),
+);
 r = await call('POST', '/api/auth/change-password', { headers: { 'x-client': 'web', cookie }, body: { currentPassword: pw, newPassword: 'Another-Pass-12' } });
 check('cookie request without X-Requested-With is blocked (CSRF)', r.status === 403 && r.data?.code === 'csrf');
 

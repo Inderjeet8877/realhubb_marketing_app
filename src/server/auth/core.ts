@@ -188,12 +188,17 @@ export function sessionResponse(req: NextRequest, body: object, access: string, 
     path: '/api/auth',
     maxAge: REFRESH_TTL_MS / 1000,
   });
+  // Non-secret hint on every path so the page middleware knows a refreshable
+  // session exists after the 15-minute access cookie expires (bz_rt itself is
+  // only sent to /api/auth). It grants nothing: APIs still require bz_at.
+  res.cookies.set('bz_session', '1', { secure: secure(), sameSite: 'lax', path: '/', maxAge: REFRESH_TTL_MS / 1000 });
   return res;
 }
 
 export function clearSessionCookies(res: NextResponse) {
   res.cookies.set('bz_at', '', { path: '/', maxAge: 0 });
   res.cookies.set('bz_rt', '', { path: '/api/auth', maxAge: 0 });
+  res.cookies.set('bz_session', '', { path: '/', maxAge: 0 });
   return res;
 }
 

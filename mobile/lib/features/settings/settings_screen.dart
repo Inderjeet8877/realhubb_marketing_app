@@ -365,7 +365,7 @@ class _AccountCard extends ConsumerWidget {
     return _ListCard([
       ListTile(
         leading: const Icon(LucideIcons.user),
-        title: Text(auth.email ?? (auth.devPreview ? 'Dev preview' : 'Not signed in')),
+        title: Text(auth.me?.email ?? 'Not signed in'),
         subtitle: const Text('Signed in as'),
       ),
       ListTile(
@@ -379,7 +379,7 @@ class _AccountCard extends ConsumerWidget {
         title: const Text('Request data deletion'),
         subtitle: const Text('Delete your account or specific data'),
         trailing: const Icon(LucideIcons.chevronRight),
-        onTap: () => push(DataDeletionScreen(email: auth.email)),
+        onTap: () => push(DataDeletionScreen(email: auth.me?.email)),
       ),
       ListTile(
         leading: Icon(LucideIcons.logOut, color: c.dangerFg),

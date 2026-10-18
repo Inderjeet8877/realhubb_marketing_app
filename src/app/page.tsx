@@ -55,6 +55,12 @@ export default function Home() {
               Sign In
             </Link>
           </div>
+          <p className="mt-6 text-sm text-gray-600">
+            Want to try it yourself?{" "}
+            <Link href="/signup" className="font-semibold text-teal-700 hover:underline">
+              Create an account
+            </Link>
+          </p>
         </div>
       </section>
 

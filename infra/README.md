@@ -42,6 +42,9 @@ adminer (dev only) 127.0.0.1:8081 ───────────────�
 | `127.0.0.1:15432` | Postgres, localhost only. 5432 is taken by another Postgres on this PC, and Windows reserves 49xxx–55xxx |
 | `127.0.0.1:8081` | Adminer (dev profile only) |
 
+## Known local limitation
+On Docker Desktop (Windows/Mac), nginx sees the Docker gateway (e.g. `172.18.0.1`) as the client, so **Login activity shows that IP locally**, and the per-IP rate limits apply to all local traffic together. On a Linux VPS nginx sees real client IPs. If you put a CDN or load balancer in front, configure `set_real_ip_from` + `real_ip_header` in `nginx.conf`.
+
 ## Security notes
 - **Database roles:** the app connects as **`broadzen_app`**. It isn't superuser, isn't a table owner and has no BYPASSRLS, so Row-Level Security always applies. Migrations run as `broadzen_owner`.
 - **Rate limits:** nginx limits `/api/auth/*` (10/min per IP) and the public enquiry form (5/min per IP).

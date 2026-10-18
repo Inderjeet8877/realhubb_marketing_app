@@ -190,6 +190,22 @@ Terminal alternative: `cd mobile; flutter run`.
 
 ---
 
+## 2026-10-18: B4, sign-in on the new API, sign-up, admin section
+- **Package added:** `flutter_secure_storage` ^11.2.0 (tokens live in Android Keystore-backed storage, never SharedPreferences). `android:allowBackup="false"` in the main manifest, as its README recommends.
+- **Auth:** `lib/features/auth/auth_controller.dart` is the session (signedOut / signedIn(me) / loading). Login, sign-up (202 → Pending), change password, sign out, and `restore()` on start (tokens → `GET /api/auth/me`). The dev-preview path is gone. The Google button shows "Google sign-in isn't set up yet" until a Google OAuth client exists.
+- **API client** (`lib/core/api_client.dart`): sends `X-Client: mobile`. On a 401 it refreshes once (concurrent requests share one refresh), retries once, and signs out if the refresh token is rejected.
+- **Routing:** signed out → `/login` `/signup` `/pending`; normal user → `/workspace` only (an empty workspace, no legacy screens); platform admin → the shell plus More → **Admin** (`/more/admin`). `/splash` shows while the session is restored.
+- **Point the app at the local Docker stack** (`http://localhost` on this PC):
+  ```powershell
+  cd mobile
+  flutter run --dart-define=API_BASE=http://10.0.2.2          # emulator
+  flutter build apk --debug --dart-define=API_BASE=http://10.0.2.2
+  ```
+  For a USB phone, use the PC's LAN IP instead of 10.0.2.2. Plain HTTP is allowed **only in debug builds** (`android/app/src/debug/AndroidManifest.xml`, `usesCleartextTraffic`); release stays HTTPS-only. In VS Code, add `"args": ["--dart-define=API_BASE=http://10.0.2.2"]` to the "Broadzen (Flutter)" launch config.
+- Without the define, the app still points at `https://www.realhubb.co.in`, which doesn't have the new auth API yet.
+
+---
+
 ## How to open and run in Android Studio
 1. Android Studio → **Open** → select `C:\my folder\Broadzen\mobile`.
 2. If asked, set the Flutter SDK path to `C:\src\flutter` (Settings → Languages & Frameworks → Flutter).

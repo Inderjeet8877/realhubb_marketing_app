@@ -45,7 +45,7 @@ export async function middleware(req: NextRequest) {
   const c = await claims(req);
   // An expired access token with a refresh cookie still counts as signed in;
   // the page refreshes it client-side. Admin-ness is re-checked by the APIs.
-  const hasSession = !!c || !!req.cookies.get('bz_rt');
+  const hasSession = !!c || req.cookies.get('bz_session')?.value === '1';
   if (!hasSession) {
     const url = new URL('/auth/login', req.url);
     url.searchParams.set('next', path);

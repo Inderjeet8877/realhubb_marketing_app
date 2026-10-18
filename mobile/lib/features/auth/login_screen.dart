@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../theme/app_theme.dart';
@@ -74,8 +74,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
     try {
       await action();
       if (mounted) setState(() => _phase = _Phase.done);
+    } on AuthFailure catch (e) {
+      // Awaiting approval is a page, not an error; rejected / suspended / locked show the server's message.
+      if (e.code == 'pending' && mounted) {
+        setState(() => _phase = _Phase.idle);
+        return context.go('/pending', extra: e.message);
+      }
+      _fail(e.message);
     } catch (e) {
-      _fail(e is StateError ? e.message : '$e');
+      _fail('$e');
     }
   }
 
@@ -347,17 +354,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
               ],
             ),
           ),
-          if (kDebugMode && !AuthController.firebaseConfigured)
-            _reveal(
-              next(),
-              Padding(
-                padding: const EdgeInsets.only(top: Space.s3),
-                child: TextButton(
-                  onPressed: auth.enterDevPreview,
-                  child: const Text('Continue in dev preview (debug only)'),
-                ),
+          _reveal(
+            next(),
+            Padding(
+              padding: const EdgeInsets.only(top: Space.s2),
+              child: TextButton(
+                onPressed: busy ? null : () => context.push('/signup'),
+                child: const Text('New to Broadzen? Create an account'),
               ),
             ),
+          ),
         ],
       ),
     );

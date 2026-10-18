@@ -398,7 +398,7 @@ function RegisteredDevices() {
 }
 
 function SettingsContent() {
-  const { user } = useAuth();
+  const { me } = useAuth();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -414,7 +414,7 @@ function SettingsContent() {
     toggleBackgroundPush,
   } = useNotifications();
 
-  if (!user) {
+  if (!me) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-gray-500">Please login to manage accounts</p>
