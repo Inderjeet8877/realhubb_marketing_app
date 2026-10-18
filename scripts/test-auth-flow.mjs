@@ -135,6 +135,16 @@ check('web login sets httpOnly cookies', /bz_at=/.test(cookie) && (r.headers.get
 r = await call('POST', '/api/auth/change-password', { headers: { 'x-client': 'web', cookie }, body: { currentPassword: pw, newPassword: 'Another-Pass-12' } });
 check('cookie request without X-Requested-With is blocked (CSRF)', r.status === 403 && r.data?.code === 'csrf');
 
+// --- legacy shared-data APIs are admin-only until per-workspace migration (B5) ---
+r = await call('GET', '/api/whatsapp/templates');
+check('legacy feature API without a session → 401', r.status === 401);
+r = await call('GET', '/api/whatsapp/templates', { token: tokB });
+check('legacy feature API with a normal user → 403 (no shared data leak)', r.status === 403);
+r = await call('GET', '/api/rcs/config-status', { token: admin });
+check('legacy feature API with the platform admin → allowed', r.status === 200);
+r = await call('GET', '/api/whatsapp/webhook');
+check('Meta webhook stays reachable without a session', r.status !== 401 && r.status !== 403);
+
 r = await call('GET', '/api/admin/audit', { token: admin });
 check('admin actions are in the audit log', (r.data?.entries ?? []).some((e) => e.action === 'user.approved' && e.target === A.email));
 r = await call('GET', '/api/admin/overview', { token: admin });
