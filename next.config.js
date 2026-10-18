@@ -9,6 +9,8 @@ const withPWA = require('next-pwa')({
 });
 
 const nextConfig = {
+  // Self-contained server bundle for the Docker image (infra/); Vercel builds are unaffected.
+  ...(process.env.BUILD_STANDALONE ? { output: 'standalone' } : {}),
   compiler: {
     // Correct SSR class-name generation for the one styled-components usage
     // in this app (the Meta/WhatsApp dashboard toggle) — without this, SWC
