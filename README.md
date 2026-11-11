@@ -1,146 +1,56 @@
-# Realhubb Platform
+# Realhubb Marketing
 
-Marketing automation platform for managing Meta Ads and WhatsApp campaigns.
+The internal marketing tool at RealHubb. The team uses it to see Meta ad campaigns and the leads they bring in, and to message those leads on WhatsApp, one at a time or as a broadcast. It runs as a web app and as an Android app built from the same code.
 
-## Tech Stack
+## What is in it
 
-- **Frontend:** Next.js 15 (App Router)
-- **Styling:** Tailwind CSS
-- **Auth:** Firebase Auth (Google OAuth)
-- **Database:** Firestore
-- **Storage:** Firebase Storage
-- **Charts:** Recharts
+- **Campaigns.** Connect a Meta ad account over OAuth and see its campaigns with their numbers.
+- **Leads and enquiries.** Leads from Meta lead forms and enquiries from the website are listed in the dashboard.
+- **Contacts.** The address book that broadcasts are sent to.
+- **WhatsApp.** Send and receive messages through the WhatsApp Cloud API, manage message templates, and run broadcasts that can be cancelled and resumed part-way. Each broadcast has an engagement report that exports to PDF.
+- **WhatsApp insights.** Charts for delivery and engagement.
+- **RCS.** Send RCS messages and list them.
+- **Push notifications** to the Android app.
 
-## Getting Started
+## How it is put together
 
-### 1. Firebase Setup
+Next.js 15 (App Router) with TypeScript and Tailwind CSS. Sign-in is Firebase Auth with Google or email and password. Data lives in Firestore, and the API routes write to it through `firebase-admin`.
 
-1. Go to [Firebase Console](https://console.firebase.google.com)
-2. Create a new project
-3. Enable Authentication:
-   - Go to Authentication > Sign-in method
-   - Enable "Google"
-4. Enable Firestore Database:
-   - Create database in test mode
-5. Enable Storage:
-   - Start in test mode
-6. Get your Firebase config from Project Settings > General > Your apps
+Everything that talks to Meta is in `src/app/api`:
 
-### 2. Meta Business Setup
+| Route group | What it does |
+| :--- | :--- |
+| `/api/meta/*` | OAuth connect, callback and disconnect, ad account selection, campaigns, lead forms and leads |
+| `/api/whatsapp/*` | send, messages, templates, broadcasts (start, process, cancel, resume, engagement report), insights, webhook |
+| `/api/rcs/*` | send and list RCS messages |
+| `/api/contacts`, `/api/enquiries` | contacts and website enquiries |
+| `/api/notifications/register` | stores a device push token |
+| `/api/upload` | media uploads |
 
-1. Go to [Meta Developers](https://developers.facebook.com/)
-2. Create a new app (type: Business)
-3. Add "Facebook Login" and "Marketing API" products
-4. Get App ID and App Secret
-5. Configure OAuth redirect URI: `http://localhost:3001/api/meta/callback`
+When a broadcast is processed, the route stores each WhatsApp message id against the broadcast and the phone number it went to. That index is what lets a later status update be matched back to the right broadcast and contact.
 
-### 3. Environment Setup
+The Android app is the same site wrapped with Capacitor (`com.realhubb.marketing`), in the `android/` folder. `baileys-receiver.js` is a separate Node script that links a WhatsApp number by QR code using Baileys and talks to Firestore with a service account. It is not part of the Next.js app.
 
-Update `.env.local` with your credentials:
+## Running it
 
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-
-NEXT_PUBLIC_APP_URL=http://localhost:3001
-
-META_APP_ID=your_meta_app_id
-META_APP_SECRET=your_meta_app_secret
-META_ACCESS_TOKEN=your_meta_access_token
-```
-
-### 4. Install & Run
+You need a Firebase project (Auth, Firestore, Storage) and a Meta app with the Marketing API and WhatsApp products.
 
 ```bash
 npm install
+cp .env.local.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001)
+Fill in `.env.local`:
 
-## Project Structure
+| Variable | For |
+| :--- | :--- |
+| `NEXT_PUBLIC_FIREBASE_*` | Firebase web config |
+| `META_APP_ID`, `META_APP_SECRET` | Meta OAuth |
+| `META_ACCESS_TOKEN_1` | Meta API access token |
+| `WHATSAPP_PHONE_NUMBER_ID_1`, `WHATSAPP_BUSINESS_ACCOUNT_ID_1` | the WhatsApp sender |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | the webhook verification handshake |
+| `NEXT_PUBLIC_APP_URL` | base URL of the app |
+| `INTERNAL_API_SECRET` | calls between the API routes |
 
-```
-realhubb-platform/
-├── src/
-│   ├── app/
-│   │   ├── dashboard/          # Dashboard pages
-│   │   │   ├── campaigns/
-│   │   │   ├── contacts/
-│   │   │   ├── whatsapp/
-│   │   │   └── settings/
-│   │   ├── api/               # API routes
-│   │   │   ├── meta/
-│   │   │   │   ├── connect/
-│   │   │   │   ├── callback/
-│   │   │   │   ├── accounts/
-│   │   │   │   └── campaigns/
-│   │   ├── login/
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   ├── components/
-│   ├── lib/
-│   │   ├── firebase.ts
-│   │   └── meta-api.ts
-│   └── types/
-├── .env.local
-├── package.json
-└── tsconfig.json
-```
-
-## Features Progress
-
-### Week 1-2: Auth & Dashboard ✅
-- [x] Google OAuth login
-- [x] Dashboard layout
-- [x] Dashboard pages (Overview, Campaigns, Contacts, WhatsApp, Settings)
-
-### Week 3-4: Meta Ads Integration ✅
-- [x] Meta OAuth flow (connect/disconnect)
-- [x] List connected ad accounts
-- [x] Campaigns page with metrics
-- [x] Campaign creation modal
-- [ ] Analytics dashboard with charts
-- [ ] Real Meta API integration
-
-### Week 5: Contacts Module (Planned)
-- [ ] CSV import
-- [ ] Contact list view
-- [ ] Tag management
-
-### Week 6-7: WhatsApp Integration (Planned)
-- [ ] WhatsApp Cloud API setup
-- [ ] Template management
-- [ ] Bulk message sending
-- [ ] Cloud Functions for background jobs
-
-### Week 8: Polish (Planned)
-- [ ] Real-time delivery tracking
-- [ ] Webhook handlers
-- [ ] Error handling
-- [ ] Mobile responsive
-
-## API Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/meta/connect` | GET | Initiate Meta OAuth flow |
-| `/api/meta/callback` | GET | OAuth callback handler |
-| `/api/meta/accounts` | GET | Fetch ad accounts |
-| `/api/meta/campaigns` | GET | Fetch campaigns with insights |
-
-## Deploy to Vercel
-
-1. Push to GitHub
-2. Import project in Vercel
-3. Add all environment variables
-4. Deploy
-
-## License
-
-MIT
-something
+Meta has to be able to reach the webhook, so local work on inbound messages needs a tunnel or a deployed preview. `firestore.rules` holds the security rules to deploy.
