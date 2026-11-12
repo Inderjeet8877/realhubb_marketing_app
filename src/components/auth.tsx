@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import Script from "next/script";
 import { useId, useRef, useState } from "react";
-import { Check, CheckCheck, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { Funnel } from "@/components/landing/Funnel";
 import { postRaw } from "@/lib/api";
 import { btn } from "@/components/ui/Modal";
 
@@ -27,15 +28,13 @@ export function AuthShell({ children, title, subtitle }: { children: React.React
         <Link href="/" className="rounded">
           <Image src="/brand/logo_dark.png" alt="Broadzen" width={170} height={36} priority className="h-7 w-auto md:h-9" />
         </Link>
-        <div className="hidden md:block">
+        <div className="hidden w-full md:block">
           <p className="max-w-sm text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em]">
             Broadcast smarter. Grow faster.
           </p>
-          <ul className="mt-8 space-y-3 font-mono text-sm text-[#A0AECC]" aria-label="Message status ticks">
-            <li className="flex items-center gap-3"><Check className="h-4 w-4 text-white/70" aria-hidden /> Sent</li>
-            <li className="flex items-center gap-3"><CheckCheck className="h-4 w-4 text-white/70" aria-hidden /> Delivered</li>
-            <li className="flex items-center gap-3"><CheckCheck className="h-4 w-4 text-signal-cyan" aria-hidden /> Read</li>
-          </ul>
+          <div className="mt-8 max-w-md">
+            <Funnel still />
+          </div>
         </div>
         <p className="hidden text-xs text-[#A0AECC] md:block">© {new Date().getFullYear()} Realhubb Ventures</p>
       </aside>

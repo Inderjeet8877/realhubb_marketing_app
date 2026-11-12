@@ -101,7 +101,7 @@ export function Tabs<T extends string>({ value, options, onChange, label }: { va
           role="tab"
           aria-selected={v === value}
           onClick={() => onChange(v)}
-          className={`min-h-[44px] px-4 text-sm font-medium whitespace-nowrap border-b-2 -mb-px focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-t ${
+          className={`min-h-[44px] px-4 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors duration-fast ${
             v === value ? "border-accent text-accent" : "border-transparent text-muted hover:text-fg"
           }`}
         >
@@ -230,7 +230,7 @@ export function RequestActions({ r, onAct }: { r: AccountRequest; onAct: (r: Acc
   const [reason, setReason] = useState("");
   if (r.status !== "pending" && r.status !== "rejected") return <span className="text-muted">—</span>;
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex gap-2 whitespace-nowrap">
       <button className={btn.success} onClick={() => onAct(r, "approve")}>
         Approve
       </button>

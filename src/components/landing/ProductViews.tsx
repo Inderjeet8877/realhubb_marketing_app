@@ -89,14 +89,14 @@ export function AdsView() {
   return (
     <Frame title="Meta Ads · last 7 days">
       <div className="-mx-1 overflow-x-auto">
-        <table className="w-full min-w-[420px] text-sm">
+        <table className="w-full min-w-0 text-xs sm:text-sm">
           <thead>
-            <tr className={`text-left text-xs ${muted}`}>
+            <tr className={`text-left text-[11px] sm:text-xs ${muted}`}>
               <th scope="col" className="px-1 pb-2 font-medium">Campaign</th>
               <th scope="col" className="px-1 pb-2 text-right font-medium">Spend</th>
               <th scope="col" className="px-1 pb-2 text-right font-medium">Leads</th>
-              <th scope="col" className="px-1 pb-2 text-right font-medium">Cost per lead</th>
-              <th scope="col" className="px-1 pb-2 text-right font-medium">WhatsApp replies</th>
+              <th scope="col" className="px-1 pb-2 text-right font-medium"><abbr title="Cost per lead" className="no-underline">CPL</abbr></th>
+              <th scope="col" className="px-1 pb-2 text-right font-medium">Replies</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-line font-mono text-white">

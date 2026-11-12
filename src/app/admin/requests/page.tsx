@@ -52,10 +52,10 @@ export default function RequestsPage() {
           columns={[
             ...(selecting ? [select] : []),
             { header: "Name", cell: (r) => <span className="font-medium">{r.name}</span> },
-            { header: "Email", cell: (r) => <span className="break-all">{r.email}</span> },
+            { header: "Email", cell: (r) => <span className="block max-w-[220px] truncate" title={r.email}>{r.email}</span> },
             { header: "Workspace", cell: (r) => r.workspace.name },
             { header: "Method", cell: (r) => (r.method === "google" ? "Google" : "Password") },
-            { header: "Requested", cell: (r) => fmtDate(r.createdAt) },
+            { header: "Requested", cell: (r) => <span className="whitespace-nowrap font-mono text-xs">{fmtDate(r.createdAt)}</span> },
             {
               header: "Status",
               cell: (r) => (

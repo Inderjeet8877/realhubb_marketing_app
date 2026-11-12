@@ -1,46 +1,64 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, CheckCheck, Megaphone, UserPlus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, CheckCheck, Megaphone, RotateCcw, UserPlus } from "lucide-react";
 
 // Hero signature: one lead's path from a Meta ad to a WhatsApp reply, with the
 // cost per lead settling at the end. Sample data, labelled as such.
 const STEP_MS = 900;
 const LAST = 5; // 0 ad · 1 lead · 2 sent · 3 delivered · 4 read · 5 replied
-const HOLD_STEPS = 3;
 const SPEND = 4250;
 const LEADS = 34;
 const CPL = Math.round(SPEND / LEADS);
+const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export function Funnel() {
+/** Plays once when scrolled into view (WCAG 2.2.2: no endless loop), then holds; Replay runs it again. `still` never animates. */
+export function Funnel({ still = false }: { still?: boolean }) {
+  const ref = useRef<HTMLElement>(null);
   const [step, setStep] = useState(LAST);
   const [cpl, setCpl] = useState(CPL);
+  const [run, setRun] = useState(0);
+  const [motion, setMotion] = useState(false);
+
+  // Start the first run when the panel is on screen.
+  useEffect(() => {
+    if (still || reduced() || !ref.current) return;
+    setMotion(true);
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      io.disconnect();
+      setRun(1);
+    }, { threshold: 0.4 });
+    io.observe(ref.current);
+    return () => io.disconnect();
+  }, [still]);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let tick = 0;
+    if (!run) return;
+    let s = 0;
     setStep(0);
     const id = setInterval(() => {
-      tick = (tick + 1) % (LAST + 1 + HOLD_STEPS);
-      setStep(Math.min(tick, LAST));
+      s += 1;
+      setStep(s);
+      if (s >= LAST) clearInterval(id);
     }, STEP_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [run]);
 
   // Count the CPL up once the reply lands.
   useEffect(() => {
     if (step < LAST) return setCpl(0);
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setCpl(CPL);
+    if (!run || reduced()) return setCpl(CPL);
     const t0 = performance.now();
     let raf = 0;
-    const run = (t: number) => {
+    const tick = (t: number) => {
       const p = Math.min(1, (t - t0) / 700);
       setCpl(Math.round(CPL * (1 - Math.pow(1 - p, 4))));
-      if (p < 1) raf = requestAnimationFrame(run);
+      if (p < 1) raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(run);
+    raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [step]);
+  }, [step, run]);
 
   const on = (s: number) => (step >= s ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2");
   const Tick = step >= 3 ? CheckCheck : Check;
@@ -48,12 +66,24 @@ export function Funnel() {
 
   return (
     <figure
+      ref={ref}
       aria-label="Example: a Meta lead ad becomes a WhatsApp conversation, with the cost per lead"
-      className="relative rounded-2xl border border-ink-line bg-ink-2 p-4 sm:p-6 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
+      className="relative rounded-2xl border border-ink-line bg-ink-2 p-4 sm:p-6"
     >
       <figcaption className="flex items-center justify-between text-xs text-[#A0AECC]">
         <span className="font-medium text-white/90">One lead, start to reply</span>
-        <span className="font-mono">Sample data</span>
+        <span className="flex items-center gap-3">
+          <span className="font-mono">Sample data</span>
+          {motion && step >= LAST && (
+            <button
+              type="button"
+              onClick={() => setRun((r) => r + 1)}
+              className="-my-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-2 text-white/80 transition-colors duration-fast hover:text-white"
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Replay
+            </button>
+          )}
+        </span>
       </figcaption>
 
       <div className="mt-4 grid grid-cols-[12px_minmax(0,1fr)] gap-x-4">

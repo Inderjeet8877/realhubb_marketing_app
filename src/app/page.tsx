@@ -49,12 +49,12 @@ function Section({ id, title, intro, children }: { id: string; title: string; in
 
 function Feature({ title, body, view, flip }: { title: string; body: string; view: React.ReactNode; flip?: boolean }) {
   return (
-    <div className="grid items-center gap-8 md:grid-cols-2 md:gap-14">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-8 md:grid-cols-2 md:gap-14">
       <div className={flip ? "md:order-2" : ""}>
         <h3 className="font-display text-2xl font-semibold text-white">{title}</h3>
         <p className={`mt-3 max-w-md ${muted}`}>{body}</p>
       </div>
-      <div>{view}</div>
+      <div className="min-w-0">{view}</div>
     </div>
   );
 }
@@ -83,11 +83,7 @@ export default function Home() {
         </nav>
       </header>
 
-      <section aria-labelledby="hero-h" className="relative overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-40 right-[-10%] h-[520px] w-[620px] rounded-full bg-[radial-gradient(closest-side,rgba(0,245,233,0.10),transparent)]"
-        />
+      <section aria-labelledby="hero-h">
         <div className="relative mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-12 px-4 pb-20 pt-14 sm:px-6 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] md:pb-28 md:pt-24">
           <div>
             <h1 id="hero-h" className="text-balance font-display text-[2.5rem] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-6xl">
@@ -138,7 +134,7 @@ export default function Home() {
           <Feature
             flip
             title="Reply from one inbox"
-            body="Every WhatsApp conversation in one list, with unread counts and the ad or broadcast that started it. Answer from the web today, and from the Android app soon."
+            body="Every WhatsApp conversation in one list, with unread counts and the ad or broadcast that started it. Answer from the web, and soon from the Android app."
             view={<InboxView />}
           />
           <Feature
@@ -169,11 +165,12 @@ export default function Home() {
       </Section>
 
       <Section id="access" title="Get your workspace">
-        <div className="grid gap-12 md:grid-cols-[1fr_1.15fr]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
           <div>
             <p className={`max-w-md text-lg ${muted}`}>
-              Create an account and a person reviews it before your workspace opens; you can check its status any time by
-              signing in. Or leave your details and we will call you to set things up.
+              Create an account and a person reviews it before your workspace opens. We are finishing self-serve WhatsApp
+              and Meta connection, so for now our team connects them with each new client. Or leave your details and we
+              will call you.
             </p>
             <Link href="/signup" className={`${primaryCta} mt-8`}>
               Create an account <ArrowRight className="h-5 w-5" aria-hidden />

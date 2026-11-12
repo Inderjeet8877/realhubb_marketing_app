@@ -7,7 +7,7 @@ import { AuthShell, btnPrimary } from "@/components/auth";
 
 const TIMELINE = [
   { icon: Check, title: "Request received", body: "Thanks! Your account request is with our team.", state: "done" },
-  { icon: Clock, title: "Review by our team", body: "We check your details, usually within one business day.", state: "now" },
+  { icon: Clock, title: "Review by our team", body: "A person checks every request by hand. Once approved, you can sign in.", state: "now" },
   { icon: LogIn, title: "Sign in to your workspace", body: "Once approved, sign in with the email and password (or Google account) you used. You land in your own private workspace.", state: "next" },
 ] as const;
 
