@@ -22,7 +22,7 @@ import "jspdf-autotable";
 
 const CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 const ACCOUNT_COLORS: Record<string, { bg: string; text: string; badge: string }> = {
-  "1": { bg: "bg-blue-50",   text: "text-blue-700",   badge: "bg-blue-100 text-blue-700"   },
+  "1": { bg: "bg-accent/10",   text: "text-accent",   badge: "bg-accent/10 text-accent"   },
   "2": { bg: "bg-purple-50", text: "text-purple-700", badge: "bg-purple-100 text-purple-700" },
   "3": { bg: "bg-orange-50", text: "text-orange-700", badge: "bg-orange-100 text-orange-700" },
 };
@@ -375,7 +375,7 @@ export default function MetaDashboardContent() {
               <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2">
                 {DATE_PRESETS.map(d => (
                   <button key={d.id} onClick={() => { setDatePreset(d.id); if (d.id !== "custom") setShowDateDropdown(false); }}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-50 ${datePreset === d.id ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}>
+                    className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-50 ${datePreset === d.id ? "text-accent font-medium bg-accent/10" : "text-gray-700"}`}>
                     {d.label}
                   </button>
                 ))}
@@ -394,7 +394,7 @@ export default function MetaDashboardContent() {
                         className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm" />
                     </div>
                     <button onClick={() => setShowDateDropdown(false)}
-                      className="w-full bg-blue-600 text-white text-sm font-medium rounded-md py-1.5 hover:bg-blue-700">
+                      className="w-full bg-primary text-white text-sm font-medium rounded-md py-1.5 hover:brightness-125">
                       Apply
                     </button>
                   </div>
@@ -412,7 +412,7 @@ export default function MetaDashboardContent() {
               <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
                 {ACCOUNTS.map(a => (
                   <button key={a.id} onClick={() => { setSelectedAccount(a.id); setShowDropdown(false); }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedAccount === a.id ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}>
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedAccount === a.id ? "text-accent font-medium bg-accent/10" : "text-gray-700"}`}>
                     {a.name}
                   </button>
                 ))}
@@ -449,9 +449,9 @@ export default function MetaDashboardContent() {
                 <div className="border-t border-gray-100" />
                 <button
                   onClick={downloadPDF}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-b-lg"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-accent/10 hover:text-accent rounded-b-lg"
                 >
-                  <FileText className="w-4 h-4 text-blue-600" />
+                  <FileText className="w-4 h-4 text-accent" />
                   <div className="text-left">
                     <p className="font-medium">Download PDF</p>
                     <p className="text-xs text-gray-400">Formatted report (landscape)</p>
@@ -465,7 +465,7 @@ export default function MetaDashboardContent() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard label="Total Campaigns" value={filtered.length.toString()} sub={`${activeCount} active`} icon={BarChart3} color="bg-blue-100 text-blue-600" />
+        <StatCard label="Total Campaigns" value={filtered.length.toString()} sub={`${activeCount} active`} icon={BarChart3} color="bg-accent/10 text-accent" />
         <StatCard label="Total Spend"     value={inr(totalSpend)} icon={DollarSign} color="bg-purple-100 text-purple-600" />
         <StatCard label="Impressions"     value={compact(totalImpr)} icon={Eye} color="bg-orange-100 text-orange-600" />
         <StatCard label="Clicks"          value={compact(totalClicks)} sub={totalImpr > 0 ? `${((totalClicks / totalImpr) * 100).toFixed(2)}% CTR` : ""} icon={TrendingUp} color="bg-indigo-100 text-indigo-600" />
@@ -509,7 +509,7 @@ export default function MetaDashboardContent() {
                     <span>Share of total spend</span>
                     <span className="font-medium">{spendShare.toFixed(0)}%</span>
                   </div>
-                  <ProgressBar percent={spendShare} colorClass={acc.id === "1" ? "bg-blue-500" : acc.id === "2" ? "bg-purple-500" : "bg-orange-500"} />
+                  <ProgressBar percent={spendShare} colorClass={acc.id === "1" ? "bg-accent" : acc.id === "2" ? "bg-purple-500" : "bg-orange-500"} />
                 </div>
               </div>
             );
@@ -557,7 +557,7 @@ export default function MetaDashboardContent() {
           <div className="flex flex-wrap gap-1">
             {(["all", "1", "2", "3"] as const).map(id => (
               <button key={id} onClick={() => setActiveReport(id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg ${activeReport === id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg ${activeReport === id ? "bg-primary text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                 {id === "all" ? "All" : `Acc ${id}`}
               </button>
             ))}

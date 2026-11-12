@@ -11,10 +11,10 @@ import { AuthShell, btnPrimary, ErrorBox, Field, GoogleButton, link, type Google
 const MIN = 10;
 
 function strength(p: string) {
-  if (p.length < MIN) return { label: `Too short: ${p.length}/${MIN} characters`, color: "text-red-700" };
+  if (p.length < MIN) return { label: `Too short: ${p.length}/${MIN} characters`, color: "text-danger" };
   const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(p)).length;
-  if (kinds >= 3 && p.length >= 12) return { label: "Strong password", color: "text-green-700" };
-  return { label: "Okay. Mixing upper case, numbers and symbols makes it stronger.", color: "text-amber-700" };
+  if (kinds >= 3 && p.length >= 12) return { label: "Strong password", color: "text-ok" };
+  return { label: "Okay. Mixing upper case, numbers and symbols makes it stronger.", color: "text-warn" };
 }
 
 export default function SignupPage() {
@@ -68,7 +68,7 @@ export default function SignupPage() {
           required
           value={f.confirm}
           onChange={set("confirm")}
-          hint={f.confirm && f.confirm !== f.password ? <span className="text-red-700">Passwords don&apos;t match yet.</span> : undefined}
+          hint={f.confirm && f.confirm !== f.password ? <span className="text-danger">Passwords don&apos;t match yet.</span> : undefined}
         />
         <button type="submit" disabled={loading} className={btnPrimary}>
           {loading && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
@@ -76,7 +76,7 @@ export default function SignupPage() {
         </button>
       </form>
       <GoogleButton workspace={f.workspace} onResult={onGoogle} />
-      <p className="text-center text-sm text-gray-600 mt-6">
+      <p className="text-center text-sm text-muted mt-6">
         Already have an account?{" "}
         <Link href="/auth/login" className={link}>
           Sign in

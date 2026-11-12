@@ -389,10 +389,10 @@ export default function WhatsAppDashboardContent() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
               <StatCard
-                icon={<Send className="w-5 h-5 text-blue-600" />}
+                icon={<Send className="w-5 h-5 text-accent" />}
                 label="Messages Sent"
                 value={data.totalSent.toLocaleString()}
-                bg="bg-blue-50"
+                bg="bg-accent/10"
               />
               <StatCard
                 icon={<CheckCheck className="w-5 h-5 text-green-600" />}
@@ -514,8 +514,8 @@ export default function WhatsAppDashboardContent() {
               <div className="space-y-6">
                 {/* Recommendation cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
-                    <Calendar className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                  <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 flex items-start gap-3">
+                    <Calendar className="w-5 h-5 text-accent mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm font-semibold text-gray-900">Best day to send</p>
                       {engagement.bestDay ? (

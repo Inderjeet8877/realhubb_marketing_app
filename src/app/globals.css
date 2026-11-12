@@ -11,6 +11,8 @@
   --muted: 82 96 128;
   --accent: 15 118 110;      /* teal-700, 5.4:1 on white */
   --on-accent: 255 255 255;
+  --primary: 15 26 56;       /* navy button; mint in dark */
+  --on-primary: 255 255 255;
   --warn: 161 98 7;
   --danger: 185 28 28;
   --ok: 4 120 87;
@@ -20,9 +22,9 @@
 /* Dark: opt-in per surface with .theme-auto (follows the OS) or .theme-dark.
    The legacy /dashboard pages hardcode light classes, so they never opt in. */
 @media (prefers-color-scheme: dark) {
-  .theme-auto { --bg: 11 19 42; --surface: 15 26 56; --line: 42 58 107; --fg: 232 238 248; --muted: 160 174 204; --accent: 45 212 191; --on-accent: 15 26 56; --warn: 245 165 36; --danger: 248 113 113; --ok: 52 211 153; color-scheme: dark; }
+  .theme-auto { --bg: 11 19 42; --surface: 15 26 56; --line: 42 58 107; --fg: 232 238 248; --muted: 160 174 204; --accent: 45 212 191; --on-accent: 15 26 56; --primary: 45 212 191; --on-primary: 15 26 56; --warn: 245 165 36; --danger: 248 113 113; --ok: 52 211 153; color-scheme: dark; }
 }
-.theme-dark { --bg: 11 19 42; --surface: 15 26 56; --line: 42 58 107; --fg: 232 238 248; --muted: 160 174 204; --accent: 45 212 191; --on-accent: 15 26 56; --warn: 245 165 36; --danger: 248 113 113; --ok: 52 211 153; color-scheme: dark; }
+.theme-dark { --bg: 11 19 42; --surface: 15 26 56; --line: 42 58 107; --fg: 232 238 248; --muted: 160 174 204; --accent: 45 212 191; --on-accent: 15 26 56; --primary: 45 212 191; --on-primary: 15 26 56; --warn: 245 165 36; --danger: 248 113 113; --ok: 52 211 153; color-scheme: dark; }
 
 body {
   color: rgb(var(--fg));

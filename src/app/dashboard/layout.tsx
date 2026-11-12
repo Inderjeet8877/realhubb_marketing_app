@@ -79,9 +79,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const waIsActive = isActive(WHATSAPP_HREF);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-bg">
       {/* ── Top nav ── */}
-      <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
+      <nav className="bg-surface shadow-sm border-b border-line sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex justify-between h-14">
             <div className="flex items-center">
@@ -94,8 +94,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                   href={dashboardNavItem.href}
                   className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                     isActive(dashboardNavItem.href)
-                      ? "text-blue-600 bg-blue-50"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                      ? "text-accent bg-accent/10"
+                      : "text-muted hover:text-fg hover:bg-bg"
                   }`}
                 >
                   <dashboardNavItem.icon className="w-4 h-4 mr-1.5" />
@@ -112,8 +112,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                     href={item.href}
                     className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                       isActive(item.href)
-                        ? "text-blue-600 bg-blue-50"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                        ? "text-accent bg-accent/10"
+                        : "text-muted hover:text-fg hover:bg-bg"
                     }`}
                   >
                     <item.icon className="w-4 h-4 mr-1.5" />
@@ -126,14 +126,14 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSignOut}
-                className="hidden lg:inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 rounded-md hover:bg-gray-50"
+                className="hidden lg:inline-flex items-center px-3 py-1.5 text-sm font-medium text-muted hover:text-fg rounded-md hover:bg-bg"
               >
                 <LogOut className="w-4 h-4 mr-1.5" />
                 Sign Out
               </button>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                className="lg:hidden p-2 rounded-md text-muted hover:text-fg hover:bg-bg"
               >
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
@@ -145,13 +145,13 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             section labels instead, since a narrow screen doesn't have the
             horizontal-clutter problem a dropdown solves. */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-gray-100 bg-white shadow-lg max-h-[calc(100vh-3.5rem)] overflow-y-auto">
+          <div className="lg:hidden border-t border-line bg-surface shadow-lg max-h-[calc(100vh-3.5rem)] overflow-y-auto">
             <div className="px-3 py-2 space-y-3">
               <Link
                 href={dashboardNavItem.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg ${
-                  isActive(dashboardNavItem.href) ? "text-blue-600 bg-blue-50" : "text-gray-600 hover:bg-gray-50"
+                  isActive(dashboardNavItem.href) ? "text-accent bg-accent/10" : "text-muted hover:bg-bg"
                 }`}
               >
                 <dashboardNavItem.icon className="w-4 h-4 flex-shrink-0" />
@@ -163,14 +163,14 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 onNavigate={() => setMobileMenuOpen(false)}
                 unreadHref={WHATSAPP_HREF} unreadCount={!waIsActive ? unreadCount : 0}
               />
-              <div className="grid grid-cols-2 gap-1 pt-1 border-t border-gray-100">
+              <div className="grid grid-cols-2 gap-1 pt-1 border-t border-line">
                 {standaloneNav.map((item) => (
                   <Link
                     key={item.name}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg ${
-                      isActive(item.href) ? "text-blue-600 bg-blue-50" : "text-gray-600 hover:bg-gray-50"
+                      isActive(item.href) ? "text-accent bg-accent/10" : "text-muted hover:bg-bg"
                     }`}
                   >
                     <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -179,7 +179,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 ))}
                 <button
                   onClick={handleSignOut}
-                  className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg col-span-2"
+                  className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-muted hover:bg-bg rounded-lg col-span-2"
                 >
                   <LogOut className="w-4 h-4" />
                   Sign Out
@@ -198,7 +198,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <NotificationSetup />
 
       {/* Bottom tab bar — mobile */}
-      <div className="sm:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-40">
+      <div className="sm:hidden fixed bottom-0 inset-x-0 bg-surface border-t border-line z-40">
         <div className="flex">
           {bottomNav.map((item) => {
             const active  = isActive(item.href);
@@ -209,12 +209,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 key={item.name}
                 href={item.href}
                 className={`relative flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
-                  active ? "text-blue-600" : "text-gray-400 active:text-gray-600"
+                  active ? "text-accent" : "text-muted active:text-muted"
                 }`}
               >
                 <item.icon className={`w-5 h-5 ${active ? "stroke-2" : ""}`} />
                 {badge && (
-                  <span className="absolute top-1 right-[18%] min-w-[16px] h-[16px] px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute top-1 right-[18%] min-w-[16px] h-[16px] px-0.5 bg-danger/100 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -262,27 +262,27 @@ function NavDropdown({
       <button
         onClick={() => setOpen((o) => !o)}
         className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-          groupActive ? "text-blue-600 bg-blue-50" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+          groupActive ? "text-accent bg-accent/10" : "text-muted hover:text-fg hover:bg-bg"
         }`}
       >
         <Icon className="w-4 h-4 mr-1.5" />
         {label}
         <AnimatedChevronDown open={open} className="w-3.5 h-3.5 ml-1" />
         {!!badge && badge > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-danger/100 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
             {badge > 99 ? "99+" : badge}
           </span>
         )}
       </button>
       {open && (
-        <div className="absolute left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-40">
+        <div className="absolute left-0 mt-1 w-48 bg-surface border border-line rounded-lg shadow-lg py-1 z-40">
           {items.map((item) => (
             <Link
               key={item.name}
               href={item.href}
               onClick={() => setOpen(false)}
               className={`flex items-center gap-2 px-3 py-2 text-sm ${
-                isActive(item.href) ? "text-blue-600 bg-blue-50 font-medium" : "text-gray-700 hover:bg-gray-50"
+                isActive(item.href) ? "text-accent bg-accent/10 font-medium" : "text-muted hover:bg-bg"
               }`}
             >
               <item.icon className="w-4 h-4" />
@@ -312,7 +312,7 @@ function MobileNavSection({
 }) {
   return (
     <div>
-      <p className="px-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
+      <p className="px-3 text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">{label}</p>
       <div className="grid grid-cols-2 gap-1">
         {items.map((item) => (
           <Link
@@ -320,7 +320,7 @@ function MobileNavSection({
             href={item.href}
             onClick={onNavigate}
             className={`relative flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg ${
-              isActive(item.href) ? "text-blue-600 bg-blue-50" : "text-gray-600 hover:bg-gray-50"
+              isActive(item.href) ? "text-accent bg-accent/10" : "text-muted hover:bg-bg"
             }`}
           >
             <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -331,7 +331,7 @@ function MobileNavSection({
               </span>
             )}
             {item.href === unreadHref && !!unreadCount && unreadCount > 0 && (
-              <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+              <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-danger/100 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}

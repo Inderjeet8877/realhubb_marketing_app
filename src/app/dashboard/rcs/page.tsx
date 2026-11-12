@@ -104,7 +104,7 @@ export default function RcsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Radio className="w-6 h-6 text-blue-600" />
+          <Radio className="w-6 h-6 text-accent" />
           RCS Messaging
           <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">
             Upcoming Feature
@@ -115,11 +115,11 @@ export default function RcsPage() {
         </p>
       </div>
 
-      <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
-        <Sparkles className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+      <div className="flex items-start gap-3 rounded-xl border border-accent/20 bg-accent/10 p-4">
+        <Sparkles className="w-5 h-5 text-accent mt-0.5 shrink-0" />
         <div>
-          <p className="text-sm font-semibold text-blue-900">This channel is being set up</p>
-          <p className="text-sm text-blue-800 mt-1">
+          <p className="text-sm font-semibold text-accent">This channel is being set up</p>
+          <p className="text-sm text-accent mt-1">
             The page and sending logic are fully built and ready to go — it just needs your
             DLT-registered Sender ID, Content ID, and Entity ID from Ping Smart before it can send.
             Everything below will switch on automatically once those are added.
@@ -151,7 +151,7 @@ export default function RcsPage() {
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Message text..."
           rows={3}
-          className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
         />
 
         {/* Quick single send */}
@@ -184,7 +184,7 @@ export default function RcsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search contacts..."
-              className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
           <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
@@ -196,10 +196,10 @@ export default function RcsPage() {
                 return (
                   <label
                     key={c.id || c.phone}
-                    className={`flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer ${checked ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                    className={`flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer ${checked ? "bg-accent/10" : "hover:bg-gray-50"}`}
                   >
                     <button type="button" onClick={() => toggleContact(c.phone)} className="shrink-0">
-                      {checked ? <CheckSquare className="w-4 h-4 text-blue-600" /> : <Square className="w-4 h-4 text-gray-400" />}
+                      {checked ? <CheckSquare className="w-4 h-4 text-accent" /> : <Square className="w-4 h-4 text-gray-400" />}
                     </button>
                     <span className="truncate text-gray-800">{c.name}</span>
                     <span className="text-xs text-gray-400 ml-auto shrink-0">{c.phone}</span>
@@ -225,7 +225,7 @@ export default function RcsPage() {
         <button
           onClick={handleSend}
           disabled={!configured || sending || recipientCount === 0}
-          className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-primary text-white rounded-xl hover:brightness-125 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
         >
           {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedSendIcon className="w-4 h-4" />}
           {sending ? "Sending..." : `Send${recipientCount > 0 ? ` to ${recipientCount}` : ""}`}

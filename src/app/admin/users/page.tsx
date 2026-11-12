@@ -65,7 +65,7 @@ function Users() {
                 <>
                   <span className="font-medium">{u.name}</span>
                   {u.isPlatformAdmin && <span className="ml-2"><Badge tone="blue">Platform admin</Badge></span>}
-                  <p className="text-gray-600 break-all">{u.email}</p>
+                  <p className="text-muted break-all">{u.email}</p>
                 </>
               ),
             },
@@ -77,7 +77,7 @@ function Users() {
               header: "Actions",
               cell: (u) =>
                 u.isPlatformAdmin ? (
-                  <span className="text-xs text-gray-500">Protected</span>
+                  <span className="text-xs text-muted">Protected</span>
                 ) : u.status === "approved" ? (
                   <button className={btn.secondary} disabled={busy === u.id} onClick={() => setSuspending(u)}>
                     Suspend
@@ -87,7 +87,7 @@ function Users() {
                     Reactivate
                   </button>
                 ) : (
-                  <span className="text-xs text-gray-500">Review in Requests</span>
+                  <span className="text-xs text-muted">Review in Requests</span>
                 ),
             },
           ]}
@@ -95,7 +95,7 @@ function Users() {
       </States>
 
       <Modal open={!!suspending} onClose={() => setSuspending(null)} title={`Suspend ${suspending?.name ?? ""}?`}>
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-muted">
           {suspending?.email} will be <strong>signed out on every device immediately</strong> and won&apos;t be able to sign in
           until you reactivate them.{suspending?.role === "owner" && " Their workspace is suspended too."}
         </p>

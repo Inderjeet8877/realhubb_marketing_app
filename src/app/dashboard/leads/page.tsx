@@ -598,7 +598,7 @@ export default function LeadsPage() {
                     key={account.id}
                     onClick={() => handleAccountChange(account.id)}
                     className={`w-full text-left px-4 py-2 hover:bg-gray-50 ${
-                      selectedAccount === account.id ? "bg-blue-50 text-blue-600" : "text-gray-700"
+                      selectedAccount === account.id ? "bg-accent/10 text-accent" : "text-gray-700"
                     }`}
                   >
                     {account.name}
@@ -635,23 +635,23 @@ export default function LeadsPage() {
       </div>
 
       {exporting && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="mb-6 p-4 bg-accent/10 border border-accent/30 rounded-lg">
           <div className="flex items-center gap-2 mb-3">
-            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-            <span className="font-medium text-blue-900">Exporting Leads...</span>
+            <Loader2 className="w-5 h-5 animate-spin text-accent" />
+            <span className="font-medium text-accent">Exporting Leads...</span>
           </div>
-          <div className="text-sm text-blue-800 mb-2">
+          <div className="text-sm text-accent mb-2">
             <span className="font-medium">Fetching:</span> {exportProgress.currentForm || "Starting..."}
           </div>
-          <div className="text-sm text-blue-800 mb-2">
+          <div className="text-sm text-accent mb-2">
             <span className="font-medium">Progress:</span> {exportProgress.current} of {exportProgress.total} forms
           </div>
-          <div className="text-sm text-blue-800 mb-3">
+          <div className="text-sm text-accent mb-3">
             <span className="font-medium">Leads fetched so far:</span> {exportProgress.leadsCount}
           </div>
-          <div className="w-full bg-blue-200 rounded-full h-3">
+          <div className="w-full bg-accent/20 rounded-full h-3">
             <div 
-              className="bg-blue-600 h-3 rounded-full transition-all duration-300" 
+              className="bg-primary h-3 rounded-full transition-all duration-300" 
               style={{ width: `${(exportProgress.current / Math.max(exportProgress.total, 1)) * 100}%` }}
             />
           </div>
@@ -687,8 +687,8 @@ export default function LeadsPage() {
               <p className="text-xs sm:text-sm text-gray-600 truncate">Total Leads</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalLeads}</p>
             </div>
-            <div className="p-2 sm:p-3 bg-blue-100 rounded-lg shrink-0">
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+            <div className="p-2 sm:p-3 bg-accent/10 rounded-lg shrink-0">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-accent" />
             </div>
           </div>
         </div>
@@ -728,7 +728,7 @@ export default function LeadsPage() {
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
-                autoRefresh ? "bg-blue-600" : "bg-gray-300"
+                autoRefresh ? "bg-primary" : "bg-gray-300"
               }`}
             >
               <span
@@ -746,7 +746,7 @@ export default function LeadsPage() {
           onClick={() => setActiveTab("campaigns")}
           className={`pb-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
             activeTab === "campaigns"
-              ? "border-b-2 border-blue-600 text-blue-600"
+              ? "border-b-2 border-accent text-accent"
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
@@ -756,7 +756,7 @@ export default function LeadsPage() {
           onClick={() => setActiveTab("forms")}
           className={`pb-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
             activeTab === "forms"
-              ? "border-b-2 border-blue-600 text-blue-600"
+              ? "border-b-2 border-accent text-accent"
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
@@ -766,7 +766,7 @@ export default function LeadsPage() {
           onClick={() => setActiveTab("summary")}
           className={`pb-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
             activeTab === "summary"
-              ? "border-b-2 border-blue-600 text-blue-600"
+              ? "border-b-2 border-accent text-accent"
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
@@ -856,7 +856,7 @@ export default function LeadsPage() {
                   placeholder="Search forms by name or page..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-accent"
                 />
               </div>
           <div className="relative" ref={exportDropdownRef}>
@@ -864,7 +864,7 @@ export default function LeadsPage() {
                 <select
                   value={selectedPage}
                   onChange={(e) => setSelectedPage(e.target.value)}
-                  className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                  className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-accent appearance-none bg-white"
                 >
                   <option value="all">All Pages ({uniquePages.length})</option>
                   {uniquePages.map((page) => (
@@ -922,7 +922,7 @@ export default function LeadsPage() {
                           {getStatusBadge(form.status)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-700">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-accent/10 text-accent">
                             {form.leadsCount}
                           </span>
                         </td>
@@ -930,7 +930,7 @@ export default function LeadsPage() {
                           <button
                             onClick={() => handleViewFormLeads(form)}
                             disabled={form.leadsCount === 0}
-                            className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1 px-3 py-1 text-sm text-accent hover:bg-accent/10 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Eye className="w-4 h-4" />
                             View
@@ -970,7 +970,7 @@ export default function LeadsPage() {
                     <div className="ml-4 flex items-center gap-3">
                       <div className="w-24 bg-gray-200 rounded-full h-2">
                         <div
-                          className="bg-blue-600 h-2 rounded-full"
+                          className="bg-primary h-2 rounded-full"
                           style={{
                             width: `${Math.min(100, ((form.leadsCount || 0) / Math.max(...forms.map((f) => f.leadsCount || 0), 1)) * 100)}%`,
                           }}
@@ -998,7 +998,7 @@ export default function LeadsPage() {
                       <span className="text-xs text-gray-500">{pageForms.length} forms</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <p className="text-xl sm:text-2xl font-bold text-blue-600">{pageLeads} leads</p>
+                      <p className="text-xl sm:text-2xl font-bold text-accent">{pageLeads} leads</p>
                       <div className="flex gap-2">
                         {pageForms.slice(0, 3).map((f) => (
                           <span
@@ -1034,7 +1034,7 @@ export default function LeadsPage() {
                 <p className="text-sm text-gray-500">Active Forms</p>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-2xl sm:text-3xl font-bold text-blue-600">{totalLeads}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-accent">{totalLeads}</p>
                 <p className="text-sm text-gray-500">Total Leads</p>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
@@ -1070,7 +1070,7 @@ export default function LeadsPage() {
                 <button
                   onClick={saveToDatabase}
                   disabled={savingToDb}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                  className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:brightness-125 disabled:opacity-50 text-sm"
                 >
                   <Database className="w-4 h-4" />
                   {savingToDb ? "Saving..." : "Send to Database"}
@@ -1106,8 +1106,8 @@ export default function LeadsPage() {
                     <div key={lead.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-blue-600 font-medium">
+                          <div className="h-10 w-10 bg-accent/10 rounded-full flex items-center justify-center">
+                            <span className="text-accent font-medium">
                               {getLeadName(lead).charAt(0).toUpperCase()}
                             </span>
                           </div>

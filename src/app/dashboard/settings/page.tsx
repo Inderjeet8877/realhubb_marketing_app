@@ -182,20 +182,20 @@ function MetaConnections() {
 
       {/* Asset picker — shown right after a login redirect, until assigned to a slot */}
       {pendingId && (
-        <div className="m-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
-          <h3 className="font-semibold text-blue-900 mb-1">Choose what each account slot uses</h3>
+        <div className="m-4 p-4 border border-accent/30 bg-accent/10 rounded-lg">
+          <h3 className="font-semibold text-accent mb-1">Choose what each account slot uses</h3>
           {pendingData?.connectedByName && (
-            <p className="text-sm text-blue-700 mb-3">Signed in as {pendingData.connectedByName} on Facebook.</p>
+            <p className="text-sm text-accent mb-3">Signed in as {pendingData.connectedByName} on Facebook.</p>
           )}
           {pendingLoading ? (
-            <div className="flex items-center gap-2 text-sm text-blue-700 py-4"><Loader2 className="w-4 h-4 animate-spin" /> Loading discovered accounts…</div>
+            <div className="flex items-center gap-2 text-sm text-accent py-4"><Loader2 className="w-4 h-4 animate-spin" /> Loading discovered accounts…</div>
           ) : pendingError ? (
             <p className="text-sm text-red-600">{pendingError}</p>
           ) : pendingData ? (
             <>
               <div className="space-y-3">
                 {SLOTS.map((slot) => (
-                  <div key={slot} className="bg-white rounded-lg border border-blue-100 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div key={slot} className="bg-white rounded-lg border border-accent/20 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">Account {slot} — Ad Account</label>
                       <select
@@ -229,7 +229,7 @@ function MetaConnections() {
                 <button
                   onClick={handleSaveSelection}
                   disabled={saving}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:brightness-125 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
                 >
                   {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   Save
@@ -323,7 +323,7 @@ function formatDate(iso: string | null): string {
 }
 
 function PlatformIcon({ platform }: { platform: string }) {
-  if (platform === "web") return <Globe className="w-4 h-4 text-blue-600 shrink-0" />;
+  if (platform === "web") return <Globe className="w-4 h-4 text-accent shrink-0" />;
   return <Smartphone className="w-4 h-4 text-green-600 shrink-0" />;
 }
 
@@ -448,7 +448,7 @@ function SettingsContent() {
                 type="checkbox"
                 checked={browserNotificationsEnabled}
                 onChange={toggleBrowserNotifications}
-                className="w-5 h-5 text-blue-600"
+                className="w-5 h-5 text-accent"
               />
             </label>
             <label className="flex items-center justify-between gap-3">
@@ -457,7 +457,7 @@ function SettingsContent() {
                 type="checkbox"
                 checked={soundEnabled}
                 onChange={toggleSound}
-                className="w-5 h-5 text-blue-600"
+                className="w-5 h-5 text-accent"
               />
             </label>
             <label className="flex items-center justify-between gap-3">
@@ -466,7 +466,7 @@ function SettingsContent() {
                 type="checkbox"
                 checked={backgroundPushEnabled}
                 onChange={toggleBackgroundPush}
-                className="w-5 h-5 text-blue-600"
+                className="w-5 h-5 text-accent"
               />
             </label>
           </div>

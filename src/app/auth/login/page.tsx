@@ -64,7 +64,7 @@ function LoginForm() {
     const b = BLOCKED[blocked];
     return (
       <AuthShell title={b.title}>
-        <p role="status" className="text-sm text-gray-700">{b.body}</p>
+        <p role="status" className="text-sm text-muted">{b.body}</p>
         <button type="button" onClick={() => setBlocked(null)} className={`${btnPrimary} mt-6`}>
           Back to sign in
         </button>
@@ -84,7 +84,7 @@ function LoginForm() {
         </button>
       </form>
       <GoogleButton onResult={handle} />
-      <p className="text-center text-sm text-gray-600 mt-6">
+      <p className="text-center text-sm text-muted mt-6">
         New to Broadzen?{" "}
         <Link href="/signup" className={link}>
           Create an account

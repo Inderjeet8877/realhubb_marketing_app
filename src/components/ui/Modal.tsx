@@ -40,11 +40,11 @@ export function Modal({ open, onClose, title, label, className = "p-4", children
     <dialog
       {...common}
       aria-labelledby={id}
-      className="w-[calc(100%-2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-[#0F1A38]/50"
+      className="w-[calc(100%-2rem)] max-w-md rounded-2xl border border-line bg-surface p-0 text-fg shadow-[0_24px_60px_-12px_rgba(15,26,56,0.35)] backdrop:bg-[#0F1A38]/50"
     >
       {open && (
         <div className="p-6">
-          <h2 id={id} className="text-lg font-bold text-[#0F1A38]">
+          <h2 id={id} className="font-display text-lg font-semibold text-fg">
             {title}
           </h2>
           <div className="mt-3">{children}</div>
@@ -54,13 +54,11 @@ export function Modal({ open, onClose, title, label, className = "p-4", children
   );
 }
 
+const BTN = "min-h-[44px] px-4 rounded-lg text-sm font-semibold inline-flex items-center justify-center gap-2 transition-[filter,background-color,transform] duration-fast ease-out active:scale-[0.99] disabled:opacity-60 disabled:active:scale-100";
+
 export const btn = {
-  primary:
-    "min-h-[44px] px-4 rounded-lg bg-[#0F1A38] text-white text-sm font-semibold hover:bg-[#1b2a55] disabled:opacity-60 inline-flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-600",
-  secondary:
-    "min-h-[44px] px-4 rounded-lg border border-gray-300 bg-white text-gray-800 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 inline-flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-600",
-  danger:
-    "min-h-[44px] px-4 rounded-lg bg-red-700 text-white text-sm font-semibold hover:bg-red-800 disabled:opacity-60 inline-flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-600",
-  success:
-    "min-h-[44px] px-4 rounded-lg bg-teal-700 text-white text-sm font-semibold hover:bg-teal-800 disabled:opacity-60 inline-flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-600",
+  primary: `${BTN} bg-primary text-on-primary hover:brightness-125`,
+  secondary: `${BTN} border border-line bg-surface text-fg font-medium hover:bg-bg`,
+  danger: `${BTN} bg-danger text-surface hover:brightness-110`,
+  success: `${BTN} bg-accent text-on-accent hover:brightness-110`,
 };

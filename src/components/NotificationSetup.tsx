@@ -464,9 +464,9 @@ export default function NotificationSetup() {
 
       {/* ── PWA Install Prompt ── */}
       {showInstallPrompt && !localStorage.getItem("pwa_install_dismissed") && (
-        <div className="fixed bottom-20 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 bg-white border border-blue-200 rounded-xl shadow-xl p-4 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-            <MessageSquare className="w-5 h-5 text-blue-600" />
+        <div className="fixed bottom-20 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 bg-white border border-accent/30 rounded-xl shadow-xl p-4 flex items-start gap-3">
+          <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+            <MessageSquare className="w-5 h-5 text-accent" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900">Install Broadzen</p>
@@ -475,7 +475,7 @@ export default function NotificationSetup() {
             </p>
             <div className="flex gap-2 mt-3">
               <button onClick={handleInstallApp}
-                className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">
+                className="px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:brightness-125">
                 Install
               </button>
               <button onClick={dismissInstallPrompt}

@@ -17,7 +17,7 @@ const ACCOUNTS = [
 ];
 
 const ACCOUNT_COLORS: Record<string, string> = {
-  "1": "bg-blue-100 text-blue-700",
+  "1": "bg-accent/10 text-accent",
   "2": "bg-purple-100 text-purple-700",
   "3": "bg-orange-100 text-orange-700",
 };
@@ -111,7 +111,7 @@ export default function CampaignsPage() {
               <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
                 {ACCOUNTS.map(a => (
                   <button key={a.id} onClick={() => { setSelectedAccount(a.id); setShowDropdown(false); }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedAccount === a.id ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}>
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedAccount === a.id ? "bg-accent/10 text-accent font-medium" : "text-gray-700"}`}>
                     {a.name}
                   </button>
                 ))}
@@ -158,7 +158,7 @@ export default function CampaignsPage() {
           <div className="flex flex-wrap gap-1">
             {(["spend", "leads", "cpl"] as const).map(s => (
               <button key={s} onClick={() => setSortBy(s)}
-                className={`px-3 py-1 text-xs rounded-lg font-medium ${sortBy === s ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                className={`px-3 py-1 text-xs rounded-lg font-medium ${sortBy === s ? "bg-primary text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                 {s === "cpl" ? "CPL" : s.charAt(0).toUpperCase() + s.slice(1)}
               </button>
             ))}

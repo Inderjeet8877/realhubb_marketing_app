@@ -66,7 +66,7 @@ function Activity() {
           columns={[
             { header: "Time", cell: (a) => <span className="whitespace-nowrap">{fmtDate(a.createdAt)}</span> },
             { header: "Email", cell: (a) => <span className="break-all">{a.email}</span> },
-            { header: "User", cell: (a) => a.userName ?? <span className="text-gray-400">—</span> },
+            { header: "User", cell: (a) => a.userName ?? <span className="text-muted">—</span> },
             { header: "Method", cell: (a) => (a.method === "google" ? "Google" : "Password") },
             { header: "Result", cell: (a) => <Badge status={a.result} /> },
             { header: "IP", cell: (a) => <span className="font-mono text-xs">{a.ip ?? "—"}</span> },

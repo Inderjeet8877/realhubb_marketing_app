@@ -39,10 +39,10 @@ export default function AdminOverview() {
             <li key={c.key}>
               <Link
                 href={c.href}
-                className="block bg-white rounded-xl border border-gray-200 p-5 hover:border-teal-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                className="block bg-surface rounded-xl border border-line p-5 transition-colors duration-fast hover:border-accent"
               >
-                <span className="block text-sm text-gray-600">{c.label}</span>
-                <span className="block text-3xl font-bold text-[#0F1A38] mt-1">{o.data?.[c.key] ?? 0}</span>
+                <span className="block text-sm text-muted">{c.label}</span>
+                <span className="mt-1 block font-mono text-3xl font-medium text-fg">{o.data?.[c.key] ?? 0}</span>
               </Link>
             </li>
           ))}
@@ -50,20 +50,20 @@ export default function AdminOverview() {
       </States>
 
       <div className="flex items-center justify-between mt-10 mb-3">
-        <h2 className="text-lg font-bold text-[#0F1A38]">Pending requests</h2>
-        <Link href="/admin/requests" className="text-sm font-semibold text-teal-700 hover:underline">
+        <h2 className="text-lg font-bold text-fg">Pending requests</h2>
+        <Link href="/admin/requests" className="text-sm font-semibold text-accent hover:underline">
           View all
         </Link>
       </div>
       <States loading={!p.data} error={p.error} empty={p.data?.requests.length === 0} retry={() => p.mutate()}>
-        <ul className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+        <ul className="bg-surface rounded-xl border border-line divide-y divide-line">
           {p.data?.requests.slice(0, 5).map((r) => (
             <li key={r.id} className="p-4 flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-semibold text-[#0F1A38]">
+                <p className="font-semibold text-fg">
                   {r.name} <Badge status={r.status} />
                 </p>
-                <p className="text-sm text-gray-600 break-all">
+                <p className="text-sm text-muted break-all">
                   {r.email} · {r.workspace.name} · {fmtDate(r.createdAt)}
                 </p>
               </div>

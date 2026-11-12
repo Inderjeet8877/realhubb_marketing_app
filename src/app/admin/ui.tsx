@@ -51,11 +51,11 @@ export interface Enquiry {
 // ---------- status badges: always text + colour ----------
 type Tone = "green" | "amber" | "red" | "blue" | "gray";
 const TONE: Record<Tone, string> = {
-  green: "bg-green-50 text-green-800 ring-green-600/30",
-  amber: "bg-amber-50 text-amber-900 ring-amber-600/30",
-  red: "bg-red-50 text-red-800 ring-red-600/30",
-  blue: "bg-blue-50 text-blue-800 ring-blue-600/30",
-  gray: "bg-gray-100 text-gray-700 ring-gray-500/30",
+  green: "bg-ok/10 text-ok ring-ok/30",
+  amber: "bg-warn/10 text-warn ring-warn/30",
+  red: "bg-danger/10 text-danger ring-danger/30",
+  blue: "bg-accent/10 text-accent ring-accent/30",
+  gray: "bg-bg text-muted ring-line",
 };
 const STATUS: Record<string, [string, Tone]> = {
   pending: ["Pending", "blue"],
@@ -86,7 +86,7 @@ export function Badge({ status, children, tone }: { status?: string; children?: 
 export function PageHeader({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-      <h1 className="text-2xl font-bold text-[#0F1A38]">{title}</h1>
+      <h1 className="font-display text-2xl font-semibold tracking-[-0.01em] text-fg">{title}</h1>
       {children}
     </div>
   );
@@ -94,15 +94,15 @@ export function PageHeader({ title, children }: { title: string; children?: Reac
 
 export function Tabs<T extends string>({ value, options, onChange, label }: { value: T; options: [T, string][]; onChange: (v: T) => void; label: string }) {
   return (
-    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-gray-200 mb-4">
+    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-line mb-4">
       {options.map(([v, text]) => (
         <button
           key={v}
           role="tab"
           aria-selected={v === value}
           onClick={() => onChange(v)}
-          className={`min-h-[44px] px-4 text-sm font-medium whitespace-nowrap border-b-2 -mb-px focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 rounded-t ${
-            v === value ? "border-teal-700 text-teal-800" : "border-transparent text-gray-600 hover:text-gray-900"
+          className={`min-h-[44px] px-4 text-sm font-medium whitespace-nowrap border-b-2 -mb-px focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-t ${
+            v === value ? "border-accent text-accent" : "border-transparent text-muted hover:text-fg"
           }`}
         >
           {text}
@@ -116,9 +116,9 @@ export function Tabs<T extends string>({ value, options, onChange, label }: { va
 export function States({ loading, error, empty, retry, children }: { loading: boolean; error?: Error; empty: boolean; retry?: () => void; children: React.ReactNode }) {
   if (error)
     return (
-      <div role="alert" className="flex flex-col items-center text-center gap-3 p-8 bg-white rounded-xl border border-red-200">
-        <AlertTriangle className="w-6 h-6 text-red-700" aria-hidden />
-        <p className="text-sm text-red-800">{error.message}</p>
+      <div role="alert" className="flex flex-col items-center text-center gap-3 p-8 bg-surface rounded-xl border border-danger/30">
+        <AlertTriangle className="w-6 h-6 text-danger" aria-hidden />
+        <p className="text-sm text-danger">{error.message}</p>
         {retry && <button className={btn.secondary} onClick={retry}>Try again</button>}
       </div>
     );
@@ -126,15 +126,15 @@ export function States({ loading, error, empty, retry, children }: { loading: bo
     return (
       <div aria-busy="true" aria-label="Loading" className="space-y-2">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-14 rounded-xl bg-gray-200/70 animate-pulse" />
+          <div key={i} className="h-14 rounded-xl bg-line animate-pulse" />
         ))}
       </div>
     );
   if (empty)
     return (
-      <div className="flex flex-col items-center text-center gap-2 p-10 bg-white rounded-xl border border-gray-200">
-        <Inbox className="w-6 h-6 text-gray-400" aria-hidden />
-        <p className="text-sm text-gray-600">Nothing here yet.</p>
+      <div className="flex flex-col items-center text-center gap-2 p-10 bg-surface rounded-xl border border-line">
+        <Inbox className="w-6 h-6 text-muted" aria-hidden />
+        <p className="text-sm text-muted">Nothing here yet.</p>
       </div>
     );
   return <>{children}</>;
@@ -149,9 +149,9 @@ export interface Column<T> {
 export function DataTable<T extends { id: string }>({ rows, columns }: { rows: T[]; columns: Column<T>[] }) {
   return (
     <>
-      <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-x-auto">
+      <div className="hidden md:block bg-surface rounded-xl border border-line overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+          <thead className="bg-bg text-left text-xs font-semibold uppercase tracking-wide text-muted">
             <tr>
               {columns.map((c) => (
                 <th key={c.header} scope="col" className="px-4 py-3">
@@ -160,11 +160,11 @@ export function DataTable<T extends { id: string }>({ rows, columns }: { rows: T
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-line">
             {rows.map((r) => (
               <tr key={r.id} className="align-top">
                 {columns.map((c) => (
-                  <td key={c.header} className="px-4 py-3 text-gray-800">
+                  <td key={c.header} className="px-4 py-3 text-fg">
                     {c.cell(r)}
                   </td>
                 ))}
@@ -175,11 +175,11 @@ export function DataTable<T extends { id: string }>({ rows, columns }: { rows: T
       </div>
       <ul className="md:hidden space-y-3">
         {rows.map((r) => (
-          <li key={r.id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+          <li key={r.id} className="bg-surface rounded-xl border border-line p-4 space-y-2">
             {columns.map((c) => (
               <div key={c.header} className="flex gap-3 text-sm">
-                <span className="w-28 shrink-0 text-xs font-semibold uppercase text-gray-500 pt-0.5">{c.header}</span>
-                <div className="min-w-0 flex-1 text-gray-800 break-words">{c.cell(r)}</div>
+                <span className="w-28 shrink-0 text-xs font-semibold uppercase text-muted pt-0.5">{c.header}</span>
+                <div className="min-w-0 flex-1 text-fg break-words">{c.cell(r)}</div>
               </div>
             ))}
           </li>
@@ -228,7 +228,7 @@ export function useModerate(key: string) {
 export function RequestActions({ r, onAct }: { r: AccountRequest; onAct: (r: AccountRequest, a: "approve" | "reject", reason?: string) => void }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
-  if (r.status !== "pending" && r.status !== "rejected") return <span className="text-gray-400">—</span>;
+  if (r.status !== "pending" && r.status !== "rejected") return <span className="text-muted">—</span>;
   return (
     <div className="flex flex-wrap gap-2">
       <button className={btn.success} onClick={() => onAct(r, "approve")}>
@@ -247,10 +247,10 @@ export function RequestActions({ r, onAct }: { r: AccountRequest; onAct: (r: Acc
             onAct(r, "reject", reason.trim());
           }}
         >
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-muted">
             {r.email} won&apos;t be able to sign in. The workspace <strong>{r.workspace.name}</strong> stays closed.
           </p>
-          <label htmlFor={`reason-${r.id}`} className="block text-sm font-medium text-[#0F1A38] mt-4 mb-1">
+          <label htmlFor={`reason-${r.id}`} className="block text-sm font-medium text-fg mt-4 mb-1">
             Reason (optional, for your records)
           </label>
           <textarea
@@ -259,7 +259,7 @@ export function RequestActions({ r, onAct }: { r: AccountRequest; onAct: (r: Acc
             maxLength={500}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600"
+            className="w-full rounded-lg border border-line bg-surface p-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent"
           />
           <div className="flex justify-end gap-2 mt-4">
             <button type="button" className={btn.secondary} onClick={() => setRejecting(false)}>
@@ -276,4 +276,4 @@ export function RequestActions({ r, onAct }: { r: AccountRequest; onAct: (r: Acc
 }
 
 export const inputCls =
-  "min-h-[44px] rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-teal-600";
+  "min-h-[44px] rounded-lg border border-line bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent";

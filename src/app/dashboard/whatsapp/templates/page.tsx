@@ -501,13 +501,13 @@ export default function WhatsAppTemplatesPage() {
 
               {['image', 'video', 'document'].includes(template.headerType) && (
                 template.headerContent ? (
-                  <div className="mb-3 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
-                    <p className="flex-1 text-xs text-blue-800 truncate" title={template.headerContent}>
+                  <div className="mb-3 flex items-center gap-2 bg-accent/10 border border-accent/30 rounded-lg px-2.5 py-1.5">
+                    <p className="flex-1 text-xs text-accent truncate" title={template.headerContent}>
                       {template.headerContent}
                     </p>
                     <button
                       onClick={() => copyMediaUrl(template.id, template.headerContent)}
-                      className="flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-900 shrink-0"
+                      className="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent shrink-0"
                     >
                       <AnimatedCopyIcon copied={copiedId === template.id} className="w-3.5 h-3.5" />
                       {copiedId === template.id ? "Copied!" : "Copy URL"}
@@ -538,7 +538,7 @@ export default function WhatsAppTemplatesPage() {
                   </button>
                   <button
                     onClick={() => handleEditTemplate(template)}
-                    className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                    className="p-2 text-accent hover:text-accent hover:bg-accent/10 rounded-lg"
                     title="Edit"
                   >
                     <FileText className="w-4 h-4" />
@@ -608,15 +608,15 @@ export default function WhatsAppTemplatesPage() {
                   </p>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1.5">
-                  <p className="text-sm font-semibold text-blue-900">Before you submit — what keeps a template healthy</p>
-                  <p className="text-xs text-blue-800">
+                <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 space-y-1.5">
+                  <p className="text-sm font-semibold text-accent">Before you submit — what keeps a template healthy</p>
+                  <p className="text-xs text-accent">
                     Meta tracks how recipients react to messages sent with this template — mainly how often they{" "}
                     <strong>block your number</strong> or <strong>report it as spam</strong>. If that rate gets too high,
                     Meta pauses the template (and can disable it after repeated pauses) — there&apos;s no way to appeal that
                     after the fact, only to avoid triggering it:
                   </p>
-                  <ul className="text-xs text-blue-800 list-disc list-inside space-y-0.5">
+                  <ul className="text-xs text-accent list-disc list-inside space-y-0.5">
                     <li>Keep the tone conversational — avoid heavy emoji use, ALL CAPS, and urgency/scarcity phrasing (&quot;limited units&quot;, &quot;act now&quot;)</li>
                     <li>Include an opt-out line (e.g. &quot;Reply STOP to unsubscribe&quot;) so recipients can leave instead of blocking/reporting you</li>
                     <li>Only send to people likely to actually want this message — broad blasts to an unsegmented list raise block rates fast</li>
@@ -636,7 +636,7 @@ export default function WhatsAppTemplatesPage() {
                 {/* Section 1 — Basic Info */}
                 <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
                   <div className="flex items-center gap-2">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">1</span>
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold shrink-0">1</span>
                     <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Basic Info</h3>
                   </div>
 
@@ -691,7 +691,7 @@ export default function WhatsAppTemplatesPage() {
                 {/* Section 2 — Header */}
                 <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
                   <div className="flex items-center gap-2">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">2</span>
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold shrink-0">2</span>
                     <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Header</h3>
                   </div>
 
@@ -746,7 +746,7 @@ export default function WhatsAppTemplatesPage() {
                               type="button"
                               onClick={() => fileInputRef.current?.click()}
                               disabled={uploading}
-                              className="flex items-center gap-2 px-4 py-3 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-base sm:text-sm"
+                              className="flex items-center gap-2 px-4 py-3 sm:py-2 bg-primary text-white rounded-lg hover:brightness-125 disabled:opacity-50 text-base sm:text-sm"
                             >
                               {uploading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -768,7 +768,7 @@ export default function WhatsAppTemplatesPage() {
                 {/* Section 3 — Body */}
                 <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
                   <div className="flex items-center gap-2">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">3</span>
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold shrink-0">3</span>
                     <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Body</h3>
                   </div>
 
@@ -823,7 +823,7 @@ export default function WhatsAppTemplatesPage() {
                 {/* Section 4 — Footer & Buttons */}
                 <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
                   <div className="flex items-center gap-2">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">4</span>
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold shrink-0">4</span>
                     <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Footer &amp; Buttons</h3>
                   </div>
 
@@ -847,7 +847,7 @@ export default function WhatsAppTemplatesPage() {
                     <div className="flex flex-wrap gap-2 mb-2">
                       <button
                         onClick={() => addButton("URL")}
-                        className="px-3 py-2 sm:py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
+                        className="px-3 py-2 sm:py-1 text-sm bg-accent/10 text-accent rounded-lg hover:bg-accent/20"
                       >
                         + URL Button
                       </button>

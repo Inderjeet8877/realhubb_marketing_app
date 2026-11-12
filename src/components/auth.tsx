@@ -4,14 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import Script from "next/script";
 import { useId, useRef, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Check, CheckCheck, Eye, EyeOff } from "lucide-react";
 import { postRaw } from "@/lib/api";
 import { btn } from "@/components/ui/Modal";
 
 // Shared building blocks for the sign-in / sign-up / pending pages.
 
 export const btnPrimary = `${btn.primary} w-full`;
-export const link = "font-semibold text-teal-700 underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 rounded";
+export const link = "font-semibold text-accent underline-offset-4 hover:underline rounded";
 
 /** `next` from the URL, only if it's a same-site path (blocks //evil.com and /\evil.com). */
 export function safeNext(next: string | null) {
@@ -22,21 +22,30 @@ export function safeNext(next: string | null) {
 
 export function AuthShell({ children, title, subtitle }: { children: React.ReactNode; title: string; subtitle?: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-[#F4F7FB] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="h-1.5 rounded-t-2xl bg-gradient-to-r from-[#00F5E9] to-[#00C471]" aria-hidden />
-        <div className="bg-white rounded-b-2xl shadow-xl p-6 sm:p-8">
-          <div className="text-center mb-6">
-            <Link href="/" className="inline-block rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600">
-              <Image src="/brand/logo_light.png" alt="Broadzen" width={226} height={48} priority className="mx-auto h-11 w-auto" />
-            </Link>
-            <p className="text-teal-700 text-sm font-medium mt-2">Broadcast smarter. Grow faster.</p>
-          </div>
-          <h1 className="text-xl font-bold text-[#0F1A38]">{title}</h1>
-          {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
-          <div className="mt-5">{children}</div>
+    <main className="theme-auto min-h-screen bg-bg text-fg md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <aside className="flex items-center justify-between bg-ink px-5 py-4 text-white md:flex-col md:items-start md:justify-between md:p-12">
+        <Link href="/" className="rounded">
+          <Image src="/brand/logo_dark.png" alt="Broadzen" width={170} height={36} priority className="h-7 w-auto md:h-9" />
+        </Link>
+        <div className="hidden md:block">
+          <p className="max-w-sm text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em]">
+            Broadcast smarter. Grow faster.
+          </p>
+          <ul className="mt-8 space-y-3 font-mono text-sm text-[#A0AECC]" aria-label="Message status ticks">
+            <li className="flex items-center gap-3"><Check className="h-4 w-4 text-white/70" aria-hidden /> Sent</li>
+            <li className="flex items-center gap-3"><CheckCheck className="h-4 w-4 text-white/70" aria-hidden /> Delivered</li>
+            <li className="flex items-center gap-3"><CheckCheck className="h-4 w-4 text-signal-cyan" aria-hidden /> Read</li>
+          </ul>
         </div>
-      </div>
+        <p className="hidden text-xs text-[#A0AECC] md:block">© {new Date().getFullYear()} Realhubb Ventures</p>
+      </aside>
+      <section className="flex justify-center px-4 py-10 md:items-center md:px-12">
+        <div className="w-full max-w-md">
+          <h1 className="font-display text-2xl font-semibold tracking-[-0.01em] text-fg">{title}</h1>
+          {subtitle && <p className="mt-1.5 text-sm text-muted">{subtitle}</p>}
+          <div className="mt-6">{children}</div>
+        </div>
+      </section>
     </main>
   );
 }
@@ -49,7 +58,7 @@ export function Field({ label, hint, type = "text", ...props }: FieldProps) {
   const isPw = type === "password";
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-[#0F1A38] mb-1">
+      <label htmlFor={id} className="block text-sm font-medium text-fg mb-1">
         {label}
       </label>
       <div className="relative">
@@ -57,7 +66,7 @@ export function Field({ label, hint, type = "text", ...props }: FieldProps) {
           id={id}
           type={isPw && show ? "text" : type}
           aria-describedby={hint ? `${id}-hint` : undefined}
-          className={`w-full min-h-[44px] rounded-lg border border-gray-300 px-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:border-teal-600 ${isPw ? "pr-12" : ""}`}
+          className={`w-full min-h-[44px] rounded-lg border border-line bg-surface px-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent ${isPw ? "pr-12" : ""}`}
           {...props}
         />
         {isPw && (
@@ -66,14 +75,14 @@ export function Field({ label, hint, type = "text", ...props }: FieldProps) {
             onClick={() => setShow((s) => !s)}
             aria-label={show ? "Hide password" : "Show password"}
             aria-pressed={show}
-            className="absolute right-0 top-0 h-full w-11 flex items-center justify-center text-gray-500 hover:text-gray-800 rounded-r-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+            className="absolute right-0 top-0 h-full w-11 flex items-center justify-center text-muted hover:text-fg rounded-r-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         )}
       </div>
       {hint && (
-        <div id={`${id}-hint`} className="text-xs text-gray-600 mt-1">
+        <div id={`${id}-hint`} className="text-xs text-muted mt-1">
           {hint}
         </div>
       )}
@@ -83,7 +92,7 @@ export function Field({ label, hint, type = "text", ...props }: FieldProps) {
 
 export function ErrorBox({ message }: { message: string }) {
   return (
-    <div role="alert" aria-live="assertive" className={message ? "mb-4 p-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800" : "sr-only"}>
+    <div role="alert" aria-live="assertive" className={message ? "mb-4 p-3 rounded-lg border border-danger/30 bg-danger/10 text-sm text-danger" : "sr-only"}>
       {message}
     </div>
   );
@@ -129,9 +138,9 @@ export function GoogleButton({ workspace, onResult }: { workspace?: string; onRe
     <>
       <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={render} />
       <div className="flex items-center gap-3 my-5" aria-hidden>
-        <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-xs text-gray-500">or</span>
-        <div className="flex-1 h-px bg-gray-200" />
+        <div className="flex-1 h-px bg-line" />
+        <span className="text-xs text-muted">or</span>
+        <div className="flex-1 h-px bg-line" />
       </div>
       <div ref={box} className="w-full min-h-[44px] flex justify-center" />
     </>

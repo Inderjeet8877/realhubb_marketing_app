@@ -18,6 +18,8 @@ const config: Config = {
         muted: v("muted"),
         accent: v("accent"),
         "on-accent": v("on-accent"),
+        primary: v("primary"),
+        "on-primary": v("on-primary"),
         warn: v("warn"),
         danger: v("danger"),
         ok: v("ok"),

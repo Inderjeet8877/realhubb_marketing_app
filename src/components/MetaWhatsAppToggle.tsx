@@ -24,8 +24,8 @@ export default function MetaWhatsAppToggle({ checked, onChange }: MetaWhatsAppTo
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       aria-label={checked ? "Showing WhatsApp dashboard — switch to Meta" : "Showing Meta dashboard — switch to WhatsApp"}
-      className={`relative inline-flex h-[22px] w-[42px] shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 ${
-        checked ? "bg-green-500" : "bg-blue-500"
+      className={`relative inline-flex h-[22px] w-[42px] shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-accent ${
+        checked ? "bg-green-500" : "bg-accent"
       }`}
     >
       <span
@@ -36,7 +36,7 @@ export default function MetaWhatsAppToggle({ checked, onChange }: MetaWhatsAppTo
         {checked ? (
           <SiWhatsapp className="w-[11px] h-[11px] text-green-500" />
         ) : (
-          <SiMeta className="w-[11px] h-[11px] text-blue-500" />
+          <SiMeta className="w-[11px] h-[11px] text-accent" />
         )}
       </span>
     </button>

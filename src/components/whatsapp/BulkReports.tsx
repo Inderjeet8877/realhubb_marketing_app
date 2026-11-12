@@ -567,8 +567,8 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
 
                 {/* Live preview */}
                 {previewRows.length > 0 && (
-                  <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800">
-                    <BarChart3 className="w-4 h-4 shrink-0 text-blue-500" />
+                  <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-accent/10 border border-accent/20 rounded-xl text-xs text-accent">
+                    <BarChart3 className="w-4 h-4 shrink-0 text-accent" />
                     <span>
                       This report will include <strong>{previewRows.length}</strong> broadcast{previewRows.length === 1 ? "" : "s"}, covering{" "}
                       <strong>{previewTotalContacts.toLocaleString()}</strong> contacts.
@@ -692,7 +692,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                         onClick={() => handleResume(r.id)}
                         disabled={resumingId === r.id}
                         title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition-colors active:scale-[0.98]"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-accent/10 text-accent border border-accent/30 rounded-lg hover:bg-accent/10 disabled:opacity-50 transition-colors active:scale-[0.98]"
                       >
                         {resumingId === r.id ? "Resuming…" : "Resume"}
                       </button>
@@ -727,7 +727,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                   { label: "Total",     value: r.total,     bg: "bg-gray-50",   text: "text-gray-900"   },
                   { label: "Sent",      value: r.sent,      bg: "bg-green-50",  text: "text-green-700"  },
                   { label: "Failed",    value: r.failed,    bg: "bg-red-50",    text: "text-red-700"    },
-                  { label: "Delivered", value: r.delivered, bg: "bg-blue-50",   text: "text-blue-700"   },
+                  { label: "Delivered", value: r.delivered, bg: "bg-accent/10",   text: "text-accent"   },
                   { label: "Read",      value: r.read,      bg: "bg-purple-50", text: "text-purple-700" },
                 ].map(({ label, value, bg, text }) => (
                   <div key={label} className={`${bg} rounded-lg p-2 transition-colors`}>
@@ -773,7 +773,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                         </div>
                         <span className={`flex-shrink-0 px-2 py-0.5 rounded-full font-medium ${
                           c.status === "read"      ? "bg-purple-100 text-purple-700" :
-                          c.status === "delivered" ? "bg-blue-100 text-blue-700" :
+                          c.status === "delivered" ? "bg-accent/10 text-accent" :
                           c.status === "sent"      ? "bg-green-100 text-green-700" :
                           "bg-red-100 text-red-700"
                         }`}>
