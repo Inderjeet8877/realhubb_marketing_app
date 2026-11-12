@@ -1,236 +1,203 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {
-  ArrowRight, BarChart3, MessageSquare, Users, Radio, ShieldCheck,
-  Zap, CheckCircle2, Loader2, Mail, Phone, Building2,
-} from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
+import { Funnel } from "@/components/landing/Funnel";
+import { EnquiryForm } from "@/components/landing/EnquiryForm";
+import { AdsView, BroadcastReportView, InboxView } from "@/components/landing/ProductViews";
 
-export default function Home() {
+const muted = "text-[#A0AECC]";
+const primaryCta =
+  "inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-signal px-6 font-semibold text-ink transition-[filter,transform] duration-fast ease-out hover:brightness-110 active:scale-[0.99]";
+const ghostCta =
+  "inline-flex min-h-[48px] items-center justify-center rounded-lg border border-ink-line px-6 font-semibold text-white transition-colors duration-fast hover:border-white/40 hover:bg-white/5";
+
+const path = [
+  ["Lead ads", "Leads from your Facebook and Instagram Instant Forms arrive with the campaign they came from."],
+  ["Contacts", "Leads join your contacts. Import CSV or Excel files too; duplicates are merged."],
+  ["Broadcast", "Send a Meta-approved template to a list, and watch sent, delivered and read update live."],
+  ["Inbox", "Replies land in one inbox, labelled with the ad or broadcast that started them."],
+  ["Cost per lead", "Spend, leads and replies sit in one table, so you see which campaign is worth it."],
+] as const;
+
+const more = [
+  "Template editor with a phone preview and a content check before you submit to Meta",
+  "WhatsApp number quality rating and messaging tier, with plain reasons when it drops",
+  "Opted-out numbers skipped automatically",
+  "Lead export to CSV, broadcast reports with failure reasons",
+  "An Android app for replies and broadcasts, coming soon to Google Play",
+];
+
+const trust = [
+  ["Every account is reviewed by a person", "New sign-ups wait for approval before the workspace opens, so only real businesses send from Broadzen."],
+  ["Your data stays in your workspace", "Each business's contacts, leads and conversations are separated at the database level. Other accounts cannot see them."],
+  ["Meta's rules, shown plainly", "Template approval, quality rating, messaging limits and the 60-day Meta login are explained where they matter."],
+] as const;
+
+function Section({ id, title, intro, children }: { id: string; title: string; intro?: string; children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-white">
-      {/* Nav */}
-      <nav className="border-b border-gray-100">
-        <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center gap-2">
-          <Image src="/brand/logo_light.png" alt="Broadzen" width={170} height={36} priority className="h-7 sm:h-9 w-auto shrink-0" />
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <Link
-              href="/auth/login"
-              className="px-2.5 sm:px-5 py-1.5 sm:py-2 text-sm sm:text-base text-gray-700 font-medium hover:text-blue-600 whitespace-nowrap"
-            >
-              Sign In
-            </Link>
-            <a
-              href="#enquiry"
-              className="px-2.5 sm:px-5 py-1.5 sm:py-2 text-sm sm:text-base bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 whitespace-nowrap"
-            >
-              Get Started
-            </a>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero */}
-      <section className="bg-gradient-to-b from-blue-50 to-white">
-        <div className="container mx-auto px-4 py-20 text-center max-w-4xl">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full mb-6">
-            <Zap className="w-3.5 h-3.5" /> WhatsApp + Meta Ads, in one platform
-          </span>
-          <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Marketing Automation
-            <br />
-            <span className="text-blue-600">Made Simple</span>
-          </h1>
-          <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-            Run WhatsApp campaigns, track your Meta Ads performance, and manage every lead
-            and conversation — all from one dashboard built for real businesses.
-          </p>
-          <div className="flex justify-center gap-4">
-            <a href="#enquiry" className="px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center gap-2">
-              Get Started <ArrowRight className="w-5 h-5" />
-            </a>
-            <Link href="/auth/login" className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:border-gray-400">
-              Sign In
-            </Link>
-          </div>
-          <p className="mt-6 text-sm text-gray-600">
-            Want to try it yourself?{" "}
-            <Link href="/signup" className="font-semibold text-teal-700 hover:underline">
-              Create an account
-            </Link>
-          </p>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="grid md:grid-cols-3 gap-8">
-          <FeatureCard
-            icon={<BarChart3 className="w-7 h-7" />}
-            title="Meta Ads Analytics"
-            description="Track campaign performance, spend, and leads with real-time analytics across every ad account."
-          />
-          <FeatureCard
-            icon={<MessageSquare className="w-7 h-7" />}
-            title="WhatsApp Bulk Send"
-            description="Send personalized template messages to thousands of contacts, with delivery and read tracking."
-          />
-          <FeatureCard
-            icon={<Users className="w-7 h-7" />}
-            title="Contact & Lead Management"
-            description="Organize contacts, tag audiences, and pull leads straight from your Meta lead-gen forms."
-          />
-          <FeatureCard
-            icon={<Radio className="w-7 h-7" />}
-            title="RCS Messaging"
-            description="Rich, branded messages beyond plain SMS — coming soon to every connected number."
-          />
-          <FeatureCard
-            icon={<ShieldCheck className="w-7 h-7" />}
-            title="Number Quality Monitoring"
-            description="Live WhatsApp quality-rating tracking, with plain-language reasons and fixes when it drops."
-          />
-          <FeatureCard
-            icon={<Zap className="w-7 h-7" />}
-            title="One-Click Meta Login"
-            description="Connect your Facebook Business account once — campaigns, leads, and WhatsApp all sync automatically."
-          />
-        </div>
-      </section>
-
-      {/* Enquiry form */}
-      <section id="enquiry" className="bg-gray-50 border-t border-gray-100">
-        <div className="container mx-auto px-4 py-20 max-w-xl">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Get Started</h2>
-            <p className="text-gray-600">Tell us about your business and we&apos;ll reach out to set you up.</p>
-          </div>
-          <EnquiryForm />
-        </div>
-      </section>
-
-      <footer className="border-t border-gray-100 py-8 text-center text-sm text-gray-500">
-        © {new Date().getFullYear()} Broadzen. All rights reserved.
-      </footer>
-    </main>
+    <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-20 border-t border-ink-line">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
+        <h2 id={`${id}-h`} className="max-w-2xl text-balance font-display text-3xl font-semibold tracking-[-0.02em] text-white sm:text-4xl">
+          {title}
+        </h2>
+        {intro && <p className={`mt-4 max-w-2xl text-lg ${muted}`}>{intro}</p>}
+        <div className="mt-12">{children}</div>
+      </div>
+    </section>
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+function Feature({ title, body, view, flip }: { title: string; body: string; view: React.ReactNode; flip?: boolean }) {
   return (
-    <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="w-14 h-14 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 mb-4">
-        {icon}
+    <div className="grid items-center gap-8 md:grid-cols-2 md:gap-14">
+      <div className={flip ? "md:order-2" : ""}>
+        <h3 className="font-display text-2xl font-semibold text-white">{title}</h3>
+        <p className={`mt-3 max-w-md ${muted}`}>{body}</p>
       </div>
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
-      <p className="text-gray-600">{description}</p>
+      <div>{view}</div>
     </div>
   );
 }
 
-function EnquiryForm() {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", company: "", message: "" });
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleChange = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/enquiries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Something went wrong. Please try again.");
-      setSubmitted(true);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (submitted) {
-    return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-        <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Thanks — we&apos;ve got it!</h3>
-        <p className="text-gray-600">Our team will reach out to you shortly.</p>
-      </div>
-    );
-  }
-
+export default function Home() {
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8 space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
-        <input
-          type="text" required value={form.name} onChange={handleChange("name")}
-          placeholder="Your name"
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    <main className="min-h-screen bg-ink text-white">
+      <header className="sticky top-0 z-40 border-b border-ink-line bg-ink/90 backdrop-blur supports-[backdrop-filter]:bg-ink/75">
+        <nav aria-label="Main" className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <Link href="/" aria-label="Broadzen home">
+            <Image src="/brand/logo_dark.png" alt="Broadzen" width={160} height={34} priority className="h-6 w-auto sm:h-8" />
+          </Link>
+          <div className="hidden items-center gap-7 text-sm text-white/80 md:flex">
+            <a href="#how" className="hover:text-white">How it works</a>
+            <a href="#product" className="hover:text-white">Product</a>
+            <a href="#trust" className="hover:text-white">Privacy &amp; approval</a>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link href="/auth/login" className="inline-flex min-h-[44px] items-center whitespace-nowrap px-2 text-sm font-medium text-white/90 hover:text-white sm:px-3">
+              Sign in
+            </Link>
+            <Link href="/signup" className={`${primaryCta} min-h-[44px] whitespace-nowrap px-3.5 text-sm`}>
+              Request access
+            </Link>
+          </div>
+        </nav>
+      </header>
+
+      <section aria-labelledby="hero-h" className="relative overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-40 right-[-10%] h-[520px] w-[620px] rounded-full bg-[radial-gradient(closest-side,rgba(0,245,233,0.10),transparent)]"
         />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-            <Mail className="w-3.5 h-3.5" /> Email *
-          </label>
-          <input
-            type="email" required value={form.email} onChange={handleChange("email")}
-            placeholder="you@company.com"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        <div className="relative mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-12 px-4 pb-20 pt-14 sm:px-6 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] md:pb-28 md:pt-24">
+          <div>
+            <h1 id="hero-h" className="text-balance font-display text-[2.5rem] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-6xl">
+              From ad click to WhatsApp reply, in one place.
+            </h1>
+            <p className={`mt-6 max-w-xl text-lg leading-relaxed ${muted}`}>
+              Broadzen puts your Meta lead ads, WhatsApp broadcasts and customer replies side by side, so you can see
+              what each lead cost and who actually answered.
+            </p>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Link href="/signup" className={primaryCta}>
+                Request access <ArrowRight className="h-5 w-5" aria-hidden />
+              </Link>
+              <a href="#how" className={ghostCta}>See how it works</a>
+            </div>
+            <p className={`mt-6 max-w-md text-sm ${muted}`}>
+              Every account is checked by a person before it opens. Prefer to talk first?{" "}
+              <a href="#access" className="font-medium text-signal-soft underline-offset-4 hover:underline">Send us an enquiry</a>.
+            </p>
+          </div>
+          <Funnel />
+        </div>
+      </section>
+
+      <Section id="how" title="The whole path, not just the messages" intro="Most WhatsApp tools stop at sending. Broadzen follows a lead from the ad that found it to the reply that matters.">
+        <ol className="relative grid gap-8 md:grid-cols-5 md:gap-6">
+          <span aria-hidden className="absolute left-[7px] top-2 h-[calc(100%-1rem)] w-px bg-ink-line md:left-0 md:top-[7px] md:h-px md:w-full" />
+          {path.map(([t, d], i) => (
+            <li key={t} className="relative pl-8 md:pl-0 md:pt-8">
+              <span
+                aria-hidden
+                className={`absolute left-0 top-1 h-[15px] w-[15px] rounded-full border-2 border-ink md:top-0 ${i === path.length - 1 ? "bg-signal" : "bg-ink-line"}`}
+              />
+              <h3 className="font-display text-lg font-semibold text-white">{t}</h3>
+              <p className={`mt-2 text-sm leading-relaxed ${muted}`}>{d}</p>
+            </li>
+          ))}
+        </ol>
+      </Section>
+
+      <Section id="product" title="Built for the work you do every day">
+        <div className="space-y-20 sm:space-y-28">
+          <Feature
+            title="See what every broadcast did"
+            body="Sent, delivered, read, replied and failed, counted as they happen. Failures come with the reason, so a bad list gets cleaner every time you send."
+            view={<BroadcastReportView />}
+          />
+          <Feature
+            flip
+            title="Reply from one inbox"
+            body="Every WhatsApp conversation in one list, with unread counts and the ad or broadcast that started it. Answer from the web today, and from the Android app soon."
+            view={<InboxView />}
+          />
+          <Feature
+            title="Know which ad is worth the money"
+            body="Spend, leads and cost per lead from Meta, next to the WhatsApp replies those leads sent. Stop paying for campaigns that never talk back."
+            view={<AdsView />}
           />
         </div>
-        <div>
-          <label className="text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-            <Phone className="w-3.5 h-3.5" /> Phone *
-          </label>
-          <input
-            type="tel" required value={form.phone} onChange={handleChange("phone")}
-            placeholder="+91 98765 43210"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+        <ul className="mt-20 grid gap-x-10 gap-y-4 border-t border-ink-line pt-10 sm:grid-cols-2">
+          {more.map((m) => (
+            <li key={m} className="flex gap-3 text-white/90">
+              <Check className="mt-0.5 h-5 w-5 shrink-0 text-signal-mint" aria-hidden />
+              {m}
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section id="trust" title="Reviewed accounts, private workspaces">
+        <dl className="grid gap-10 md:grid-cols-3">
+          {trust.map(([t, d]) => (
+            <div key={t} className="border-t border-ink-line pt-6">
+              <dt className="font-display text-lg font-semibold text-white">{t}</dt>
+              <dd className={`mt-2 leading-relaxed ${muted}`}>{d}</dd>
+            </div>
+          ))}
+        </dl>
+      </Section>
+
+      <Section id="access" title="Get your workspace">
+        <div className="grid gap-12 md:grid-cols-[1fr_1.15fr]">
+          <div>
+            <p className={`max-w-md text-lg ${muted}`}>
+              Create an account and a person reviews it before your workspace opens; you can check its status any time by
+              signing in. Or leave your details and we will call you to set things up.
+            </p>
+            <Link href="/signup" className={`${primaryCta} mt-8`}>
+              Create an account <ArrowRight className="h-5 w-5" aria-hidden />
+            </Link>
+            <p className={`mt-4 text-sm ${muted}`}>
+              Already approved? <Link href="/auth/login" className="font-medium text-signal-soft underline-offset-4 hover:underline">Sign in</Link>
+            </p>
+          </div>
+          <EnquiryForm />
         </div>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-          <Building2 className="w-3.5 h-3.5" /> Company
-        </label>
-        <input
-          type="text" value={form.company} onChange={handleChange("company")}
-          placeholder="Your business name"
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Message</label>
-        <textarea
-          rows={3} value={form.message} onChange={handleChange("message")}
-          placeholder="Tell us a bit about what you're looking for"
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
+      </Section>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
-      >
-        {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-        {submitting ? "Submitting..." : "Submit Enquiry"}
-      </button>
-    </form>
+      <footer className="border-t border-ink-line">
+        <div className={`mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 ${muted}`}>
+          <div className="flex items-center gap-3">
+            <Image src="/brand/symbol.png" alt="" width={24} height={27} className="h-6 w-auto" />
+            <span>Broadcast smarter. Grow faster.</span>
+          </div>
+          <div className="flex gap-6">
+            <Link href="/privacy" className="hover:text-white">Privacy policy</Link>
+            <span>© {new Date().getFullYear()} Realhubb Ventures</span>
+          </div>
+        </div>
+      </footer>
+    </main>
   );
 }

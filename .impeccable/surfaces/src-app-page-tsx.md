@@ -6,7 +6,7 @@ related_targets: []
 ---
 
 ## Scope
-Landing page (`/`), mode Persuade. Visitor: Indian SMB owner or agency running WhatsApp broadcasts and Meta lead ads, often on a phone. Action: request access (Start free → sign-up, which goes to admin approval) or send an enquiry. Proof: only what is real; no fabricated stats, logos, testimonials or partner badges (see PRODUCT.md). Constraint: under ~200 KB first-load JS, CSS/SVG motion, reduced-motion respected, no blocking pop-ups.
+Landing page (`/`), mode Persuade. Visitor: Indian SMB owner or agency running WhatsApp broadcasts and Meta lead ads, often on a phone. Action: request access (Request access → sign-up, which goes to admin approval) or send an enquiry. Proof: only what is real; no fabricated stats, logos, testimonials or partner badges (see PRODUCT.md). Constraint: under ~200 KB first-load JS, CSS/SVG motion, reduced-motion respected, no blocking pop-ups.
 
 ## Direction contract
 THESIS: Broadzen is the one place where ad spend becomes a WhatsApp reply. Refuses the category's split hero with a static app screenshot, a logo strip and inflated stats.
