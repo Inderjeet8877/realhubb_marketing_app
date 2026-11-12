@@ -5,8 +5,9 @@ import { useSearchParams } from "next/navigation";
 
 import { useToast } from "@/contexts/ToastContext";
 import { btn, Modal } from "@/components/ui/Modal";
-import { fmtDate, post, useApi } from "@/lib/api";
+import { api, fmtDate, post, useApi } from "@/lib/api";
 import { Badge, DataTable, inputCls, PageHeader, States, useDebounced, type AdminUser } from "../ui";
+import { ConnectWhatsApp } from "./ConnectWhatsApp";
 
 function Users() {
   const params = useSearchParams();
@@ -14,6 +15,8 @@ function Users() {
   const [status, setStatus] = useState(params.get("status") ?? "");
   const [suspending, setSuspending] = useState<AdminUser | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState<AdminUser | null>(null);
+  const [disconnecting, setDisconnecting] = useState<AdminUser | null>(null);
   const { toast } = useToast();
   const query = useDebounced(q.trim());
   const key = `/api/admin/users?${new URLSearchParams({ q: query, status })}`;
@@ -24,6 +27,19 @@ function Users() {
     try {
       await post(`/api/admin/users/${u.id}/${action}`);
       toast(`${u.email} ${action === "suspend" ? "suspended" : "reactivated"}.`, "success");
+      await mutate();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const disconnect = async (u: AdminUser) => {
+    setBusy(u.id);
+    try {
+      await api(`/api/admin/workspaces/${u.workspace.id}/whatsapp`, { method: "DELETE" });
+      toast(`WhatsApp disconnected from ${u.workspace.name}.`, "success");
       await mutate();
     } catch (e) {
       toast((e as Error).message, "error");
@@ -72,6 +88,27 @@ function Users() {
             { header: "Role", cell: (u) => <span className="capitalize">{u.role}</span> },
             { header: "Status", cell: (u) => <Badge status={u.status} /> },
             { header: "Workspace", cell: (u) => u.workspace.name },
+            {
+              header: "WhatsApp",
+              cell: (u) =>
+                u.isPlatformAdmin || u.role !== "owner" ? (
+                  <span className="text-xs text-muted">—</span>
+                ) : u.whatsapp ? (
+                  <>
+                    <span className="whitespace-nowrap font-mono text-sm">{u.whatsapp.displayPhone}</span>
+                    {u.whatsapp.verifiedName && <p className="text-xs text-muted">{u.whatsapp.verifiedName}</p>}
+                    <button className="mt-1 text-xs font-medium text-danger hover:underline" disabled={busy === u.id} onClick={() => setDisconnecting(u)}>
+                      Disconnect
+                    </button>
+                  </>
+                ) : u.status === "approved" ? (
+                  <button className={btn.secondary} disabled={busy === u.id} onClick={() => setConnecting(u)}>
+                    Connect
+                  </button>
+                ) : (
+                  <span className="text-xs text-muted">After approval</span>
+                ),
+            },
             { header: "Last login", cell: (u) => fmtDate(u.lastLoginAt) },
             {
               header: "Actions",
@@ -110,6 +147,28 @@ function Users() {
             }}
           >
             Suspend user
+          </button>
+        </div>
+      </Modal>
+
+      <ConnectWhatsApp user={connecting} onClose={() => setConnecting(null)} onDone={(m) => (toast(m, "success"), mutate())} />
+
+      <Modal open={!!disconnecting} onClose={() => setDisconnecting(null)} title="Disconnect WhatsApp?">
+        <p className="text-sm text-muted">
+          {disconnecting?.whatsapp?.displayPhone} will be removed from {disconnecting?.workspace.name} and its stored token deleted.
+          You can connect it again later.
+        </p>
+        <div className="flex justify-end gap-2 mt-6">
+          <button className={btn.secondary} onClick={() => setDisconnecting(null)}>Cancel</button>
+          <button
+            className={btn.danger}
+            onClick={() => {
+              const u = disconnecting!;
+              setDisconnecting(null);
+              disconnect(u);
+            }}
+          >
+            Disconnect
           </button>
         </div>
       </Modal>

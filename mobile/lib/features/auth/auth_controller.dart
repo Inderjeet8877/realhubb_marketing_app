@@ -14,15 +14,22 @@ class Me {
     required this.isPlatformAdmin,
     this.workspaceName,
     this.workspaceStatus,
+    this.whatsappPhone,
+    this.whatsappName,
   });
 
   final String id, email, name, role;
   final bool isPlatformAdmin;
   final String? workspaceName, workspaceStatus;
 
+  /// The workspace's connected WhatsApp number, if our team has connected one.
+  final String? whatsappPhone, whatsappName;
+
   factory Me.fromJson(Map<String, dynamic> j) {
     final u = Map<String, dynamic>.from(j['user'] as Map);
     final w = j['workspace'] is Map ? Map<String, dynamic>.from(j['workspace'] as Map) : const <String, dynamic>{};
+    final setup = j['setup'] is Map ? j['setup'] as Map : const {};
+    final wa = setup['whatsapp'] is Map ? setup['whatsapp'] as Map : const {};
     return Me(
       id: '${u['id']}',
       email: '${u['email']}',
@@ -31,12 +38,17 @@ class Me {
       isPlatformAdmin: u['isPlatformAdmin'] == true,
       workspaceName: w['name'] as String?,
       workspaceStatus: w['status'] as String?,
+      whatsappPhone: wa['displayPhone'] as String?,
+      whatsappName: wa['verifiedName'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'user': {'id': id, 'email': email, 'name': name, 'role': role, 'isPlatformAdmin': isPlatformAdmin},
     'workspace': {'name': workspaceName, 'status': workspaceStatus},
+    'setup': {
+      'whatsapp': whatsappPhone == null ? null : {'displayPhone': whatsappPhone, 'verifiedName': whatsappName},
+    },
   };
 }
 

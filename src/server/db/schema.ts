@@ -129,3 +129,21 @@ export const auditLog = pgTable(
   },
   (t) => [index('audit_log_created_idx').on(t.createdAt)],
 );
+
+/** One WhatsApp Business number per workspace, connected by a platform admin (B5 part 1). */
+export const whatsappConnections = pgTable(
+  'whatsapp_connections',
+  {
+    tenantId: uuid('tenant_id').primaryKey().references(() => tenants.id, { onDelete: 'cascade' }),
+    wabaId: text('waba_id').notNull(),
+    phoneNumberId: text('phone_number_id').notNull(),
+    displayPhone: text('display_phone').notNull(),
+    verifiedName: text('verified_name'),
+    qualityRating: text('quality_rating'),
+    /** AES-256-GCM, see src/server/crypto.ts. Never returned by any API. */
+    accessTokenEnc: text('access_token_enc').notNull(),
+    connectedBy: uuid('connected_by').references(() => users.id, { onDelete: 'set null' }),
+    connectedAt: createdAt(),
+  },
+  (t) => [uniqueIndex('whatsapp_connections_phone_idx').on(t.phoneNumberId)],
+);

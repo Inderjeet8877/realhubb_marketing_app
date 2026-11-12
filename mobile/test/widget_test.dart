@@ -111,8 +111,18 @@ void main() {
     expect(find.text('Acme'), findsOneWidget);
     expect(find.text('Set up your workspace'), findsOneWidget);
     expect(find.text('2 of 5 done'), findsOneWidget);
-    expect(find.text('Coming soon'), findsNWidgets(3));
+    expect(find.text('Coming soon'), findsNWidgets(2));
+    expect(find.text('Our team connects this'), findsOneWidget);
+    expect(find.text('How to finish'), findsNWidgets(3));
     expect(find.text('Inbox'), findsNothing);
+  });
+
+  testWidgets('connected WhatsApp number marks its step done', (tester) async {
+    const me = Me(id: 'u2', email: 'a@b.co', name: 'Asha', role: 'owner', isPlatformAdmin: false, workspaceName: 'Acme', whatsappPhone: '+91 98765 43210');
+    await pumpApp(tester, auth: const AuthState.signedIn(me));
+    expect(find.text('3 of 5 done'), findsOneWidget);
+    expect(find.text('Connected: +91 98765 43210.'), findsOneWidget);
+    expect(find.text('How to finish'), findsNWidgets(2));
   });
 
   testWidgets('sign-up form validates before sending', (tester) async {

@@ -35,6 +35,7 @@ export interface AdminUser {
   lastLoginAt: string | null;
   createdAt: string;
   workspace: Workspace;
+  whatsapp: { displayPhone: string; verifiedName: string | null } | null;
 }
 export interface Enquiry {
   id: string;

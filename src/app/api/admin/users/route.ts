@@ -2,7 +2,7 @@ import { and, desc, eq, ilike, or, type SQL } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 import { withSystem } from '@/server/db';
-import { tenants, users } from '@/server/db/schema';
+import { tenants, users, whatsappConnections } from '@/server/db/schema';
 import { requireAdmin, route } from '@/server/auth/core';
 
 const STATUSES = ['pending', 'approved', 'rejected', 'suspended'] as const;
@@ -34,17 +34,21 @@ export const GET = route(async (req) => {
         workspaceId: tenants.id,
         workspaceName: tenants.name,
         workspaceStatus: tenants.status,
+        whatsappPhone: whatsappConnections.displayPhone,
+        whatsappName: whatsappConnections.verifiedName,
       })
       .from(users)
       .innerJoin(tenants, eq(tenants.id, users.tenantId))
+      .leftJoin(whatsappConnections, eq(whatsappConnections.tenantId, users.tenantId))
       .where(where.length ? and(...where) : undefined)
       .orderBy(desc(users.createdAt))
       .limit(500),
   );
   return NextResponse.json({
-    users: rows.map(({ workspaceId, workspaceName, workspaceStatus, ...u }) => ({
+    users: rows.map(({ workspaceId, workspaceName, workspaceStatus, whatsappPhone, whatsappName, ...u }) => ({
       ...u,
       workspace: { id: workspaceId, name: workspaceName, status: workspaceStatus },
+      whatsapp: whatsappPhone ? { displayPhone: whatsappPhone, verifiedName: whatsappName } : null,
     })),
   });
 });

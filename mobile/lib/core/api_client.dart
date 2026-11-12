@@ -175,7 +175,9 @@ class ApiClient {
           ? 'Too many attempts. Please wait a minute and try again.'
           : e.type == DioExceptionType.connectionError || e.type == DioExceptionType.connectionTimeout
           ? 'No connection. Check your internet and try again.'
-          : 'Request failed (${status ?? e.type.name})';
+          : status == 404 || (status ?? 0) >= 500
+          ? "Can't reach the Broadzen server right now. Please try again in a minute."
+          : 'Something went wrong. Please try again.';
       throw ApiException(msg, status, data is Map ? data['code'] as String? : null);
     }
   }

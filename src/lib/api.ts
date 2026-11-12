@@ -86,6 +86,7 @@ export async function signOut() {
 export interface Me {
   user: { id: string; email: string; name: string; role: string; isPlatformAdmin: boolean };
   workspace: { id: string; name: string; status: string } | null;
+  setup?: { whatsapp: { displayPhone: string; verifiedName: string | null } | null };
 }
 
 /** The signed-in user. Not signed in → api() redirects to the login page. */
