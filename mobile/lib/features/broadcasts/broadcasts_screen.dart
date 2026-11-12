@@ -294,13 +294,15 @@ class _StatTiles extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // Funnel order; each tile shows the count and its share of the total.
     final tiles = [
       ('Total', b.total, c.textPrimary),
       ('Sent', b.sent, c.successFg),
-      ('Failed', b.failed, c.dangerFg),
       ('Delivered', b.delivered, c.infoFg),
       ('Read', b.read, c.brandText),
+      ('Failed', b.failed, c.dangerFg),
     ];
+    String share(int v) => b.total == 0 ? '' : '${(v * 100 / b.total).round()}%';
     return LayoutBuilder(
       builder: (context, box) {
         final cols = box.maxWidth < 400 ? 3 : 5;
@@ -319,10 +321,17 @@ class _StatTiles extends StatelessWidget {
                     FittedBox(
                       child: Text(
                         number(v),
-                        style: AppText.h3.copyWith(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
+                        style: AppText.h3.copyWith(
+                          color: color,
+                          fontFamily: monoFamily,
+                          fontWeight: FontWeight.w500,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
                     ),
                     Text(label, style: AppText.caption.copyWith(color: c.textSecondary)),
+                    if (label != 'Total' && b.total > 0)
+                      Text(share(v), style: AppText.caption.copyWith(color: c.textTertiary, fontFamily: monoFamily)),
                   ],
                 ),
               ),

@@ -109,7 +109,8 @@ void main() {
   testWidgets('normal user lands on their empty workspace, no tabs', (tester) async {
     await pumpApp(tester, auth: const AuthState.signedIn(_user));
     expect(find.text('Acme'), findsOneWidget);
-    expect(find.text('Your workspace is ready'), findsOneWidget);
+    expect(find.text('Set up your workspace'), findsOneWidget);
+    expect(find.text('2 of 5 done'), findsOneWidget);
     expect(find.text('Coming soon'), findsNWidgets(3));
     expect(find.text('Inbox'), findsNothing);
   });

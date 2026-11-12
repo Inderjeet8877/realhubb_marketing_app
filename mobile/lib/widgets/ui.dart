@@ -260,22 +260,69 @@ class ErrorView extends StatelessWidget {
 }
 
 /// Skeleton blocks shaped like a list of cards (no spinners for page loads).
-class LoadingList extends StatelessWidget {
+class LoadingList extends StatefulWidget {
   const LoadingList({super.key, this.count = 6, this.itemHeight = 72});
   final int count;
   final double itemHeight;
 
   @override
+  State<LoadingList> createState() => _LoadingListState();
+}
+
+class _LoadingListState extends State<LoadingList> with SingleTickerProviderStateMixin {
+  late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    MediaQuery.disableAnimationsOf(context) ? _pulse.stop() : _pulse.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return ListView.separated(
-      padding: const EdgeInsets.all(Space.s4),
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: count,
-      separatorBuilder: (_, _) => const SizedBox(height: Space.s3),
-      itemBuilder: (_, _) => Container(
-        height: itemHeight,
-        decoration: BoxDecoration(color: c.surfaceHover, borderRadius: BorderRadius.circular(Radii.lg)),
+    Widget bar(double w, double h) => Container(
+      width: w,
+      height: h,
+      decoration: BoxDecoration(color: c.surfaceHover, borderRadius: BorderRadius.circular(Radii.sm)),
+    );
+    return Semantics(
+      label: 'Loading',
+      child: FadeTransition(
+        opacity: Tween(begin: 0.55, end: 1.0).animate(CurvedAnimation(parent: _pulse, curve: Motion.inOut)),
+        child: ListView.separated(
+          padding: const EdgeInsets.all(Space.s4),
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: widget.count,
+          separatorBuilder: (_, _) => const SizedBox(height: Space.s3),
+          itemBuilder: (_, i) => Container(
+            height: widget.itemHeight,
+            padding: const EdgeInsets.symmetric(horizontal: Space.s4),
+            decoration: BoxDecoration(
+              border: Border.all(color: c.surfaceHover),
+              borderRadius: BorderRadius.circular(Radii.lg),
+            ),
+            child: Row(
+              children: [
+                Container(width: 36, height: 36, decoration: BoxDecoration(color: c.surfaceHover, shape: BoxShape.circle)),
+                const SizedBox(width: Space.s3),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [bar(i.isEven ? 140 : 110, 12), const SizedBox(height: Space.s2), bar(i.isEven ? 200 : 170, 10)],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

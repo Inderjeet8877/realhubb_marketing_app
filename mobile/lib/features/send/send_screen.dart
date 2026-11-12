@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -81,6 +82,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           _media.clear();
         }
       });
+      HapticFeedback.lightImpact();
       showSnack(context, 'Sent to ${displayPhone(phone)}', tone: Tone.success);
     } catch (e) {
       if (mounted) showSnack(context, "Couldn't send: $e", tone: Tone.danger);

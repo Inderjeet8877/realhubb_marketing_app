@@ -26,12 +26,12 @@ abstract final class AppText {
   );
   static const h2 = TextStyle(fontFamily: _inter, fontSize: 18, height: 28 / 18, fontWeight: FontWeight.w600);
   static const h3 = TextStyle(fontFamily: _inter, fontSize: 16, height: 24 / 16, fontWeight: FontWeight.w600);
+  /// Numbers in mono, shared with the web (JetBrains Mono).
   static const kpi = TextStyle(
-    fontFamily: _sora,
-    fontFamilyFallback: _soraFallback,
+    fontFamily: monoFamily,
     fontSize: 24,
     height: 32 / 24,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w500,
     fontFeatures: _tabular,
   );
   static const bodyL = TextStyle(fontFamily: _inter, fontSize: 16, height: 24 / 16, fontWeight: FontWeight.w400);
@@ -83,6 +83,9 @@ ThemeData buildTheme(Brightness brightness) {
     brightness: brightness,
     colorScheme: scheme,
     scaffoldBackgroundColor: c.canvas,
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {TargetPlatform.android: FadeForwardsPageTransitionsBuilder()},
+    ),
     fontFamily: 'Inter',
     extensions: [c],
     textTheme: TextTheme(

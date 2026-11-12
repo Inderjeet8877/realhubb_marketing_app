@@ -103,6 +103,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with Polling {
         tick: Tick.sent,
         wamid: d['messageId'] as String?,
       );
+      HapticFeedback.lightImpact();
       setState(() => _pending[_pending.indexOf(local)] = sent);
       ref.invalidate(messagesProvider(_phone));
       ref.invalidate(conversationsProvider);

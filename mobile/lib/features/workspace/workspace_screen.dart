@@ -17,10 +17,13 @@ import '../auth/signup_screen.dart';
 class WorkspaceScreen extends ConsumerWidget {
   const WorkspaceScreen({super.key});
 
-  static const _soon = [
-    (LucideIcons.messageCircle, 'Connect WhatsApp', 'Link your WhatsApp Business number to send and receive messages.'),
-    (LucideIcons.megaphone, 'Connect Meta Ads', 'See campaign spend, leads and cost per lead.'),
-    (LucideIcons.users, 'Import contacts', 'Upload a CSV of your customers to start broadcasting.'),
+  // Same setup path as the web workspace page; connect steps ship with B5.
+  static const _steps = [
+    ('Account approved', 'A person checked your sign-up.', true),
+    ('Private workspace created', 'Your data is visible only to your workspace.', true),
+    ('Connect WhatsApp', 'Link your WhatsApp Business number to send broadcasts and reply to customers.', false),
+    ('Connect Meta Ads', 'Bring in your Facebook and Instagram campaigns, leads and cost per lead.', false),
+    ('Import contacts', 'Upload a CSV or Excel file of customers to build your first list.', false),
   ];
 
   @override
@@ -38,32 +41,8 @@ class WorkspaceScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(Space.s4),
               sliver: SliverList.list(
                 children: [
-                  const SizedBox(height: Space.s4),
-                  Center(
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(color: c.brandSubtle, shape: BoxShape.circle),
-                      child: Icon(LucideIcons.sparkles, color: c.brandText, size: 28),
-                    ),
-                  ),
-                  const SizedBox(height: Space.s4),
-                  Text(
-                    'Your workspace is ready',
-                    textAlign: TextAlign.center,
-                    style: AppText.h1.copyWith(color: c.textPrimary),
-                  ),
-                  const SizedBox(height: Space.s1),
-                  Text(
-                    "It's empty for now. These tools are on the way.",
-                    textAlign: TextAlign.center,
-                    style: AppText.body.copyWith(color: c.textSecondary),
-                  ),
-                  const SizedBox(height: Space.s6),
-                  for (final (icon, title, sub) in _soon) ...[
-                    _ComingSoonCard(icon: icon, title: title, subtitle: sub),
-                    const SizedBox(height: Space.s3),
-                  ],
+                  const SizedBox(height: Space.s2),
+                  _Checklist(_steps),
                 ],
               ),
             ),
@@ -147,46 +126,92 @@ class _Header extends ConsumerWidget {
   }
 }
 
-class _ComingSoonCard extends StatelessWidget {
-  const _ComingSoonCard({required this.icon, required this.title, required this.subtitle});
-  final IconData icon;
-  final String title, subtitle;
+class _Checklist extends StatelessWidget {
+  const _Checklist(this.steps);
+  final List<(String, String, bool)> steps;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Semantics(
-      enabled: false,
-      button: true,
-      label: '$title, coming soon',
-      child: ExcludeSemantics(
-        child: Opacity(
-          opacity: 0.7,
-          child: AppCard(
-            child: Row(
+    final done = steps.where((x) => x.$3).length;
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(Space.s4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(color: c.surfaceHover, borderRadius: BorderRadius.circular(Radii.md)),
-                  child: Icon(icon, size: 22, color: c.textSecondary),
+                Row(
+                  children: [
+                    Expanded(child: Text('Set up your workspace', style: AppText.h2.copyWith(color: c.textPrimary))),
+                    Text('$done of ${steps.length} done', style: AppText.caption.copyWith(color: c.textSecondary, fontFamily: monoFamily)),
+                  ],
                 ),
-                const SizedBox(width: Space.s3),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: AppText.label.copyWith(color: c.textPrimary)),
-                      Text(subtitle, style: AppText.caption.copyWith(color: c.textSecondary)),
-                    ],
+                const SizedBox(height: Space.s3),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(Radii.full),
+                  child: SizedBox(
+                    height: 6,
+                    child: Stack(
+                      children: [
+                        Container(color: c.surfaceHover),
+                        FractionallySizedBox(
+                          widthFactor: done / steps.length,
+                          child: const DecoratedBox(decoration: BoxDecoration(gradient: brandGradient)),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: Space.s2),
-                const StatusBadge('Coming soon', icon: LucideIcons.clock),
               ],
             ),
           ),
-        ),
+          for (final (title, body, ok) in steps) ...[
+            Divider(height: 1, color: c.surfaceHover),
+            Semantics(
+              label: '$title, ${ok ? 'done' : 'coming soon'}',
+              child: ExcludeSemantics(
+                child: Padding(
+                  padding: const EdgeInsets.all(Space.s4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: ok ? c.successFg : null,
+                          border: ok ? null : Border.all(color: c.surfaceHover, width: 1.5),
+                        ),
+                        child: Icon(ok ? LucideIcons.check : LucideIcons.clock, size: 14, color: ok ? c.surface : c.textSecondary),
+                      ),
+                      const SizedBox(width: Space.s3),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title, style: AppText.label.copyWith(color: ok ? c.textSecondary : c.textPrimary)),
+                            const SizedBox(height: 2),
+                            Text(body, style: AppText.caption.copyWith(color: c.textSecondary)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: Space.s2),
+                      Text(
+                        ok ? 'Done' : 'Coming soon',
+                        style: AppText.caption.copyWith(color: ok ? c.successFg : c.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

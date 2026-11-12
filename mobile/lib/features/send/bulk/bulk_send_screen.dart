@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -115,6 +116,7 @@ class _BulkSendScreenState extends ConsumerState<BulkSendScreen> {
         message: _isTemplate ? '' : _text.text.trim(),
         mediaUrl: _media.text,
       );
+      HapticFeedback.mediumImpact();
       if (mounted) setState(() => _started = res);
     } catch (e) {
       if (mounted) showSnack(context, '$e', tone: Tone.danger);
