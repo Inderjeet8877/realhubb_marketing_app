@@ -166,3 +166,20 @@ const brandGradient = LinearGradient(
 extension AppColorsX on BuildContext {
   AppColors get colors => Theme.of(this).extension<AppColors>()!;
 }
+
+/// Motion: one curve family and three durations, shared with the web
+/// (tailwind.config.ts `out`, `fast`/`base`/`slow`).
+abstract final class Motion {
+  static const fast = Duration(milliseconds: 120);
+  static const base = Duration(milliseconds: 200);
+  static const slow = Duration(milliseconds: 320);
+  static const out = Cubic(0.23, 1, 0.32, 1);
+  static const inOut = Cubic(0.65, 0, 0.35, 1);
+
+  /// [d], or zero when the OS asks for reduced motion.
+  static Duration of(BuildContext context, Duration d) =>
+      MediaQuery.disableAnimationsOf(context) ? Duration.zero : d;
+}
+
+/// Numbers, phone numbers and timestamps.
+const monoFamily = 'JetBrainsMono';
