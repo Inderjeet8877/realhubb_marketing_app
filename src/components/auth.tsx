@@ -5,11 +5,12 @@ import Link from "next/link";
 import Script from "next/script";
 import { useId, useRef, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { postRaw } from "@/lib/api";
+import { btn } from "@/components/ui/Modal";
 
 // Shared building blocks for the sign-in / sign-up / pending pages.
 
-export const btnPrimary =
-  "w-full min-h-[44px] rounded-lg bg-[#0F1A38] px-4 text-sm font-semibold text-white hover:bg-[#1b2a55] disabled:opacity-60 flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-600";
+export const btnPrimary = `${btn.primary} w-full`;
 export const link = "font-semibold text-teal-700 underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 rounded";
 
 /** `next` from the URL, only if it's a same-site path (blocks //evil.com and /\evil.com). */
@@ -118,14 +119,7 @@ export function GoogleButton({ workspace, onResult }: { workspace?: string; onRe
       client_id: clientId,
       callback: async ({ credential }: { credential: string }) => {
         const ws = latest.current.workspace?.trim();
-        const res = await fetch("/api/auth/google", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json", "X-Requested-With": "broadzen" },
-          body: JSON.stringify({ idToken: credential, ...(ws && ws.length >= 2 ? { workspace: ws } : {}) }),
-        }).catch(() => null);
-        const data = res ? await res.json().catch(() => ({})) : { error: "Network error. Please try again." };
-        latest.current.onResult({ status: res?.status ?? 0, data });
+        latest.current.onResult(await postRaw("/api/auth/google", { idToken: credential, ...(ws && ws.length >= 2 ? { workspace: ws } : {}) }));
       },
     });
     g.renderButton(box.current, { theme: "outline", size: "large", text: "continue_with", width: box.current.offsetWidth || 320 });

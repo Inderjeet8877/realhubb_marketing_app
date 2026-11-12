@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Modal } from "@/components/ui/Modal";
 import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
 import { useRouter } from "next/navigation";
@@ -1048,7 +1049,7 @@ export default function LeadsPage() {
       )}
 
       {selectedForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Modal open onClose={closeFormLeads} label="Form leads">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50">
               <div className="flex items-center gap-3 min-w-0">
@@ -1160,7 +1161,7 @@ export default function LeadsPage() {
               )}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

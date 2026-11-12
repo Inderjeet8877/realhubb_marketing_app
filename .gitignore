@@ -53,3 +53,7 @@ next-env.d.ts
 # Example env files are documentation and must be committed
 !.env.example
 !infra/.env.example
+
+# next-pwa build output
+public/sw.js
+public/workbox-*.js

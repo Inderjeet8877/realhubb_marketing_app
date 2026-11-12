@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { Modal } from "@/components/ui/Modal";
 import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3, Filter } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, orderBy, limit, doc } from "firebase/firestore";
@@ -731,6 +732,8 @@ export default function WhatsAppPage() {
     setSelectedContacts(selectedContacts.length === contacts.length ? [] : phones);
   };
 
+  const closeBulkModal = () => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); };
+
   return (
     <div>
       {/* Top bar */}
@@ -1203,11 +1206,11 @@ export default function WhatsAppPage() {
 
       {/* ===== BULK MODAL ===== */}
       {showBulkModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Modal open onClose={closeBulkModal} label="Bulk send message">
           <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-4 sm:p-6 pb-4 border-b border-gray-100 shrink-0">
               <h2 className="text-xl font-bold text-gray-900">Bulk Send Message</h2>
-              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); }} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={closeBulkModal} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -1471,12 +1474,12 @@ export default function WhatsAppPage() {
               })()}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* ===== WEBHOOK DIAGNOSTIC PANEL ===== */}
       {showWebhookPanel && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <Modal open onClose={() => setShowWebhookPanel(false)} label="Webhook diagnostics">
           <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-900">Webhook Diagnostics</h2>
@@ -1521,7 +1524,7 @@ export default function WhatsAppPage() {
               <p className="text-yellow-800 text-xs font-medium">After fixing Meta config, send a real WhatsApp message to this number from your phone to verify inbound messages work end-to-end.</p>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* ===== REPORTS TAB ===== */}

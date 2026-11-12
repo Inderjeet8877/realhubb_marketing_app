@@ -58,6 +58,24 @@ export async function api<T = unknown>(url: string, opts: { method?: string; bod
   return data as T;
 }
 
+/**
+ * POST for the public forms (sign-in, sign-up, Google, enquiries), which read the
+ * status themselves, so no refresh or sign-in redirect. Never throws.
+ */
+export async function postRaw(url: string, body: unknown): Promise<{ status: number; data: any }> {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { ...HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return { status: res.status, data: await res.json().catch(() => ({})) };
+  } catch {
+    return { status: 0, data: { error: "Network error. Check your connection and try again." } };
+  }
+}
+
 export const post = <T = unknown>(url: string, body: unknown = {}) => api<T>(url, { method: "POST", body });
 
 export async function signOut() {

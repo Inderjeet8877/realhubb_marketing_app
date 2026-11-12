@@ -16,45 +16,12 @@ interface ToastMsg {
 
 const NOTIFICATION_SOUND_URL = "/universfield-new-notification-059-494262.mp3";
 
-// ── Synthesized fallback ping (no audio file needed) — used only if the mp3
-// fails to play (e.g. blocked by browser autoplay policy before any user
-// gesture, or the file fails to load) so a notification is never silent.
-function playSynthesizedPing() {
-  try {
-    const ac   = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const now  = ac.currentTime;
-
-    function tone(freq: number, start: number, duration: number, vol: number) {
-      const osc  = ac.createOscillator();
-      const gain = ac.createGain();
-      osc.connect(gain);
-      gain.connect(ac.destination);
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(vol, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
-      osc.start(start);
-      osc.stop(start + duration);
-    }
-
-    tone(880,  now,       0.35, 0.35); // first ping
-    tone(1100, now + 0.18, 0.35, 0.3); // second ping (brighter)
-    setTimeout(() => ac.close(), 800);
-  } catch {}
-}
-
-// ── Notification tone — the real mp3 everywhere it can play (web foreground,
-// and inside the Capacitor WebView, which does support <audio>), falling
-// back to the synthesized ping only if playback actually fails.
+// ── Notification tone (web foreground and the Capacitor WebView).
 function playPing() {
-  try {
-    const audio = new Audio(NOTIFICATION_SOUND_URL);
-    audio.volume = 0.85;
-    audio.play().catch(() => playSynthesizedPing());
-  } catch {
-    playSynthesizedPing();
-  }
+  // Can be blocked by autoplay rules before the first user gesture; nothing else can play then either.
+  const audio = new Audio(NOTIFICATION_SOUND_URL);
+  audio.volume = 0.85;
+  audio.play().catch(() => {});
 }
 
 // ── Fire a browser notification (works when tab not focused) ─────────────

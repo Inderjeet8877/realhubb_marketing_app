@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { postRaw } from "@/lib/api";
 
 import { AuthShell, btnPrimary, ErrorBox, Field, GoogleButton, link, safeNext, type AuthUser, type GoogleResult } from "@/components/auth";
 
@@ -55,19 +56,8 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "broadzen" },
-        body: JSON.stringify({ email, password }),
-      });
-      handle({ status: res.status, data: await res.json().catch(() => ({})) });
-    } catch {
-      setError("Network error. Check your connection and try again.");
-    } finally {
-      setLoading(false);
-    }
+    handle(await postRaw("/api/auth/login", { email, password }));
+    setLoading(false);
   };
 
   if (blocked) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Modal } from "@/components/ui/Modal";
 import {
   Plus, Trash2, CheckCircle, Clock, XCircle, FileText, Eye,
   Loader2, X, Cloud, PauseCircle, Ban, AlertTriangle,
@@ -557,7 +558,7 @@ export default function WhatsAppTemplatesPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 sm:p-4">
+        <Modal open onClose={() => setShowModal(false)} label="Template editor" className="p-0 sm:p-4">
           <div className="bg-white w-full h-full sm:h-auto sm:rounded-xl sm:max-h-[90vh] sm:max-w-4xl overflow-hidden flex flex-col">
             <div className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-gray-100 shrink-0">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate pr-2">
@@ -960,14 +961,11 @@ export default function WhatsAppTemplatesPage() {
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {previewTemplate && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          onClick={() => setPreviewTemplate(null)}
-        >
+        <Modal open onClose={() => setPreviewTemplate(null)} label="Template preview">
           <div
             className="bg-white rounded-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
@@ -993,7 +991,7 @@ export default function WhatsAppTemplatesPage() {
               buttons={previewTemplate.buttons}
             />
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -2,8 +2,20 @@
 
 import { useEffect, useId, useRef } from "react";
 
-/** Native <dialog>: focus trap, Esc to close and backdrop come from the browser. */
-export function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+/**
+ * Native <dialog>: focus trap, Esc and the backdrop come from the browser.
+ * With `title` it renders the standard card; without it, the caller supplies the
+ * panel and must pass `label` for screen readers. Esc and backdrop clicks call
+ * onClose, so a caller that ignores them (e.g. while uploading) keeps it open.
+ */
+export function Modal({ open, onClose, title, label, className = "p-4", children }: {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  label?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
   useEffect(() => {
@@ -12,11 +24,22 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
     if (open && !d.open) d.showModal();
     if (!open && d.open) d.close();
   }, [open]);
+  const common = {
+    ref,
+    onCancel: (e: React.SyntheticEvent) => (e.preventDefault(), onClose()),
+    onClick: (e: React.MouseEvent) => e.target === e.currentTarget && onClose(),
+  };
+  if (!title) {
+    return (
+      <dialog {...common} aria-label={label} className={`m-0 h-full max-h-none w-full max-w-none bg-transparent open:flex items-center justify-center backdrop:bg-[#0F1A38]/50 ${className}`}>
+        {open && children}
+      </dialog>
+    );
+  }
   return (
     <dialog
-      ref={ref}
+      {...common}
       aria-labelledby={id}
-      onClose={onClose}
       className="w-[calc(100%-2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-[#0F1A38]/50"
     >
       {open && (

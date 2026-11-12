@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { postRaw } from "@/lib/api";
 
 import { AuthShell, btnPrimary, ErrorBox, Field, GoogleButton, link, type GoogleResult } from "@/components/auth";
 
@@ -29,21 +30,10 @@ export default function SignupPage() {
     if (f.password.length < MIN) return setError(`Password must be at least ${MIN} characters.`);
     if (f.password !== f.confirm) return setError("The passwords don't match.");
     setLoading(true);
-    try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "broadzen" },
-        body: JSON.stringify({ name: f.name, email: f.email, workspace: f.workspace, password: f.password }),
-      });
-      if (res.status === 202) return router.push("/pending");
-      const d = await res.json().catch(() => ({}));
-      setError(d.error ?? "Sign-up failed. Please try again.");
-    } catch {
-      setError("Network error. Check your connection and try again.");
-    } finally {
-      setLoading(false);
-    }
+    const { status, data } = await postRaw("/api/auth/signup", { name: f.name, email: f.email, workspace: f.workspace, password: f.password });
+    setLoading(false);
+    if (status === 202) return router.push("/pending");
+    setError(data.error ?? "Sign-up failed. Please try again.");
   };
 
   const onGoogle = ({ status, data }: GoogleResult) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Component, ReactNode } from "react";
+import { Modal } from "@/components/ui/Modal";
 import useSWR from "swr";
 import { fetcher, swrConfig } from "@/lib/swr";
 import { Users, Upload, Tag, Loader2, Search, X, FileText, CheckCircle, CheckSquare, Square, TriangleAlert, Plus } from "lucide-react";
@@ -79,7 +80,7 @@ function ImportModal({
   const busy = uploadPhase === "parsing" || uploadPhase === "uploading";
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <Modal open onClose={() => !busy && onClose()} label="Import contacts">
       <div className="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
@@ -278,7 +279,7 @@ function ImportModal({
           </>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }
 

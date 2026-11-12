@@ -5,6 +5,8 @@ import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
 import { Megaphone, TrendingUp, RefreshCw, Eye, Target, DollarSign, Users } from "lucide-react";
 import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
+import { compact, inr } from "@/lib/format";
+import { CplBadge } from "@/components/ui/CplBadge";
 import { StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 
 const ACCOUNTS = [
@@ -35,8 +37,7 @@ interface Campaign {
   } | null;
 }
 
-function fmt(n: number) { return n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toString(); }
-function currency(n: number) { return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+const currency = (n: number) => inr(n, 2, true);
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, string> = {
@@ -48,11 +49,6 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${cfg[status] || "bg-gray-100 text-gray-600"}`}>{status}</span>;
 }
 
-function CplBadge({ cpl }: { cpl: number }) {
-  if (!cpl) return <span className="text-gray-400">—</span>;
-  const color = cpl < 300 ? "text-green-600 font-semibold" : cpl < 600 ? "text-yellow-600 font-semibold" : "text-red-600 font-semibold";
-  return <span className={color}>{currency(cpl)}</span>;
-}
 
 const OBJ: Record<string, string> = {
   CONVERSIONS: "Conversions", LEAD_GENERATION: "Lead Gen",
@@ -206,15 +202,15 @@ export default function CampaignsPage() {
                     )}
                     <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                     <td className="px-4 py-3 text-right font-medium text-gray-800">{currency(c.insights?.spend || 0)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{fmt(c.insights?.impressions || 0)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{fmt(c.insights?.clicks || 0)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{compact(c.insights?.impressions || 0)}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{compact(c.insights?.clicks || 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-600">
                       <span className={(c.insights?.ctr || 0) >= 2 ? "text-green-600 font-medium" : ""}>
                         {(c.insights?.ctr || 0).toFixed(2)}%
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-800">{c.insights?.leads || 0}</td>
-                    <td className="px-4 py-3 text-right"><CplBadge cpl={c.insights?.cpl || 0} /></td>
+                    <td className="px-4 py-3 text-right"><CplBadge cpl={c.insights?.cpl || 0} digits={2} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -222,13 +218,13 @@ export default function CampaignsPage() {
                 <tr className="bg-gray-50 font-semibold text-gray-700 text-sm">
                   <td className="px-5 py-3" colSpan={selectedAccount === "all" ? 3 : 2}>Total / Avg</td>
                   <td className="px-4 py-3 text-right">{currency(totalSpend)}</td>
-                  <td className="px-4 py-3 text-right">{fmt(totalImpr)}</td>
-                  <td className="px-4 py-3 text-right">{fmt(totalClicks)}</td>
+                  <td className="px-4 py-3 text-right">{compact(totalImpr)}</td>
+                  <td className="px-4 py-3 text-right">{compact(totalClicks)}</td>
                   <td className="px-4 py-3 text-right">
                     {totalImpr > 0 ? `${((totalClicks / totalImpr) * 100).toFixed(2)}%` : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">{totalLeads}</td>
-                  <td className="px-4 py-3 text-right"><CplBadge cpl={avgCpl} /></td>
+                  <td className="px-4 py-3 text-right"><CplBadge cpl={avgCpl} digits={2} /></td>
                 </tr>
               </tfoot>
             </table>

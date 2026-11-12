@@ -12,6 +12,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import Skeleton from "react-loading-skeleton";
+import { compact, inr } from "@/lib/format";
+import { CplBadge } from "@/components/ui/CplBadge";
 import { AppSkeletonTheme, StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 import { ActionQueue, ProgressBar, type ActionItem } from "@/components/ActionQueue";
 import * as XLSX from "xlsx";
@@ -54,8 +56,6 @@ interface Campaign {
   } | null;
 }
 
-function fmt(n: number) { return n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toString(); }
-function currency(n: number) { return n > 0 ? `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"; }
 
 function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: any; color: string }) {
   return (
@@ -74,11 +74,6 @@ function StatCard({ label, value, sub, icon: Icon, color }: { label: string; val
   );
 }
 
-function CplBadge({ cpl }: { cpl: number }) {
-  if (!cpl) return <span className="text-gray-400 text-sm">—</span>;
-  const cls = cpl < 300 ? "text-green-600 font-bold" : cpl < 600 ? "text-yellow-600 font-bold" : "text-red-600 font-bold";
-  return <span className={`text-sm ${cls}`}>{currency(cpl)}</span>;
-}
 
 export default function MetaDashboardContent() {
   const [selectedAccount, setSelectedAccount] = useState("all");
@@ -182,13 +177,13 @@ export default function MetaDashboardContent() {
     ...highCplCampaigns.slice(0, 3).map(c => ({
       id: `cpl-${c.id}`, icon: AlertTriangle, tone: "red" as const,
       title: `High CPL — ${c.name}`,
-      subtitle: `${currency(c.insights?.cpl || 0)} per lead (${c.accountName})`,
+      subtitle: `${inr(c.insights?.cpl || 0)} per lead (${c.accountName})`,
       actionLabel: "Review", href: "/dashboard/campaigns",
     })),
     ...noLeadCampaigns.slice(0, 2).map(c => ({
       id: `noleads-${c.id}`, icon: TrendingDown, tone: "amber" as const,
       title: `No leads yet — ${c.name}`,
-      subtitle: `${currency(c.insights?.spend || 0)} spent (${c.accountName})`,
+      subtitle: `${inr(c.insights?.spend || 0)} spent (${c.accountName})`,
       actionLabel: "Review", href: "/dashboard/campaigns",
     })),
   ];
@@ -471,11 +466,11 @@ export default function MetaDashboardContent() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard label="Total Campaigns" value={filtered.length.toString()} sub={`${activeCount} active`} icon={BarChart3} color="bg-blue-100 text-blue-600" />
-        <StatCard label="Total Spend"     value={currency(totalSpend)} icon={DollarSign} color="bg-purple-100 text-purple-600" />
-        <StatCard label="Impressions"     value={fmt(totalImpr)} icon={Eye} color="bg-orange-100 text-orange-600" />
-        <StatCard label="Clicks"          value={fmt(totalClicks)} sub={totalImpr > 0 ? `${((totalClicks / totalImpr) * 100).toFixed(2)}% CTR` : ""} icon={TrendingUp} color="bg-indigo-100 text-indigo-600" />
+        <StatCard label="Total Spend"     value={inr(totalSpend)} icon={DollarSign} color="bg-purple-100 text-purple-600" />
+        <StatCard label="Impressions"     value={compact(totalImpr)} icon={Eye} color="bg-orange-100 text-orange-600" />
+        <StatCard label="Clicks"          value={compact(totalClicks)} sub={totalImpr > 0 ? `${((totalClicks / totalImpr) * 100).toFixed(2)}% CTR` : ""} icon={TrendingUp} color="bg-indigo-100 text-indigo-600" />
         <StatCard label="Total Leads"     value={totalLeadsC > 0 ? totalLeadsC.toString() : totalLeads.toString()} icon={Users} color="bg-green-100 text-green-600" />
-        <StatCard label="Avg CPL"         value={currency(avgCpl)} sub={avgCpl < 300 ? "✅ Good" : avgCpl < 600 ? "⚠️ Moderate" : avgCpl > 0 ? "🔴 High" : ""} icon={Target} color={avgCpl < 300 && avgCpl > 0 ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"} />
+        <StatCard label="Avg CPL"         value={inr(avgCpl)} sub={avgCpl < 300 ? "✅ Good" : avgCpl < 600 ? "⚠️ Moderate" : avgCpl > 0 ? "🔴 High" : ""} icon={Target} color={avgCpl < 300 && avgCpl > 0 ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"} />
       </div>
 
       {/* Per-Account Summary Cards + Action Queue */}
@@ -498,7 +493,7 @@ export default function MetaDashboardContent() {
                 <div className="grid grid-cols-3 gap-x-2 gap-y-3 mb-4">
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 mb-1">Spend</p>
-                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={currency(acc.spend)}>{currency(acc.spend)}</p>
+                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={inr(acc.spend)}>{inr(acc.spend)}</p>
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 mb-1">Leads</p>
@@ -506,7 +501,7 @@ export default function MetaDashboardContent() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 mb-1">CPL</p>
-                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={currency(acc.cpl)}>{currency(acc.cpl)}</p>
+                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={inr(acc.cpl)}>{inr(acc.cpl)}</p>
                   </div>
                 </div>
                 <div>
@@ -605,9 +600,9 @@ export default function MetaDashboardContent() {
                           {c.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-800">{currency(c.insights?.spend || 0)}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{fmt(c.insights?.impressions || 0)}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{fmt(c.insights?.clicks || 0)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-gray-800">{inr(c.insights?.spend || 0)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600">{compact(c.insights?.impressions || 0)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600">{compact(c.insights?.clicks || 0)}</td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-800">{c.insights?.leads || 0}</td>
                       <td className="px-4 py-3 text-right"><CplBadge cpl={cpl} /></td>
                     </tr>
@@ -617,9 +612,9 @@ export default function MetaDashboardContent() {
               <tfoot>
                 <tr className="bg-gray-50 font-semibold text-gray-700">
                   <td className="px-5 py-3" colSpan={3}>Total</td>
-                  <td className="px-4 py-3 text-right">{currency(reportCamps.reduce((s, c) => s + (c.insights?.spend || 0), 0))}</td>
-                  <td className="px-4 py-3 text-right">{fmt(reportCamps.reduce((s, c) => s + (c.insights?.impressions || 0), 0))}</td>
-                  <td className="px-4 py-3 text-right">{fmt(reportCamps.reduce((s, c) => s + (c.insights?.clicks || 0), 0))}</td>
+                  <td className="px-4 py-3 text-right">{inr(reportCamps.reduce((s, c) => s + (c.insights?.spend || 0), 0))}</td>
+                  <td className="px-4 py-3 text-right">{compact(reportCamps.reduce((s, c) => s + (c.insights?.impressions || 0), 0))}</td>
+                  <td className="px-4 py-3 text-right">{compact(reportCamps.reduce((s, c) => s + (c.insights?.clicks || 0), 0))}</td>
                   <td className="px-4 py-3 text-right">{reportCamps.reduce((s, c) => s + (c.insights?.leads || 0), 0)}</td>
                   <td className="px-4 py-3 text-right">
                     <CplBadge cpl={(() => { const s = reportCamps.reduce((a, c) => a + (c.insights?.spend || 0), 0); const l = reportCamps.reduce((a, c) => a + (c.insights?.leads || 0), 0); return l > 0 ? s / l : 0; })()} />
