@@ -1,0 +1,826 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T08:56:07.113Z",
+  "title": "Design System: Broadzen",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Night Navy",
+        "canonical": "#0F1A38",
+        "oklch": "oklch(22.7% 0.06 266.5)",
+        "tonalRamp": [
+          "oklch(15% 0.016 266.5)",
+          "oklch(26.4% 0.029 266.5)",
+          "oklch(37.9% 0.041 266.5)",
+          "oklch(49.3% 0.054 266.5)",
+          "oklch(60.7% 0.054 266.5)",
+          "oklch(72.1% 0.041 266.5)",
+          "oklch(83.6% 0.029 266.5)",
+          "oklch(95% 0.016 266.5)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Raised Navy",
+        "canonical": "#16234A",
+        "oklch": "oklch(26.9% 0.074 267.4)",
+        "tonalRamp": [
+          "oklch(15% 0.02 267.4)",
+          "oklch(26.4% 0.036 267.4)",
+          "oklch(37.9% 0.051 267.4)",
+          "oklch(49.3% 0.067 267.4)",
+          "oklch(60.7% 0.067 267.4)",
+          "oklch(72.1% 0.051 267.4)",
+          "oklch(83.6% 0.036 267.4)",
+          "oklch(95% 0.02 267.4)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Higher Navy",
+        "canonical": "#1E2E5C",
+        "oklch": "oklch(31.4% 0.085 267)",
+        "tonalRamp": [
+          "oklch(15% 0.023 267)",
+          "oklch(26.4% 0.041 267)",
+          "oklch(37.9% 0.058 267)",
+          "oklch(49.3% 0.076 267)",
+          "oklch(60.7% 0.076 267)",
+          "oklch(72.1% 0.058 267)",
+          "oklch(83.6% 0.041 267)",
+          "oklch(95% 0.023 267)"
+        ]
+      },
+      "ink-line": {
+        "role": "neutral",
+        "displayName": "Night Hairline",
+        "canonical": "#2A3A6B",
+        "oklch": "oklch(36.1% 0.087 268.2)",
+        "tonalRamp": [
+          "oklch(15% 0.024 268.2)",
+          "oklch(26.4% 0.042 268.2)",
+          "oklch(37.9% 0.06 268.2)",
+          "oklch(49.3% 0.078 268.2)",
+          "oklch(60.7% 0.078 268.2)",
+          "oklch(72.1% 0.06 268.2)",
+          "oklch(83.6% 0.042 268.2)",
+          "oklch(95% 0.024 268.2)"
+        ]
+      },
+      "signal-cyan": {
+        "role": "primary",
+        "displayName": "Signal Cyan",
+        "canonical": "#00F5E9",
+        "oklch": "oklch(87.4% 0.152 188.5)",
+        "tonalRamp": [
+          "oklch(15% 0.041 188.5)",
+          "oklch(26.4% 0.073 188.5)",
+          "oklch(37.9% 0.104 188.5)",
+          "oklch(49.3% 0.136 188.5)",
+          "oklch(60.7% 0.136 188.5)",
+          "oklch(72.1% 0.104 188.5)",
+          "oklch(83.6% 0.073 188.5)",
+          "oklch(95% 0.041 188.5)"
+        ]
+      },
+      "signal-mint": {
+        "role": "primary",
+        "displayName": "Signal Mint",
+        "canonical": "#00C471",
+        "oklch": "oklch(72.1% 0.178 155)",
+        "tonalRamp": [
+          "oklch(15% 0.049 155)",
+          "oklch(26.4% 0.086 155)",
+          "oklch(37.9% 0.123 155)",
+          "oklch(49.3% 0.16 155)",
+          "oklch(60.7% 0.16 155)",
+          "oklch(72.1% 0.123 155)",
+          "oklch(83.6% 0.086 155)",
+          "oklch(95% 0.049 155)"
+        ]
+      },
+      "signal-soft": {
+        "role": "secondary",
+        "displayName": "Soft Signal Teal",
+        "canonical": "#2DD4BF",
+        "oklch": "oklch(78.5% 0.133 181.9)",
+        "tonalRamp": [
+          "oklch(15% 0.036 181.9)",
+          "oklch(26.4% 0.064 181.9)",
+          "oklch(37.9% 0.091 181.9)",
+          "oklch(49.3% 0.119 181.9)",
+          "oklch(60.7% 0.119 181.9)",
+          "oklch(72.1% 0.091 181.9)",
+          "oklch(83.6% 0.064 181.9)",
+          "oklch(95% 0.036 181.9)"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Mist",
+        "canonical": "#F4F7FA",
+        "oklch": "oklch(97.5% 0.005 247.9)",
+        "cssVar": "--bg",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0.001 247.9)",
+          "oklch(26.4% 0.002 247.9)",
+          "oklch(37.9% 0.004 247.9)",
+          "oklch(49.3% 0.005 247.9)",
+          "oklch(60.7% 0.005 247.9)",
+          "oklch(72.1% 0.004 247.9)",
+          "oklch(83.6% 0.002 247.9)",
+          "oklch(95% 0.001 247.9)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#FFFFFF",
+        "oklch": "oklch(100% 0 89.9)",
+        "cssVar": "--surface",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0 89.9)",
+          "oklch(26.4% 0 89.9)",
+          "oklch(37.9% 0 89.9)",
+          "oklch(49.3% 0 89.9)",
+          "oklch(60.7% 0 89.9)",
+          "oklch(72.1% 0 89.9)",
+          "oklch(83.6% 0 89.9)",
+          "oklch(95% 0 89.9)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Day Hairline",
+        "canonical": "#DEE5EE",
+        "oklch": "oklch(91.9% 0.014 254.6)",
+        "cssVar": "--line",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0.004 254.6)",
+          "oklch(26.4% 0.007 254.6)",
+          "oklch(37.9% 0.01 254.6)",
+          "oklch(49.3% 0.013 254.6)",
+          "oklch(60.7% 0.013 254.6)",
+          "oklch(72.1% 0.01 254.6)",
+          "oklch(83.6% 0.007 254.6)",
+          "oklch(95% 0.004 254.6)"
+        ]
+      },
+      "fg": {
+        "role": "neutral",
+        "displayName": "Navy Ink Text",
+        "canonical": "#0F1A38",
+        "oklch": "oklch(22.7% 0.06 266.5)",
+        "cssVar": "--fg",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0.016 266.5)",
+          "oklch(26.4% 0.029 266.5)",
+          "oklch(37.9% 0.041 266.5)",
+          "oklch(49.3% 0.054 266.5)",
+          "oklch(60.7% 0.054 266.5)",
+          "oklch(72.1% 0.041 266.5)",
+          "oklch(83.6% 0.029 266.5)",
+          "oklch(95% 0.016 266.5)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Slate Muted",
+        "canonical": "#526080",
+        "oklch": "oklch(49% 0.054 266.1)",
+        "cssVar": "--muted",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0.015 266.1)",
+          "oklch(26.4% 0.026 266.1)",
+          "oklch(37.9% 0.037 266.1)",
+          "oklch(49.3% 0.049 266.1)",
+          "oklch(60.7% 0.049 266.1)",
+          "oklch(72.1% 0.037 266.1)",
+          "oklch(83.6% 0.026 266.1)",
+          "oklch(95% 0.015 266.1)"
+        ]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "Deep Teal",
+        "canonical": "#0F766E",
+        "oklch": "oklch(51.1% 0.086 186.4)",
+        "cssVar": "--accent",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0.023 186.4)",
+          "oklch(26.4% 0.041 186.4)",
+          "oklch(37.9% 0.059 186.4)",
+          "oklch(49.3% 0.077 186.4)",
+          "oklch(60.7% 0.077 186.4)",
+          "oklch(72.1% 0.059 186.4)",
+          "oklch(83.6% 0.041 186.4)",
+          "oklch(95% 0.023 186.4)"
+        ]
+      },
+      "on-accent": {
+        "role": "neutral",
+        "displayName": "On Accent",
+        "canonical": "#FFFFFF",
+        "oklch": "oklch(100% 0 89.9)",
+        "cssVar": "--on-accent",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0 89.9)",
+          "oklch(26.4% 0 89.9)",
+          "oklch(37.9% 0 89.9)",
+          "oklch(49.3% 0 89.9)",
+          "oklch(60.7% 0 89.9)",
+          "oklch(72.1% 0 89.9)",
+          "oklch(83.6% 0 89.9)",
+          "oklch(95% 0 89.9)"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "App Primary (light)",
+        "canonical": "#0F1A38",
+        "oklch": "oklch(22.7% 0.06 266.5)",
+        "cssVar": "--primary",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0.016 266.5)",
+          "oklch(26.4% 0.029 266.5)",
+          "oklch(37.9% 0.041 266.5)",
+          "oklch(49.3% 0.054 266.5)",
+          "oklch(60.7% 0.054 266.5)",
+          "oklch(72.1% 0.041 266.5)",
+          "oklch(83.6% 0.029 266.5)",
+          "oklch(95% 0.016 266.5)"
+        ]
+      },
+      "on-primary": {
+        "role": "neutral",
+        "displayName": "On Primary",
+        "canonical": "#FFFFFF",
+        "oklch": "oklch(100% 0 89.9)",
+        "cssVar": "--on-primary",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0 89.9)",
+          "oklch(26.4% 0 89.9)",
+          "oklch(37.9% 0 89.9)",
+          "oklch(49.3% 0 89.9)",
+          "oklch(60.7% 0 89.9)",
+          "oklch(72.1% 0 89.9)",
+          "oklch(83.6% 0 89.9)",
+          "oklch(95% 0 89.9)"
+        ]
+      },
+      "warn": {
+        "role": "status",
+        "displayName": "Warn",
+        "canonical": "#A16207",
+        "oklch": "oklch(55.4% 0.121 66.4)",
+        "cssVar": "--warn",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0.033 66.4)",
+          "oklch(26.4% 0.058 66.4)",
+          "oklch(37.9% 0.083 66.4)",
+          "oklch(49.3% 0.108 66.4)",
+          "oklch(60.7% 0.108 66.4)",
+          "oklch(72.1% 0.083 66.4)",
+          "oklch(83.6% 0.058 66.4)",
+          "oklch(95% 0.033 66.4)"
+        ]
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Danger",
+        "canonical": "#B91C1C",
+        "oklch": "oklch(50.5% 0.19 27.5)",
+        "cssVar": "--danger",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0.052 27.5)",
+          "oklch(26.4% 0.092 27.5)",
+          "oklch(37.9% 0.131 27.5)",
+          "oklch(49.3% 0.171 27.5)",
+          "oklch(60.7% 0.171 27.5)",
+          "oklch(72.1% 0.131 27.5)",
+          "oklch(83.6% 0.092 27.5)",
+          "oklch(95% 0.052 27.5)"
+        ]
+      },
+      "ok": {
+        "role": "status",
+        "displayName": "OK",
+        "canonical": "#047857",
+        "oklch": "oklch(50.8% 0.105 165.6)",
+        "cssVar": "--ok",
+        "theme": "light (:root)",
+        "tonalRamp": [
+          "oklch(15% 0.029 165.6)",
+          "oklch(26.4% 0.05 165.6)",
+          "oklch(37.9% 0.072 165.6)",
+          "oklch(49.3% 0.094 165.6)",
+          "oklch(60.7% 0.094 165.6)",
+          "oklch(72.1% 0.072 165.6)",
+          "oklch(83.6% 0.05 165.6)",
+          "oklch(95% 0.029 165.6)"
+        ]
+      },
+      "bg-dark": {
+        "role": "neutral",
+        "displayName": "Mist (dark)",
+        "canonical": "#0B132A",
+        "oklch": "oklch(19.4% 0.048 267.4)",
+        "cssVar": "--bg",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.013 267.4)",
+          "oklch(26.4% 0.023 267.4)",
+          "oklch(37.9% 0.033 267.4)",
+          "oklch(49.3% 0.043 267.4)",
+          "oklch(60.7% 0.043 267.4)",
+          "oklch(72.1% 0.033 267.4)",
+          "oklch(83.6% 0.023 267.4)",
+          "oklch(95% 0.013 267.4)"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Paper (dark)",
+        "canonical": "#0F1A38",
+        "oklch": "oklch(22.7% 0.06 266.5)",
+        "cssVar": "--surface",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.016 266.5)",
+          "oklch(26.4% 0.029 266.5)",
+          "oklch(37.9% 0.041 266.5)",
+          "oklch(49.3% 0.054 266.5)",
+          "oklch(60.7% 0.054 266.5)",
+          "oklch(72.1% 0.041 266.5)",
+          "oklch(83.6% 0.029 266.5)",
+          "oklch(95% 0.016 266.5)"
+        ]
+      },
+      "line-dark": {
+        "role": "neutral",
+        "displayName": "Day Hairline (dark)",
+        "canonical": "#2A3A6B",
+        "oklch": "oklch(36.1% 0.087 268.2)",
+        "cssVar": "--line",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.024 268.2)",
+          "oklch(26.4% 0.042 268.2)",
+          "oklch(37.9% 0.06 268.2)",
+          "oklch(49.3% 0.078 268.2)",
+          "oklch(60.7% 0.078 268.2)",
+          "oklch(72.1% 0.06 268.2)",
+          "oklch(83.6% 0.042 268.2)",
+          "oklch(95% 0.024 268.2)"
+        ]
+      },
+      "fg-dark": {
+        "role": "neutral",
+        "displayName": "Navy Ink Text (dark)",
+        "canonical": "#E8EEF8",
+        "oklch": "oklch(94.7% 0.015 260.7)",
+        "cssVar": "--fg",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.004 260.7)",
+          "oklch(26.4% 0.007 260.7)",
+          "oklch(37.9% 0.01 260.7)",
+          "oklch(49.3% 0.013 260.7)",
+          "oklch(60.7% 0.013 260.7)",
+          "oklch(72.1% 0.01 260.7)",
+          "oklch(83.6% 0.007 260.7)",
+          "oklch(95% 0.004 260.7)"
+        ]
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Slate Muted (dark)",
+        "canonical": "#A0AECC",
+        "oklch": "oklch(75% 0.046 265.5)",
+        "cssVar": "--muted",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.013 265.5)",
+          "oklch(26.4% 0.022 265.5)",
+          "oklch(37.9% 0.032 265.5)",
+          "oklch(49.3% 0.041 265.5)",
+          "oklch(60.7% 0.041 265.5)",
+          "oklch(72.1% 0.032 265.5)",
+          "oklch(83.6% 0.022 265.5)",
+          "oklch(95% 0.013 265.5)"
+        ]
+      },
+      "accent-dark": {
+        "role": "secondary",
+        "displayName": "Deep Teal (dark)",
+        "canonical": "#2DD4BF",
+        "oklch": "oklch(78.5% 0.133 181.9)",
+        "cssVar": "--accent",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.036 181.9)",
+          "oklch(26.4% 0.064 181.9)",
+          "oklch(37.9% 0.091 181.9)",
+          "oklch(49.3% 0.119 181.9)",
+          "oklch(60.7% 0.119 181.9)",
+          "oklch(72.1% 0.091 181.9)",
+          "oklch(83.6% 0.064 181.9)",
+          "oklch(95% 0.036 181.9)"
+        ]
+      },
+      "on-accent-dark": {
+        "role": "neutral",
+        "displayName": "On Accent (dark)",
+        "canonical": "#0F1A38",
+        "oklch": "oklch(22.7% 0.06 266.5)",
+        "cssVar": "--on-accent",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.016 266.5)",
+          "oklch(26.4% 0.029 266.5)",
+          "oklch(37.9% 0.041 266.5)",
+          "oklch(49.3% 0.054 266.5)",
+          "oklch(60.7% 0.054 266.5)",
+          "oklch(72.1% 0.041 266.5)",
+          "oklch(83.6% 0.029 266.5)",
+          "oklch(95% 0.016 266.5)"
+        ]
+      },
+      "primary-dark": {
+        "role": "primary",
+        "displayName": "App Primary (light) (dark)",
+        "canonical": "#2DD4BF",
+        "oklch": "oklch(78.5% 0.133 181.9)",
+        "cssVar": "--primary",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.036 181.9)",
+          "oklch(26.4% 0.064 181.9)",
+          "oklch(37.9% 0.091 181.9)",
+          "oklch(49.3% 0.119 181.9)",
+          "oklch(60.7% 0.119 181.9)",
+          "oklch(72.1% 0.091 181.9)",
+          "oklch(83.6% 0.064 181.9)",
+          "oklch(95% 0.036 181.9)"
+        ]
+      },
+      "on-primary-dark": {
+        "role": "neutral",
+        "displayName": "On Primary (dark)",
+        "canonical": "#0F1A38",
+        "oklch": "oklch(22.7% 0.06 266.5)",
+        "cssVar": "--on-primary",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.016 266.5)",
+          "oklch(26.4% 0.029 266.5)",
+          "oklch(37.9% 0.041 266.5)",
+          "oklch(49.3% 0.054 266.5)",
+          "oklch(60.7% 0.054 266.5)",
+          "oklch(72.1% 0.041 266.5)",
+          "oklch(83.6% 0.029 266.5)",
+          "oklch(95% 0.016 266.5)"
+        ]
+      },
+      "warn-dark": {
+        "role": "status",
+        "displayName": "Warn (dark)",
+        "canonical": "#F5A524",
+        "oklch": "oklch(78.2% 0.158 72.3)",
+        "cssVar": "--warn",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.043 72.3)",
+          "oklch(26.4% 0.076 72.3)",
+          "oklch(37.9% 0.109 72.3)",
+          "oklch(49.3% 0.142 72.3)",
+          "oklch(60.7% 0.142 72.3)",
+          "oklch(72.1% 0.109 72.3)",
+          "oklch(83.6% 0.076 72.3)",
+          "oklch(95% 0.043 72.3)"
+        ]
+      },
+      "danger-dark": {
+        "role": "status",
+        "displayName": "Danger (dark)",
+        "canonical": "#F87171",
+        "oklch": "oklch(71.1% 0.166 22.2)",
+        "cssVar": "--danger",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.045 22.2)",
+          "oklch(26.4% 0.08 22.2)",
+          "oklch(37.9% 0.114 22.2)",
+          "oklch(49.3% 0.149 22.2)",
+          "oklch(60.7% 0.149 22.2)",
+          "oklch(72.1% 0.114 22.2)",
+          "oklch(83.6% 0.08 22.2)",
+          "oklch(95% 0.045 22.2)"
+        ]
+      },
+      "ok-dark": {
+        "role": "status",
+        "displayName": "OK (dark)",
+        "canonical": "#34D399",
+        "oklch": "oklch(77.3% 0.153 163.2)",
+        "cssVar": "--ok",
+        "theme": "dark (.theme-auto under prefers-color-scheme: dark, or .theme-dark)",
+        "tonalRamp": [
+          "oklch(15% 0.042 163.2)",
+          "oklch(26.4% 0.074 163.2)",
+          "oklch(37.9% 0.106 163.2)",
+          "oklch(49.3% 0.138 163.2)",
+          "oklch(60.7% 0.138 163.2)",
+          "oklch(72.1% 0.106 163.2)",
+          "oklch(83.6% 0.074 163.2)",
+          "oklch(95% 0.042 163.2)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Landing hero headline only. 2.5rem on phones, 3.75rem from 640px; balanced wrap."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Landing section titles. 1.875rem on phones, 2.25rem from 640px."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "App page titles, landing feature titles, auth form titles."
+      },
+      "title-sm": {
+        "displayName": "Title Small",
+        "purpose": "Card and section headers, modal titles, landing path step names."
+      },
+      "body-lg": {
+        "displayName": "Body Large",
+        "purpose": "Landing intros and hero subcopy, muted colour, about 36rem max."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "App copy, table cells, form text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Badges, status words, uppercase table column headers."
+      },
+      "numeric": {
+        "displayName": "Numeric (JetBrains Mono)",
+        "purpose": "Numbers, rupee amounts, phone numbers, timestamps and the 'Sample data' tag only."
+      },
+      "flutter": {
+        "displayName": "Flutter AppText scale",
+        "purpose": "display Sora 32/40 w700; h1 Sora 24/32 w600; h2 Inter 18/28 w600; h3 Inter 16/24 w600; bodyL 16/24; body 14/20; label 14/20 w500; caption 12/16 w500; overline 12/16 w600 +0.48; kpi JetBrains Mono 24/32 w500 tabular. Sora falls back to Inter for the rupee sign."
+      }
+    },
+    "gradients": [
+      {
+        "name": "signal",
+        "value": "linear-gradient(100deg, #00F5E9, #00C471)",
+        "purpose": "Brand gradient as signal only: landing primary CTA, progress fills, funnel rail, final path node. Flutter: brandGradient topLeft to bottomRight."
+      }
+    ],
+    "shadows": [
+      {
+        "name": "dialog-lift",
+        "value": "0 24px 60px -12px rgba(15,26,56,0.35)",
+        "purpose": "Native dialog card on app surfaces, over a 50% navy backdrop."
+      },
+      {
+        "name": "menu-lift",
+        "value": "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)",
+        "purpose": "Workspace account dropdown (Tailwind shadow-lg). Never on landing panels."
+      }
+    ],
+    "focus": [
+      {
+        "name": "focus-ring-global",
+        "value": "outline: 2px solid #00C4B4; outline-offset: 2px",
+        "purpose": "Global :focus-visible on web."
+      },
+      {
+        "name": "focus-ring-input",
+        "value": "box-shadow: 0 0 0 2px rgb(var(--accent))",
+        "purpose": "Inputs and textareas on app surfaces; night inputs shift border to #00F5E9 instead."
+      }
+    ],
+    "motion": [
+      {
+        "name": "duration-fast",
+        "value": "120ms",
+        "purpose": "Hover, press, colour of links and tabs. Flutter Motion.fast."
+      },
+      {
+        "name": "duration-base",
+        "value": "200ms",
+        "purpose": "State colour changes such as the read tick. Flutter Motion.base."
+      },
+      {
+        "name": "duration-slow",
+        "value": "320ms",
+        "purpose": "Entrances and rail fills. Flutter Motion.slow."
+      },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(.23,1,.32,1)",
+        "purpose": "Everything that arrives. Flutter Motion.out."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(.65,0,.35,1)",
+        "purpose": "Loops such as the skeleton pulse. Flutter Motion.inOut."
+      },
+      {
+        "name": "modal-in",
+        "value": "fadeInScale 180ms cubic-bezier(0.16,1,0.3,1)",
+        "purpose": "Web dialog/popover entrance; removed under prefers-reduced-motion."
+      },
+      {
+        "name": "funnel-step",
+        "value": "900ms per step, CPL count-up 700ms ease-out-quart",
+        "purpose": "Signature funnel: plays once at 40% in view, holds, Replay. Static final state under reduced motion and in the still variant."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "web: prefers-reduced-motion; Flutter: Motion.of() returns Duration.zero when MediaQuery.disableAnimations",
+        "purpose": "Shared rule: no motion, final state shown."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "flutter-grid-3",
+        "value": "600px"
+      },
+      {
+        "name": "flutter-grid-4",
+        "value": "900px"
+      }
+    ],
+    "flutterRadii": {
+      "sm": "6px",
+      "md": "10px (buttons, inputs)",
+      "lg": "14px (cards, banners)",
+      "xl": "20px (dialogs, sheets)",
+      "full": "999px"
+    }
+  },
+  "components": [
+    {
+      "name": "Signal Button",
+      "kind": "button",
+      "refersTo": "button-signal",
+      "description": "Landing primary CTA on the night ground: gradient fill, navy text.",
+      "html": "<button class=\"ds-btn-signal\">Request access <svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/><path d=\"m12 5 7 7-7 7\"/></svg></button>",
+      "css": ".ds-btn-signal { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 24px; border: 0; border-radius: 8px; background: linear-gradient(100deg, #00F5E9, #00C471); color: #0F1A38; font: 600 16px/1 Inter, system-ui, sans-serif; cursor: pointer; transition: filter 120ms cubic-bezier(.23,1,.32,1), transform 120ms cubic-bezier(.23,1,.32,1); } .ds-btn-signal:hover { filter: brightness(1.1); } .ds-btn-signal:active { transform: scale(0.99); } .ds-btn-signal:focus-visible { outline: 2px solid #00C4B4; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button (night)",
+      "kind": "button",
+      "refersTo": "button-ghost-night",
+      "description": "Landing secondary action beside the Signal button.",
+      "html": "<div style=\"background:#0F1A38;padding:16px\"><button class=\"ds-btn-ghost\">See how it works</button></div>",
+      "css": ".ds-btn-ghost { min-height: 48px; padding: 0 24px; border-radius: 8px; border: 1px solid #2A3A6B; background: transparent; color: #fff; font: 600 16px/1 Inter, system-ui, sans-serif; cursor: pointer; transition: border-color 120ms, background-color 120ms; } .ds-btn-ghost:hover { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.05); } .ds-btn-ghost:focus-visible { outline: 2px solid #00C4B4; outline-offset: 2px; }"
+    },
+    {
+      "name": "Primary Button (app)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "App primary: navy with white text in light, mint with navy text in dark.",
+      "html": "<button class=\"ds-btn-primary\">Change password</button>",
+      "css": ".ds-btn-primary { min-height: 44px; padding: 0 16px; border: 0; border-radius: 8px; background: #0F1A38; color: #fff; font: 600 14px/1 Inter, system-ui, sans-serif; cursor: pointer; transition: filter 120ms cubic-bezier(.23,1,.32,1), transform 120ms cubic-bezier(.23,1,.32,1); } .ds-btn-primary:hover { filter: brightness(1.25); } .ds-btn-primary:active { transform: scale(0.99); } .ds-btn-primary:focus-visible { outline: 2px solid #00C4B4; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-btn-primary { background: #2DD4BF; color: #0F1A38; } }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Bordered paper button for cancel, retry, menus.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { min-height: 44px; padding: 0 16px; border: 1px solid #DEE5EE; border-radius: 8px; background: #fff; color: #0F1A38; font: 500 14px/1 Inter, system-ui, sans-serif; cursor: pointer; transition: background-color 120ms cubic-bezier(.23,1,.32,1); } .ds-btn-secondary:hover { background: #F4F7FA; } .ds-btn-secondary:focus-visible { outline: 2px solid #00C4B4; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled 44px field on app surfaces with teal focus ring.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Work email</span><input class=\"ds-input\" placeholder=\"you@business.in\"></label>",
+      "css": ".ds-field { display: block; font-family: Inter, system-ui, sans-serif; } .ds-field-label { display: block; margin-bottom: 4px; font-size: 14px; font-weight: 500; color: #0F1A38; } .ds-input { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid #DEE5EE; border-radius: 8px; background: #fff; color: #0F1A38; font-size: 14px; caret-color: #0F766E; } .ds-input:focus { outline: none; border-color: #0F766E; box-shadow: 0 0 0 2px #0F766E; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Pill with text and tinted tone; never colour alone.",
+      "html": "<span class=\"ds-badge ds-badge-ok\">Approved</span> <span class=\"ds-badge ds-badge-info\">Pending</span> <span class=\"ds-badge ds-badge-warn\">Contacted</span> <span class=\"ds-badge ds-badge-danger\">Rejected</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 9999px; font: 600 12px/16px Inter, system-ui, sans-serif; white-space: nowrap; } .ds-badge-ok { background: rgba(4,120,87,0.1); color: #047857; box-shadow: inset 0 0 0 1px rgba(4,120,87,0.3); } .ds-badge-info { background: rgba(15,118,110,0.1); color: #0F766E; box-shadow: inset 0 0 0 1px rgba(15,118,110,0.3); } .ds-badge-warn { background: rgba(161,98,7,0.1); color: #A16207; box-shadow: inset 0 0 0 1px rgba(161,98,7,0.3); } .ds-badge-danger { background: rgba(185,28,28,0.1); color: #B91C1C; box-shadow: inset 0 0 0 1px rgba(185,28,28,0.3); }"
+    },
+    {
+      "name": "Admin Tabs",
+      "kind": "nav",
+      "refersTo": "tabs",
+      "description": "44px tabs over a hairline; active tab in teal with a 2px underline.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button class=\"ds-tab\" aria-selected=\"true\">Pending</button><button class=\"ds-tab\">Approved</button><button class=\"ds-tab\">All</button></div>",
+      "css": ".ds-tabs { display: flex; gap: 4px; border-bottom: 1px solid #DEE5EE; font-family: Inter, system-ui, sans-serif; } .ds-tab { min-height: 44px; padding: 0 16px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: #526080; font-size: 14px; font-weight: 500; cursor: pointer; transition: color 120ms; } .ds-tab:hover { color: #0F1A38; } .ds-tab[aria-selected=true] { color: #0F766E; border-bottom-color: #0F766E; } .ds-tab:focus-visible { outline: 2px solid #00C4B4; outline-offset: 2px; }"
+    },
+    {
+      "name": "Night Panel",
+      "kind": "card",
+      "refersTo": "panel-night",
+      "description": "Raised navy panel with hairline border, mono 'Sample data' tag, no shadow.",
+      "html": "<div style=\"background:#0F1A38;padding:16px\"><div class=\"ds-panel\"><div class=\"ds-panel-head\"><span>Broadcast report</span><span class=\"ds-mono\">Sample data</span></div><div class=\"ds-row\"><span>Read</span><span class=\"ds-track\"><span class=\"ds-fill\"></span></span><span class=\"ds-mono ds-num\">902</span></div></div></div>",
+      "css": ".ds-panel { border: 1px solid #2A3A6B; border-radius: 16px; background: #16234A; padding: 20px; color: #fff; font-family: Inter, system-ui, sans-serif; } .ds-panel-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.9); } .ds-panel-head .ds-mono { color: #A0AECC; font-weight: 400; } .ds-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; } .ds-row { display: grid; grid-template-columns: 84px 1fr 56px; align-items: center; gap: 12px; margin-top: 16px; font-size: 14px; } .ds-track { height: 8px; border-radius: 9999px; background: #0F1A38; overflow: hidden; } .ds-fill { display: block; height: 100%; width: 75%; border-radius: 9999px; background: #00F5E9; } .ds-num { text-align: right; }"
+    },
+    {
+      "name": "Setup Progress",
+      "kind": "custom",
+      "refersTo": "progress",
+      "description": "Workspace checklist header: mono count and a gradient fill on a pill track.",
+      "html": "<div class=\"ds-setup\"><div class=\"ds-setup-head\"><strong>Set up your workspace</strong><span class=\"ds-count\">2 of 5 done</span></div><div class=\"ds-setup-track\"><div class=\"ds-setup-fill\"></div></div></div>",
+      "css": ".ds-setup { border: 1px solid #DEE5EE; border-radius: 16px; background: #fff; padding: 20px 24px; font-family: Inter, system-ui, sans-serif; color: #0F1A38; } .ds-setup-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; } .ds-setup-head strong { font: 600 18px/1.4 Sora, system-ui, sans-serif; } .ds-count { font: 14px 'JetBrains Mono', ui-monospace, monospace; color: #526080; } .ds-setup-track { margin-top: 12px; height: 6px; border-radius: 9999px; background: #F4F7FA; overflow: hidden; } .ds-setup-fill { width: 40%; height: 100%; border-radius: 9999px; background: linear-gradient(100deg, #00F5E9, #00C471); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Signal Room",
+    "overview": "Broadzen is a night-navy desk where an ad turns into a lead, a template goes out, the read tick lights cyan and cost per lead lands in rupees. The room is dark and quiet; the only light in it is signal. The logo's cyan-to-mint gradient is never a decoration: it appears where something is live, done, read or worth acting on, and nowhere else. Everything else is navy in three steps, hairline borders and plain type.\n\nThe world has two rooms that share one grammar. The public landing is the night room: the `ink` ground with panels raised one step lighter, no shadows, white Sora headlines, Inter body copy in a cool muted blue-grey, and mono for every figure. The working app (auth, pending, workspace, admin) is the day room: light surfaces for an owner reading a phone in daylight, the same navy as text and primary button, following the OS into dark mode where the primary turns mint with navy text. The auth shell joins the two: a navy aside carrying the still funnel beside a light form column.\n\nDensity is calm, not sparse. Copy is short and literal, numbers are labelled, and sample data says it is sample data. Motion is one curve and three durations, shared by web and Flutter, and it switches off when the OS asks.",
+    "keyCharacteristics": [
+      "Navy ground in three steps (`ink`, `ink-2`, `ink-3`) with `ink-line` hairlines; depth by tone, not shadow.",
+      "Gradient as signal only: the landing's primary CTA, progress fills, the read tick, the CPL readout, the final step of a path.",
+      "Sora for display and titles, Inter for everything read, JetBrains Mono for numbers, phone numbers and timestamps.",
+      "Light app surfaces with system dark; mint primary on navy text in dark.",
+      "Honest content: sample data labelled in mono, no invented stats, prices, logos or badges.",
+      "One motion grammar: 120 / 200 / 320 ms on `cubic-bezier(.23,1,.32,1)`, zero under reduced motion."
+    ],
+    "rules": [
+      {
+        "name": "The Signal-Only Rule",
+        "body": "The gradient (and solid cyan or mint) marks live or completed state, or the one primary action on the night ground. It never fills a background field, a section, a card, or text. If nothing is happening there, it is navy.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three-Step Navy Rule",
+        "body": "On the night ground, depth goes `ink` to `ink-2` to `ink-3`, one step per nesting level, each edged with `ink-line`. A fourth tone is not added.",
+        "section": "colors"
+      },
+      {
+        "name": "The Day Room Rule",
+        "body": "App surfaces are light by default and opt into dark per surface with `.theme-auto` (follows the OS) or `.theme-dark`. In dark, primary becomes Soft Signal Teal with navy text, never white on mint.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono-Is-Data Rule",
+        "body": "JetBrains Mono is used only for numbers, phone numbers, timestamps and the \"Sample data\" tag. Never for headings, labels or prose.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sora-Above, Inter-Below Rule",
+        "body": "Sora sets headings and titles; anything read as a sentence is Inter.",
+        "section": "typography"
+      },
+      {
+        "name": "The Hairline-Not-Shadow Rule",
+        "body": "A panel is separated by one step of tone and a 1px border. Shadows are reserved for layers that float over the page (dialogs, menus) on app surfaces, and never appear on the landing.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** put the gradient only on live or finished state, or on the single primary CTA on the night ground (Signal-Only Rule).",
+      "**Do** raise night panels one tonal step (`ink-2` on `ink`, `ink-3` inside `ink-2`) and edge them with a 1px `ink-line` border.",
+      "**Do** set every number, rupee amount, phone number and timestamp in JetBrains Mono with tabular figures.",
+      "**Do** label illustrative content \"Sample data\" in mono, and compute shown figures from the shown inputs.",
+      "**Do** keep app surfaces light by default and opt them into OS dark with `.theme-auto`; in dark, use Soft Signal Teal primary with navy text.",
+      "**Do** pair every status colour with a word (badges, \"Done\", \"Coming soon\", \"In progress\").",
+      "**Do** use the shared motion tokens (120 / 200 / 320 ms, ease-out) and drop to no motion, or the final state, under reduced motion.",
+      "**Do** keep tap targets at 44px on web and 48dp on Android."
+    ],
+    "donts": [
+      "**Don't** fill backgrounds, sections or cards with the gradient, and don't set gradient text.",
+      "**Don't** put drop shadows on landing panels or cards; shadows are for dialogs and menus on app surfaces only.",
+      "**Don't** show invented statistics, customer logos, testimonials, partner badges or pricing.",
+      "**Don't** loop the funnel or any signature motion; play once, hold, offer Replay.",
+      "**Don't** use mono for headings, labels or body copy.",
+      "**Don't** rely on colour alone for status.",
+      "**Don't** extend the legacy `/dashboard` look (gray utility classes, light-only, tokens swapped in for colour) to new surfaces; it is a known gap awaiting its own pass."
+    ]
+  }
+}

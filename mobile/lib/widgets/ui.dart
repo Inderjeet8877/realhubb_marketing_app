@@ -73,7 +73,7 @@ class AppCard extends StatelessWidget {
   }
 }
 
-/// KPI tile: label, big value (Sora, tabular), optional sub-line and icon.
+/// KPI tile: label, big value (mono, tabular), optional sub-line and icon.
 class StatCard extends StatelessWidget {
   const StatCard({
     super.key,
