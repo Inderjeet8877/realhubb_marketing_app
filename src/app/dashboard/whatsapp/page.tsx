@@ -158,7 +158,8 @@ export default function WhatsAppPage() {
   const [showWebhookPanel, setShowWebhookPanel] = useState(false);
   const [copiedDetails, setCopiedDetails] = useState(false);
   const [batches, setBatches] = useState<{ name: string; count: number }[]>([]);
-  const [selectedBatch, setSelectedBatch] = useState<string>("");
+  const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(false);
   const [sendRange, setSendRange] = useState<string>("all");
   const [rangeFrom, setRangeFrom] = useState<string>("");
   const [rangeTo, setRangeTo]     = useState<string>("");
@@ -535,6 +536,31 @@ export default function WhatsAppPage() {
   // and starts watching it. You can close this modal, switch tabs, or leave
   // the page entirely; the broadcast keeps running and the Reports tab will
   // show it live (and finished/cancelled reports) whenever you come back.
+  // Loads every checked batch's contacts and merges them (deduped by phone,
+  // first batch wins) into one list that the Send Range picker slices.
+  const applyBatchSelection = async (names: string[]) => {
+    setSelectedBatches(names);
+    setSendRange("all");
+    setRangeFrom(""); setRangeTo("");
+    sentKeysRef.current = new Set();
+    setLoadingBatches(true);
+    try {
+      const lists = await Promise.all(names.map(async name => {
+        const r = await fetch(`/api/contacts?dataName=${encodeURIComponent(name)}`);
+        if (!r.ok) throw new Error(`Failed to load batch "${name}"`);
+        const d = await r.json();
+        return (d.contacts || []).map((c: any) => c.phone as string);
+      }));
+      const phones = [...new Set(lists.flat().filter(Boolean))];
+      allBatchPhonesRef.current = phones;
+      setSelectedContacts(phones);
+    } catch (err: any) {
+      setBulkResult({ error: err.message || "Failed to load batch contacts" });
+    } finally {
+      setLoadingBatches(false);
+    }
+  };
+
   const handleBulkSend = async () => {
     if (selectedContacts.length === 0) return;
     if (bulkMessageType === "text" && !bulkMessage) return;
@@ -573,7 +599,7 @@ export default function WhatsAppPage() {
         body:    JSON.stringify({
           contacts:            contactsToSend,
           contactNames:        contactNamesMap,
-          batchName:           selectedBatch || "Manual Selection",
+          batchName:           selectedBatches.join(", ") || "Manual Selection",
           message:             bulkMessage,
           accountId:           waAccountId,
           templateName:        bulkMessageType === "template" ? selectedBulkTemplate : undefined,
@@ -732,7 +758,7 @@ export default function WhatsAppPage() {
     setSelectedContacts(selectedContacts.length === contacts.length ? [] : phones);
   };
 
-  const closeBulkModal = () => { setShowBulkModal(false); setBulkResult(null); setSelectedBatch(""); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); };
+  const closeBulkModal = () => { setShowBulkModal(false); setBulkResult(null); setSelectedBatches([]); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); };
 
   return (
     <div>
@@ -1283,38 +1309,36 @@ export default function WhatsAppPage() {
             )}
             {batches.length > 0 && (
               <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Send to Batch</label>
-                <select
-                  value={selectedBatch}
-                  onChange={async e => {
-                    const batch = e.target.value;
-                    setSelectedBatch(batch);
-                    setSendRange("all");
-                    setRangeFrom(""); setRangeTo("");
-                    sentKeysRef.current = new Set();
-                    if (batch) {
-                      const r = await fetch(`/api/contacts?dataName=${encodeURIComponent(batch)}`);
-                      const d = await r.json();
-                      const phones = (d.contacts || []).map((c: any) => c.phone);
-                      allBatchPhonesRef.current = phones;
-                      setSelectedContacts(phones);
-                    } else {
-                      allBatchPhonesRef.current = [];
-                      setSelectedContacts([]);
-                    }
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800"
-                >
-                  <option value="">-- Select a batch (or choose manually below) --</option>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-semibold text-gray-700">Send to Batches</label>
+                  {selectedBatches.length > 0 && (
+                    <button onClick={() => applyBatchSelection([])} className="text-xs text-blue-600 hover:text-blue-700">Clear</button>
+                  )}
+                </div>
+                <div className="border border-gray-300 rounded-lg max-h-40 overflow-y-auto">
                   {batches.map(b => (
-                    <option key={b.name} value={b.name}>{b.name} ({b.count} contacts)</option>
+                    <label key={b.name} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-b-0">
+                      <input
+                        type="checkbox"
+                        checked={selectedBatches.includes(b.name)}
+                        disabled={loadingBatches}
+                        onChange={() => applyBatchSelection(
+                          selectedBatches.includes(b.name)
+                            ? selectedBatches.filter(n => n !== b.name)
+                            : [...selectedBatches, b.name]
+                        )}
+                        className="w-4 h-4 text-green-600 rounded"
+                      />
+                      <span className="text-sm text-gray-800">{b.name} <span className="text-gray-500">({b.count} contacts)</span></span>
+                    </label>
                   ))}
-                 </select>
+                </div>
+                {loadingBatches && <p className="text-xs text-gray-500 mt-1">Loading contacts…</p>}
                </div>
              )}
 
              {/* Send Range */}
-             {selectedBatch && (
+             {selectedBatches.length > 0 && (
                <div className="mb-4 space-y-2">
                  <label className="block text-sm font-semibold text-gray-700">Send Range</label>
                  <select
