@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="icon_bg">#FFFFFF</color>
-    <!-- Navy in both modes: the splash hands off seamlessly to the navy login hero. -->
-    <color name="splash_light">#0F1A38</color>
-    <color name="splash_dark">#0F1A38</color>
-</resources>

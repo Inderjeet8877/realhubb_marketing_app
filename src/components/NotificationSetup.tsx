@@ -16,12 +16,45 @@ interface ToastMsg {
 
 const NOTIFICATION_SOUND_URL = "/universfield-new-notification-059-494262.mp3";
 
-// ── Notification tone (web foreground and the Capacitor WebView).
+// ── Synthesized fallback ping (no audio file needed) — used only if the mp3
+// fails to play (e.g. blocked by browser autoplay policy before any user
+// gesture, or the file fails to load) so a notification is never silent.
+function playSynthesizedPing() {
+  try {
+    const ac   = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const now  = ac.currentTime;
+
+    function tone(freq: number, start: number, duration: number, vol: number) {
+      const osc  = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(vol, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+      osc.start(start);
+      osc.stop(start + duration);
+    }
+
+    tone(880,  now,       0.35, 0.35); // first ping
+    tone(1100, now + 0.18, 0.35, 0.3); // second ping (brighter)
+    setTimeout(() => ac.close(), 800);
+  } catch {}
+}
+
+// ── Notification tone — the real mp3 everywhere it can play (web foreground,
+// and inside the Capacitor WebView, which does support <audio>), falling
+// back to the synthesized ping only if playback actually fails.
 function playPing() {
-  // Can be blocked by autoplay rules before the first user gesture; nothing else can play then either.
-  const audio = new Audio(NOTIFICATION_SOUND_URL);
-  audio.volume = 0.85;
-  audio.play().catch(() => {});
+  try {
+    const audio = new Audio(NOTIFICATION_SOUND_URL);
+    audio.volume = 0.85;
+    audio.play().catch(() => playSynthesizedPing());
+  } catch {
+    playSynthesizedPing();
+  }
 }
 
 // ── Fire a browser notification (works when tab not focused) ─────────────
@@ -464,18 +497,18 @@ export default function NotificationSetup() {
 
       {/* ── PWA Install Prompt ── */}
       {showInstallPrompt && !localStorage.getItem("pwa_install_dismissed") && (
-        <div className="fixed bottom-20 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 bg-white border border-accent/30 rounded-xl shadow-xl p-4 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-            <MessageSquare className="w-5 h-5 text-accent" />
+        <div className="fixed bottom-20 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 bg-white border border-blue-200 rounded-xl shadow-xl p-4 flex items-start gap-3">
+          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <MessageSquare className="w-5 h-5 text-blue-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900">Install Broadzen</p>
+            <p className="text-sm font-semibold text-gray-900">Install Realhubb</p>
             <p className="text-xs text-gray-500 mt-0.5">
               Add to your home screen for faster access and better notifications on mobile.
             </p>
             <div className="flex gap-2 mt-3">
               <button onClick={handleInstallApp}
-                className="px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:brightness-125">
+                className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">
                 Install
               </button>
               <button onClick={dismissInstallPrompt}

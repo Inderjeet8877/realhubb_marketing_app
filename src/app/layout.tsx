@@ -1,37 +1,28 @@
-import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Sora } from "next/font/google";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const sora = Sora({ subsets: ["latin"], variable: "--font-sora", weight: ["500", "600", "700"] });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", weight: ["400", "500"] });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Broadzen – WhatsApp & Meta Ads marketing",
-  description: "Broadcast smarter. Grow faster. Manage your WhatsApp and Meta Ads campaigns in one place.",
+  title: "Realhubb Platform - Marketing Automation",
+  description: "Manage your Meta Ads and WhatsApp campaigns in one place",
   manifest: "/manifest.json",
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icons/favicon-64.png", type: "image/png", sizes: "64x64" },
-    ],
-    apple: { url: "/icons/apple-touch-icon.png", sizes: "180x180" },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: "cover",
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Broadzen",
+    title: "Realhubb",
   },
   formatDetection: {
     telephone: false,
   },
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-  themeColor: "#0F1A38",
 };
 
 export default function RootLayout({
@@ -40,8 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${sora.variable} ${mono.variable}`}>
-      <body className="font-sans antialiased" suppressHydrationWarning>{children}</body>
+    <html lang="en">
+      <body className={inter.className} suppressHydrationWarning>{children}</body>
     </html>
   );
 }

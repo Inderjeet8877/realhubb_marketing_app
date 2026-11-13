@@ -14,7 +14,7 @@ interface StatusStyle {
 }
 
 const STATUS_STYLES: Record<AlertStatus, StatusStyle> = {
-  info:    { bg: "bg-accent/10",   border: "border-accent/30",   icon: Info,          iconColor: "text-accent",   titleColor: "text-accent" },
+  info:    { bg: "bg-blue-50",   border: "border-blue-200",   icon: Info,          iconColor: "text-blue-600",   titleColor: "text-blue-900" },
   accent:  { bg: "bg-indigo-50", border: "border-indigo-200", icon: Info,          iconColor: "text-indigo-600", titleColor: "text-indigo-900" },
   success: { bg: "bg-green-50",  border: "border-green-200",  icon: CheckCircle2,  iconColor: "text-green-600",  titleColor: "text-green-900" },
   warning: { bg: "bg-amber-50",  border: "border-amber-200",  icon: AlertTriangle, iconColor: "text-amber-600",  titleColor: "text-amber-900" },

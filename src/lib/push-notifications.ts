@@ -51,7 +51,7 @@ export async function sendPushNotification(
     },
     webpush: {
       notification: {
-        icon: '/icons/icon-192.png',
+        icon: '/favicon.ico',
         badge: '/favicon.ico',
         vibrate: [200, 100, 200],
         requireInteraction: false,

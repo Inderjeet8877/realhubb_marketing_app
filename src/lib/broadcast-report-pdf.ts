@@ -441,7 +441,7 @@ function stampFooters(doc: jsPDF): void {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(140, 140, 140);
-    doc.text('Broadzen WhatsApp Broadcast Report', MARGIN, h - 9);
+    doc.text('RealHubb WhatsApp Broadcast Report', MARGIN, h - 9);
     doc.text(`Page ${p} of ${pageCount}`, pageWidth - MARGIN, h - 9, { align: 'right' });
   }
 }

@@ -27,7 +27,7 @@ messaging.onBackgroundMessage(function(payload) {
 
   self.registration.showNotification(title, {
     body,
-    icon:    '/icons/icon-192.png',
+    icon:    '/favicon.ico',
     badge:   '/favicon.ico',
     vibrate: [200, 100, 200],
     data:    { url },

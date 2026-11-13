@@ -12,8 +12,6 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import Skeleton from "react-loading-skeleton";
-import { compact, inr } from "@/lib/format";
-import { CplBadge } from "@/components/ui/CplBadge";
 import { AppSkeletonTheme, StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 import { ActionQueue, ProgressBar, type ActionItem } from "@/components/ActionQueue";
 import * as XLSX from "xlsx";
@@ -22,7 +20,7 @@ import "jspdf-autotable";
 
 const CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 const ACCOUNT_COLORS: Record<string, { bg: string; text: string; badge: string }> = {
-  "1": { bg: "bg-accent/10",   text: "text-accent",   badge: "bg-accent/10 text-accent"   },
+  "1": { bg: "bg-blue-50",   text: "text-blue-700",   badge: "bg-blue-100 text-blue-700"   },
   "2": { bg: "bg-purple-50", text: "text-purple-700", badge: "bg-purple-100 text-purple-700" },
   "3": { bg: "bg-orange-50", text: "text-orange-700", badge: "bg-orange-100 text-orange-700" },
 };
@@ -56,6 +54,8 @@ interface Campaign {
   } | null;
 }
 
+function fmt(n: number) { return n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toString(); }
+function currency(n: number) { return n > 0 ? `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"; }
 
 function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: any; color: string }) {
   return (
@@ -74,6 +74,11 @@ function StatCard({ label, value, sub, icon: Icon, color }: { label: string; val
   );
 }
 
+function CplBadge({ cpl }: { cpl: number }) {
+  if (!cpl) return <span className="text-gray-400 text-sm">—</span>;
+  const cls = cpl < 300 ? "text-green-600 font-bold" : cpl < 600 ? "text-yellow-600 font-bold" : "text-red-600 font-bold";
+  return <span className={`text-sm ${cls}`}>{currency(cpl)}</span>;
+}
 
 export default function MetaDashboardContent() {
   const [selectedAccount, setSelectedAccount] = useState("all");
@@ -177,13 +182,13 @@ export default function MetaDashboardContent() {
     ...highCplCampaigns.slice(0, 3).map(c => ({
       id: `cpl-${c.id}`, icon: AlertTriangle, tone: "red" as const,
       title: `High CPL — ${c.name}`,
-      subtitle: `${inr(c.insights?.cpl || 0)} per lead (${c.accountName})`,
+      subtitle: `${currency(c.insights?.cpl || 0)} per lead (${c.accountName})`,
       actionLabel: "Review", href: "/dashboard/campaigns",
     })),
     ...noLeadCampaigns.slice(0, 2).map(c => ({
       id: `noleads-${c.id}`, icon: TrendingDown, tone: "amber" as const,
       title: `No leads yet — ${c.name}`,
-      subtitle: `${inr(c.insights?.spend || 0)} spent (${c.accountName})`,
+      subtitle: `${currency(c.insights?.spend || 0)} spent (${c.accountName})`,
       actionLabel: "Review", href: "/dashboard/campaigns",
     })),
   ];
@@ -206,7 +211,7 @@ export default function MetaDashboardContent() {
 
     // Sheet 1 — Summary
     const summaryData = [
-      [`Broadzen Campaign Report — ${dateLabel}`],
+      [`Realhubb Campaign Report — ${dateLabel}`],
       [`Generated: ${new Date().toLocaleString()}`],
       [],
       ["KPI", "Value"],
@@ -240,7 +245,7 @@ export default function MetaDashboardContent() {
     ws2["!cols"] = [{ wch: 45 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws2, "Campaigns");
 
-    XLSX.writeFile(wb, `broadzen-campaign-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `realhubb-campaign-report-${new Date().toISOString().slice(0, 10)}.xlsx`);
     setShowDlDropdown(false);
   };
 
@@ -254,7 +259,7 @@ export default function MetaDashboardContent() {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("Broadzen — Campaign Performance Report", 14, 14);
+    doc.text("Realhubb — Campaign Performance Report", 14, 14);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(`${dateLabel}  ·  Generated: ${new Date().toLocaleString()}`, pw - 14, 14, { align: "right" });
@@ -334,7 +339,7 @@ export default function MetaDashboardContent() {
       },
     });
 
-    doc.save(`broadzen-campaign-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(`realhubb-campaign-report-${new Date().toISOString().slice(0, 10)}.pdf`);
     setShowDlDropdown(false);
   };
 
@@ -375,7 +380,7 @@ export default function MetaDashboardContent() {
               <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2">
                 {DATE_PRESETS.map(d => (
                   <button key={d.id} onClick={() => { setDatePreset(d.id); if (d.id !== "custom") setShowDateDropdown(false); }}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-50 ${datePreset === d.id ? "text-accent font-medium bg-accent/10" : "text-gray-700"}`}>
+                    className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-50 ${datePreset === d.id ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}>
                     {d.label}
                   </button>
                 ))}
@@ -394,7 +399,7 @@ export default function MetaDashboardContent() {
                         className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm" />
                     </div>
                     <button onClick={() => setShowDateDropdown(false)}
-                      className="w-full bg-primary text-white text-sm font-medium rounded-md py-1.5 hover:brightness-125">
+                      className="w-full bg-blue-600 text-white text-sm font-medium rounded-md py-1.5 hover:bg-blue-700">
                       Apply
                     </button>
                   </div>
@@ -412,7 +417,7 @@ export default function MetaDashboardContent() {
               <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
                 {ACCOUNTS.map(a => (
                   <button key={a.id} onClick={() => { setSelectedAccount(a.id); setShowDropdown(false); }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedAccount === a.id ? "text-accent font-medium bg-accent/10" : "text-gray-700"}`}>
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedAccount === a.id ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}>
                     {a.name}
                   </button>
                 ))}
@@ -449,9 +454,9 @@ export default function MetaDashboardContent() {
                 <div className="border-t border-gray-100" />
                 <button
                   onClick={downloadPDF}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-accent/10 hover:text-accent rounded-b-lg"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-b-lg"
                 >
-                  <FileText className="w-4 h-4 text-accent" />
+                  <FileText className="w-4 h-4 text-blue-600" />
                   <div className="text-left">
                     <p className="font-medium">Download PDF</p>
                     <p className="text-xs text-gray-400">Formatted report (landscape)</p>
@@ -465,12 +470,12 @@ export default function MetaDashboardContent() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard label="Total Campaigns" value={filtered.length.toString()} sub={`${activeCount} active`} icon={BarChart3} color="bg-accent/10 text-accent" />
-        <StatCard label="Total Spend"     value={inr(totalSpend)} icon={DollarSign} color="bg-purple-100 text-purple-600" />
-        <StatCard label="Impressions"     value={compact(totalImpr)} icon={Eye} color="bg-orange-100 text-orange-600" />
-        <StatCard label="Clicks"          value={compact(totalClicks)} sub={totalImpr > 0 ? `${((totalClicks / totalImpr) * 100).toFixed(2)}% CTR` : ""} icon={TrendingUp} color="bg-indigo-100 text-indigo-600" />
+        <StatCard label="Total Campaigns" value={filtered.length.toString()} sub={`${activeCount} active`} icon={BarChart3} color="bg-blue-100 text-blue-600" />
+        <StatCard label="Total Spend"     value={currency(totalSpend)} icon={DollarSign} color="bg-purple-100 text-purple-600" />
+        <StatCard label="Impressions"     value={fmt(totalImpr)} icon={Eye} color="bg-orange-100 text-orange-600" />
+        <StatCard label="Clicks"          value={fmt(totalClicks)} sub={totalImpr > 0 ? `${((totalClicks / totalImpr) * 100).toFixed(2)}% CTR` : ""} icon={TrendingUp} color="bg-indigo-100 text-indigo-600" />
         <StatCard label="Total Leads"     value={totalLeadsC > 0 ? totalLeadsC.toString() : totalLeads.toString()} icon={Users} color="bg-green-100 text-green-600" />
-        <StatCard label="Avg CPL"         value={inr(avgCpl)} sub={avgCpl < 300 ? "✅ Good" : avgCpl < 600 ? "⚠️ Moderate" : avgCpl > 0 ? "🔴 High" : ""} icon={Target} color={avgCpl < 300 && avgCpl > 0 ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"} />
+        <StatCard label="Avg CPL"         value={currency(avgCpl)} sub={avgCpl < 300 ? "✅ Good" : avgCpl < 600 ? "⚠️ Moderate" : avgCpl > 0 ? "🔴 High" : ""} icon={Target} color={avgCpl < 300 && avgCpl > 0 ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"} />
       </div>
 
       {/* Per-Account Summary Cards + Action Queue */}
@@ -493,7 +498,7 @@ export default function MetaDashboardContent() {
                 <div className="grid grid-cols-3 gap-x-2 gap-y-3 mb-4">
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 mb-1">Spend</p>
-                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={inr(acc.spend)}>{inr(acc.spend)}</p>
+                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={currency(acc.spend)}>{currency(acc.spend)}</p>
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 mb-1">Leads</p>
@@ -501,7 +506,7 @@ export default function MetaDashboardContent() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500 mb-1">CPL</p>
-                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={inr(acc.cpl)}>{inr(acc.cpl)}</p>
+                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={currency(acc.cpl)}>{currency(acc.cpl)}</p>
                   </div>
                 </div>
                 <div>
@@ -509,7 +514,7 @@ export default function MetaDashboardContent() {
                     <span>Share of total spend</span>
                     <span className="font-medium">{spendShare.toFixed(0)}%</span>
                   </div>
-                  <ProgressBar percent={spendShare} colorClass={acc.id === "1" ? "bg-accent" : acc.id === "2" ? "bg-purple-500" : "bg-orange-500"} />
+                  <ProgressBar percent={spendShare} colorClass={acc.id === "1" ? "bg-blue-500" : acc.id === "2" ? "bg-purple-500" : "bg-orange-500"} />
                 </div>
               </div>
             );
@@ -557,7 +562,7 @@ export default function MetaDashboardContent() {
           <div className="flex flex-wrap gap-1">
             {(["all", "1", "2", "3"] as const).map(id => (
               <button key={id} onClick={() => setActiveReport(id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg ${activeReport === id ? "bg-primary text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg ${activeReport === id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                 {id === "all" ? "All" : `Acc ${id}`}
               </button>
             ))}
@@ -600,9 +605,9 @@ export default function MetaDashboardContent() {
                           {c.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-800">{inr(c.insights?.spend || 0)}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{compact(c.insights?.impressions || 0)}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{compact(c.insights?.clicks || 0)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-gray-800">{currency(c.insights?.spend || 0)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600">{fmt(c.insights?.impressions || 0)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600">{fmt(c.insights?.clicks || 0)}</td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-800">{c.insights?.leads || 0}</td>
                       <td className="px-4 py-3 text-right"><CplBadge cpl={cpl} /></td>
                     </tr>
@@ -612,9 +617,9 @@ export default function MetaDashboardContent() {
               <tfoot>
                 <tr className="bg-gray-50 font-semibold text-gray-700">
                   <td className="px-5 py-3" colSpan={3}>Total</td>
-                  <td className="px-4 py-3 text-right">{inr(reportCamps.reduce((s, c) => s + (c.insights?.spend || 0), 0))}</td>
-                  <td className="px-4 py-3 text-right">{compact(reportCamps.reduce((s, c) => s + (c.insights?.impressions || 0), 0))}</td>
-                  <td className="px-4 py-3 text-right">{compact(reportCamps.reduce((s, c) => s + (c.insights?.clicks || 0), 0))}</td>
+                  <td className="px-4 py-3 text-right">{currency(reportCamps.reduce((s, c) => s + (c.insights?.spend || 0), 0))}</td>
+                  <td className="px-4 py-3 text-right">{fmt(reportCamps.reduce((s, c) => s + (c.insights?.impressions || 0), 0))}</td>
+                  <td className="px-4 py-3 text-right">{fmt(reportCamps.reduce((s, c) => s + (c.insights?.clicks || 0), 0))}</td>
                   <td className="px-4 py-3 text-right">{reportCamps.reduce((s, c) => s + (c.insights?.leads || 0), 0)}</td>
                   <td className="px-4 py-3 text-right">
                     <CplBadge cpl={(() => { const s = reportCamps.reduce((a, c) => a + (c.insights?.spend || 0), 0); const l = reportCamps.reduce((a, c) => a + (c.insights?.leads || 0), 0); return l > 0 ? s / l : 0; })()} />

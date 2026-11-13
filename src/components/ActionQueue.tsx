@@ -15,7 +15,7 @@ export interface ActionItem {
 const TONE_CLASSES: Record<ActionItem["tone"], { icon: string; iconBg: string; button: string }> = {
   red:   { icon: "text-red-600",   iconBg: "bg-red-50",   button: "text-red-700 bg-red-50 hover:bg-red-100" },
   amber: { icon: "text-amber-600", iconBg: "bg-amber-50", button: "text-amber-700 bg-amber-50 hover:bg-amber-100" },
-  blue:  { icon: "text-accent",  iconBg: "bg-accent/10",  button: "text-accent bg-accent/10 hover:bg-accent/10" },
+  blue:  { icon: "text-blue-600",  iconBg: "bg-blue-50",  button: "text-blue-700 bg-blue-50 hover:bg-blue-100" },
 };
 
 // A short, prioritized "what needs my attention right now" list — real alerts
@@ -67,7 +67,7 @@ export function ActionQueue({ items, title = "Action Queue" }: { items: ActionIt
 // Slim inline progress bar — used for "this account's share of total spend",
 // per-template read rate, etc. Not a chart library component: cheap enough
 // to inline directly wherever a single percentage needs a visual bar.
-export function ProgressBar({ percent, colorClass = "bg-accent" }: { percent: number; colorClass?: string }) {
+export function ProgressBar({ percent, colorClass = "bg-blue-500" }: { percent: number; colorClass?: string }) {
   const clamped = Math.max(0, Math.min(100, percent));
   return (
     <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">

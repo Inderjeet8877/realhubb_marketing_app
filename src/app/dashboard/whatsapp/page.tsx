@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Modal } from "@/components/ui/Modal";
 import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3, Filter } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, orderBy, limit, doc } from "firebase/firestore";
@@ -87,7 +86,7 @@ function MsgTick({ status }: { status?: string }) {
   if (status === "read") {
     return (
       <span className="inline-flex items-center transition-all duration-300" title="Read">
-        <CheckCheck className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+        <CheckCheck className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
       </span>
     );
   }
@@ -758,8 +757,6 @@ export default function WhatsAppPage() {
     setSelectedContacts(selectedContacts.length === contacts.length ? [] : phones);
   };
 
-  const closeBulkModal = () => { setShowBulkModal(false); setBulkResult(null); setSelectedBatches([]); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); };
-
   return (
     <div>
       {/* Top bar */}
@@ -826,7 +823,7 @@ export default function WhatsAppPage() {
             onClick={handleResumeBroadcast}
             disabled={resumingBroadcast}
             title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
-            className="text-xs font-semibold text-accent hover:text-accent disabled:opacity-50 shrink-0"
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50 shrink-0"
           >
             {resumingBroadcast ? "Resuming…" : "Resume"}
           </button>
@@ -1111,7 +1108,7 @@ export default function WhatsAppPage() {
                     <button
                       onClick={syncTemplatesFromMeta}
                       disabled={syncingTemplates}
-                      className="text-xs text-accent hover:text-accent disabled:opacity-50"
+                      className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
                     >
                       {syncingTemplates ? "Syncing..." : "↻ Sync from Meta"}
                     </button>
@@ -1153,16 +1150,16 @@ export default function WhatsAppPage() {
                           />
                         </div>
                         {sel.headerType === 'image' && (
-                          <div className="w-full flex-1 p-3 bg-accent/10 border border-accent/30 rounded-lg">
-                            <label className="block text-xs font-semibold text-accent mb-1">🖼 Image URL (required for this template)</label>
+                          <div className="w-full flex-1 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <label className="block text-xs font-semibold text-blue-800 mb-1">🖼 Image URL (required for this template)</label>
                             <input
                               type="text"
                               value={templateSendImageUrl}
                               onChange={e => setTemplateSendImageUrl(e.target.value)}
                               placeholder="https://your-server.com/image.jpg"
-                              className="w-full px-3 py-2 text-sm border border-accent/30 rounded-lg focus:outline-none focus:ring-1 focus:ring-accent"
+                              className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
                             />
-                            <p className="text-xs text-accent mt-1">Must be a publicly accessible URL (HTTPS).</p>
+                            <p className="text-xs text-blue-600 mt-1">Must be a publicly accessible URL (HTTPS).</p>
                           </div>
                         )}
                       </div>
@@ -1232,11 +1229,11 @@ export default function WhatsAppPage() {
 
       {/* ===== BULK MODAL ===== */}
       {showBulkModal && (
-        <Modal open onClose={closeBulkModal} label="Bulk send message">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-4 sm:p-6 pb-4 border-b border-gray-100 shrink-0">
               <h2 className="text-xl font-bold text-gray-900">Bulk Send Message</h2>
-              <button onClick={closeBulkModal} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatches([]); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); }} className="p-1 hover:bg-gray-100 rounded">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -1388,7 +1385,7 @@ export default function WhatsAppPage() {
 
              <div className="mb-3 flex items-center justify-between">
               <span className="text-sm text-gray-600 font-medium">{selectedContacts.length} contacts selected</span>
-              <button onClick={selectAllFiltered} className="text-sm text-accent hover:text-accent">
+              <button onClick={selectAllFiltered} className="text-sm text-blue-600 hover:text-blue-700">
                 {selectedContacts.length === contacts.length ? "Deselect All" : "Select All"}
               </button>
             </div>
@@ -1436,7 +1433,7 @@ export default function WhatsAppPage() {
                     onClick={handleResumeBroadcast}
                     disabled={resumingBroadcast}
                     title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
-                    className="text-xs font-semibold text-accent hover:text-accent disabled:opacity-50"
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
                   >
                     {resumingBroadcast ? "Resuming…" : "Resume"}
                   </button>
@@ -1468,7 +1465,7 @@ export default function WhatsAppPage() {
                     {bulkResult.durationMs != null && (
                       <p className="text-xs mt-1 text-green-600">Took {formatDuration(bulkResult.durationMs)}</p>
                     )}
-                    <p className="text-xs mt-1 text-green-600">Thanks for using Broadzen WhatsApp Broadcast — your messages are on their way.</p>
+                    <p className="text-xs mt-1 text-green-600">Thanks for using RealHubb WhatsApp Broadcast — your messages are on their way.</p>
                   </div>
                 )}
               </div>
@@ -1498,12 +1495,12 @@ export default function WhatsAppPage() {
               })()}
             </div>
           </div>
-        </Modal>
+        </div>
       )}
 
       {/* ===== WEBHOOK DIAGNOSTIC PANEL ===== */}
       {showWebhookPanel && (
-        <Modal open onClose={() => setShowWebhookPanel(false)} label="Webhook diagnostics">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-900">Webhook Diagnostics</h2>
@@ -1533,9 +1530,9 @@ export default function WhatsAppPage() {
 
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {webhookLogs.map((log) => (
-                <div key={log.id} className={`text-xs p-2 rounded border ${log.hasMessages ? "border-accent/30 bg-accent/10" : "border-gray-200 bg-gray-50"}`}>
+                <div key={log.id} className={`text-xs p-2 rounded border ${log.hasMessages ? "border-blue-200 bg-blue-50" : "border-gray-200 bg-gray-50"}`}>
                   <div className="flex justify-between">
-                    <span className={log.hasMessages ? "text-accent font-medium" : "text-gray-600"}>
+                    <span className={log.hasMessages ? "text-blue-700 font-medium" : "text-gray-600"}>
                       {log.hasMessages ? "📨 Inbound message" : log.hasStatuses ? "📤 Status update" : "📡 Webhook call"}
                     </span>
                     <span className="text-gray-400">{log.receivedAt ? new Date(log.receivedAt).toLocaleTimeString() : "unknown"}</span>
@@ -1548,7 +1545,7 @@ export default function WhatsAppPage() {
               <p className="text-yellow-800 text-xs font-medium">After fixing Meta config, send a real WhatsApp message to this number from your phone to verify inbound messages work end-to-end.</p>
             </div>
           </div>
-        </Modal>
+        </div>
       )}
 
       {/* ===== REPORTS TAB ===== */}

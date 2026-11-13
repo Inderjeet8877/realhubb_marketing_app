@@ -50,11 +50,3 @@ next-env.d.ts
 .env*
 
 .claude/
-# Example env files are documentation and must be committed
-!.env.example
-!infra/.env.example
-
-# next-pwa build output
-public/sw.js
-public/workbox-*.js
-!drizzle/meta/_journal.json

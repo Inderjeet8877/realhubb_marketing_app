@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Privacy Policy — Broadzen",
-  description: "Privacy Policy for the Broadzen marketing automation platform.",
+  title: "Privacy Policy — Realhubb",
+  description: "Privacy Policy for the Realhubb marketing automation platform.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -11,7 +11,7 @@ export default function PrivacyPolicyPage() {
         <p className="text-sm text-gray-500 mb-10">Last updated: 18 July 2026</p>
 
         <p>
-          Realhubb Ventures (&quot;Realhubb&quot;, &quot;we&quot;, &quot;us&quot;) operates the Broadzen marketing
+          Realhubb Ventures (&quot;Realhubb&quot;, &quot;we&quot;, &quot;us&quot;) operates the Realhubb marketing
           automation platform, available as a web application at realhubb.co.in and as an Android
           application (together, the &quot;Service&quot;). This Service is an internal business tool used by
           authorised Realhubb team members to manage WhatsApp messaging, Meta advertising accounts,
@@ -114,7 +114,7 @@ export default function PrivacyPolicyPage() {
         <h2>5. Data Retention</h2>
         <p>
           Conversation history, contact lists, and template data are retained for as long as the
-          associated Broadzen account remains active, or until deletion is requested (see Section 7).
+          associated Realhubb account remains active, or until deletion is requested (see Section 7).
           Push notification tokens are automatically removed once they become invalid (e.g. after an
           app is uninstalled).
         </p>
