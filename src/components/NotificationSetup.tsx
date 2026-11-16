@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Bell, X, MessageSquare } from "lucide-react";
+import { Bell, X, MessageSquare, ChevronRight } from "lucide-react";
+
+// Floating prompts/toasts sit bottom-right on desktop; on phones they span
+// the width and float just above the bottom tab bar (~56px + safe area).
+const FLOAT_POS = "fixed left-3 right-3 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] sm:left-auto sm:right-4 sm:bottom-4";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -469,27 +473,25 @@ export default function NotificationSetup() {
     <>
       {/* ── Permission banner ── */}
       {showBanner && permission === "default" && (
-        <div className="fixed bottom-20 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-4 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-            <Bell className="w-5 h-5 text-green-600" />
+        <div role="dialog" aria-label="Enable notifications" className={`${FLOAT_POS} sm:w-96 z-[45] card shadow-lg p-4 flex items-start gap-3 animate-modal-in`}>
+          <div className="w-9 h-9 rounded-lg bg-blue-50 grid place-items-center flex-shrink-0">
+            <Bell className="w-[18px] h-[18px] text-blue-600" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900">Enable notifications</p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-[13px] text-gray-500 mt-0.5">
               Get notified instantly when a customer replies on WhatsApp.
             </p>
             <div className="flex gap-2 mt-3">
-              <button onClick={handleEnable}
-                className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700">
+              <button onClick={handleEnable} className="btn btn-sm btn-primary">
                 Enable
               </button>
-              <button onClick={dismissBanner}
-                className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700">
+              <button onClick={dismissBanner} className="btn btn-sm btn-ghost">
                 Not now
               </button>
             </div>
           </div>
-          <button onClick={dismissBanner} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+          <button onClick={dismissBanner} aria-label="Dismiss" className="grid place-items-center w-7 h-7 -mr-1 -mt-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex-shrink-0">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -497,52 +499,55 @@ export default function NotificationSetup() {
 
       {/* ── PWA Install Prompt ── */}
       {showInstallPrompt && !localStorage.getItem("pwa_install_dismissed") && (
-        <div className="fixed bottom-20 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-96 z-50 bg-white border border-blue-200 rounded-xl shadow-xl p-4 flex items-start gap-3">
-          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-            <MessageSquare className="w-5 h-5 text-blue-600" />
+        <div role="dialog" aria-label="Install Realhubb" className={`${FLOAT_POS} sm:w-96 z-[45] card shadow-lg p-4 flex items-start gap-3 animate-modal-in`}>
+          <div className="w-9 h-9 rounded-lg bg-blue-50 grid place-items-center flex-shrink-0">
+            <MessageSquare className="w-[18px] h-[18px] text-blue-600" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900">Install Realhubb</p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-[13px] text-gray-500 mt-0.5">
               Add to your home screen for faster access and better notifications on mobile.
             </p>
             <div className="flex gap-2 mt-3">
-              <button onClick={handleInstallApp}
-                className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">
+              <button onClick={handleInstallApp} className="btn btn-sm btn-primary">
                 Install
               </button>
-              <button onClick={dismissInstallPrompt}
-                className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700">
+              <button onClick={dismissInstallPrompt} className="btn btn-sm btn-ghost">
                 Not now
               </button>
             </div>
           </div>
-          <button onClick={dismissInstallPrompt} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+          <button onClick={dismissInstallPrompt} aria-label="Dismiss" className="grid place-items-center w-7 h-7 -mr-1 -mt-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex-shrink-0">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* ── In-app toast stack ── */}
-      <div className="fixed bottom-20 sm:bottom-4 right-3 sm:right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none">
+      {/* ── In-app toast stack (incoming WhatsApp replies) ── */}
+      <div className={`${FLOAT_POS} sm:w-80 z-50 flex flex-col gap-2 pointer-events-none`}>
         {toasts.map(t => (
           <div
             key={t.id}
-            className="pointer-events-auto bg-white border border-gray-200 rounded-xl shadow-xl p-3 flex items-start gap-3 cursor-pointer hover:shadow-2xl transition-shadow"
+            role="button"
+            tabIndex={0}
+            className="pointer-events-auto card shadow-lg p-3 flex items-start gap-3 cursor-pointer hover:border-gray-300 transition-colors animate-modal-in"
             onClick={() => { removeToast(t.id); router.push("/dashboard/whatsapp"); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { removeToast(t.id); router.push("/dashboard/whatsapp"); } }}
           >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-white text-sm"
-              style={{ backgroundColor: "#25d366" }}>
+            <div className="w-9 h-9 rounded-full grid place-items-center flex-shrink-0 font-semibold text-white text-sm bg-green-600">
               {t.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">{t.name}</p>
-              <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{t.body}</p>
-              <p className="text-[10px] text-green-600 mt-1 font-medium">Tap to open inbox →</p>
+              <p className="text-sm font-semibold text-gray-900 truncate">{t.name}</p>
+              <p className="text-[13px] text-gray-600 mt-0.5 line-clamp-2">{t.body}</p>
+              <p className="text-xs text-green-700 mt-1 font-medium inline-flex items-center gap-0.5">
+                Tap to open inbox <ChevronRight className="w-3.5 h-3.5" />
+              </p>
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); removeToast(t.id); }}
-              className="text-gray-300 hover:text-gray-500 flex-shrink-0 mt-0.5"
+              aria-label="Dismiss"
+              className="grid place-items-center w-7 h-7 -mr-1 -mt-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex-shrink-0"
             >
               <X className="w-3.5 h-3.5" />
             </button>

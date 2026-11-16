@@ -50,8 +50,12 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
       {pending && (
-        <div className="fixed top-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:left-auto z-[110] sm:w-96 animate-fade-in">
-          <Alert status={pending.tone === "danger" ? "danger" : "info"}>
+        <div
+          role="alertdialog"
+          aria-label={pending.title || "Confirm"}
+          className="fixed top-[calc(0.75rem+env(safe-area-inset-top))] inset-x-3 sm:inset-x-auto sm:right-4 sm:left-auto sm:top-4 z-[110] sm:w-96 animate-modal-in"
+        >
+          <Alert status={pending.tone === "danger" ? "danger" : "info"} className="shadow-lg">
             <Alert.Indicator />
             <Alert.Content>
               {pending.title && <Alert.Title>{pending.title}</Alert.Title>}
@@ -59,15 +63,13 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               <div className="flex justify-end gap-2 mt-3">
                 <button
                   onClick={() => handle(false)}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 bg-white"
+                  className="btn btn-sm btn-secondary"
                 >
                   {pending.cancelLabel || "Cancel"}
                 </button>
                 <button
                   onClick={() => handle(true)}
-                  className={`px-3 py-1.5 text-sm font-medium text-white rounded-lg ${
-                    pending.tone === "danger" ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
-                  }`}
+                  className={`btn btn-sm ${pending.tone === "danger" ? "btn-danger" : "btn-primary"}`}
                 >
                   {pending.confirmLabel || "Confirm"}
                 </button>

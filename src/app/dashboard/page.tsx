@@ -2,9 +2,10 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Megaphone, MessageSquare } from "lucide-react";
 import MetaDashboardContent from "./MetaDashboardContent";
 import WhatsAppDashboardContent from "./WhatsAppDashboardContent";
-import MetaWhatsAppToggle from "@/components/MetaWhatsAppToggle";
+import PageHeader from "@/components/ui/PageHeader";
 
 // Single dashboard route — Meta and WhatsApp each keep their own component
 // (MetaDashboardContent / WhatsAppDashboardContent, moved here unchanged
@@ -24,19 +25,33 @@ function DashboardContent() {
 
   return (
     <div>
-      <div className="flex justify-end mb-4">
-        <div className="inline-flex items-center gap-2 sm:gap-3 bg-gray-100 rounded-full pl-3 pr-2.5 py-1.5 sm:pl-4 sm:pr-3 sm:py-2 flex-nowrap">
-          <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${view === "meta" ? "text-blue-600" : "text-gray-400"}`}>
-            Meta
-          </span>
-          <span className="flex-shrink-0">
-            <MetaWhatsAppToggle checked={view === "whatsapp"} onChange={(isWhatsApp) => setView(isWhatsApp ? "whatsapp" : "meta")} />
-          </span>
-          <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${view === "whatsapp" ? "text-green-600" : "text-gray-400"}`}>
-            WhatsApp
-          </span>
-        </div>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        actions={
+          <div className="segmented" role="tablist" aria-label="Dashboard view">
+            <button
+              role="tab"
+              aria-selected={view === "meta"}
+              data-active={view === "meta"}
+              onClick={() => setView("meta")}
+              className="segmented-item"
+            >
+              <Megaphone className={view === "meta" ? "text-blue-600" : ""} />
+              Meta Ads
+            </button>
+            <button
+              role="tab"
+              aria-selected={view === "whatsapp"}
+              data-active={view === "whatsapp"}
+              onClick={() => setView("whatsapp")}
+              className="segmented-item"
+            >
+              <MessageSquare className={view === "whatsapp" ? "text-green-600" : ""} />
+              WhatsApp
+            </button>
+          </div>
+        }
+      />
 
       {view === "meta" ? <MetaDashboardContent /> : <WhatsAppDashboardContent />}
     </div>

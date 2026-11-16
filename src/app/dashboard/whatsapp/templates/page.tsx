@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Plus, Trash2, CheckCircle, Clock, XCircle, FileText, Eye,
-  Loader2, X, Cloud, PauseCircle, Ban, AlertTriangle,
+  Loader2, X, Cloud, PauseCircle, Ban, AlertTriangle, RefreshCw, Pencil, Link2, Check,
 } from "lucide-react";
+import PageHeader from "@/components/ui/PageHeader";
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 import { CardGridSkeleton } from "@/components/Skeletons";
 import { AnimatedCopyIcon, AnimatedDeleteIcon, AnimatedSendIcon } from "@/components/icons/AnimatedIcons";
@@ -300,50 +301,27 @@ export default function WhatsAppTemplatesPage() {
   // recipients blocked/reported it, tanking its quality rating), which is a
   // completely different situation from "awaiting first review" and needs a
   // different response: fix the message/targeting, don't just wait.
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
-      case "pending":
-        return <Clock className="w-5 h-5 text-yellow-500" />;
-      case "rejected":
-        return <XCircle className="w-5 h-5 text-red-500" />;
-      case "paused":
-        return <PauseCircle className="w-5 h-5 text-orange-500" />;
-      case "disabled":
-        return <Ban className="w-5 h-5 text-red-600" />;
-      case "in_appeal":
-        return <AlertTriangle className="w-5 h-5 text-orange-500" />;
-      case "limit_exceeded":
-        return <AlertTriangle className="w-5 h-5 text-orange-500" />;
-      case "pending_deletion":
-        return <Trash2 className="w-5 h-5 text-gray-500" />;
-      default:
-        return <Clock className="w-5 h-5 text-gray-500" />;
-    }
+  // One status badge (icon + label) per template, same vocabulary as the
+  // rest of the app: green approved, amber waiting/at-risk, red blocked.
+  const STATUS_BADGES: Record<string, { label: string; cls: string; Icon: typeof Clock }> = {
+    approved:         { label: "Approved",               cls: "badge-green", Icon: CheckCircle   },
+    pending:          { label: "Pending Review",         cls: "badge-amber", Icon: Clock         },
+    rejected:         { label: "Rejected",               cls: "badge-red",   Icon: XCircle       },
+    paused:           { label: "Paused — Quality Issue", cls: "badge-amber", Icon: PauseCircle   },
+    disabled:         { label: "Disabled by Meta",       cls: "badge-red",   Icon: Ban           },
+    in_appeal:        { label: "In Appeal",              cls: "badge-amber", Icon: AlertTriangle },
+    limit_exceeded:   { label: "Limit Exceeded",         cls: "badge-amber", Icon: AlertTriangle },
+    pending_deletion: { label: "Pending Deletion",       cls: "badge-gray",  Icon: Trash2        },
   };
 
   const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <span className="text-green-600 font-medium">Approved</span>;
-      case "pending":
-        return <span className="text-yellow-600 font-medium">Pending Review</span>;
-      case "rejected":
-        return <span className="text-red-600 font-medium">Rejected</span>;
-      case "paused":
-        return <span className="text-orange-600 font-medium">Paused — Quality Issue</span>;
-      case "disabled":
-        return <span className="text-red-700 font-medium">Disabled by Meta</span>;
-      case "in_appeal":
-        return <span className="text-orange-600 font-medium">In Appeal</span>;
-      case "limit_exceeded":
-        return <span className="text-orange-600 font-medium">Limit Exceeded</span>;
-      case "pending_deletion":
-        return <span className="text-gray-600 font-medium">Pending Deletion</span>;
-      default:
-        return <span className="text-gray-600 font-medium">Not Submitted</span>;
-    }
+    const { label, cls, Icon } = STATUS_BADGES[status] ?? { label: "Not Submitted", cls: "badge-gray", Icon: Clock };
+    return (
+      <span className={`badge ${cls}`}>
+        <Icon className="w-3 h-3" />
+        {label}
+      </span>
+    );
   };
 
   // Plain-language explanation of what actually happened and what to do —
@@ -420,40 +398,42 @@ export default function WhatsAppTemplatesPage() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">WhatsApp Templates</h1>
-          <p className="text-gray-600">Create and manage message templates</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => fetchTemplates(true)}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            title="Re-sync template data (including quality/pause status) from Meta into this app's records"
-          >
-            <Loader2 className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "Refreshing..." : "Refresh Status"}
-          </button>
-          <button
-            onClick={() => { resetForm(); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            <Plus className="w-4 h-4" />
-            Create Template
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="WhatsApp Templates"
+        description="Create and manage message templates"
+        actions={
+          <>
+            <button
+              onClick={() => fetchTemplates(true)}
+              disabled={refreshing}
+              className="btn btn-secondary"
+              title="Re-sync template data (including quality/pause status) from Meta into this app's records"
+            >
+              <RefreshCw className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? "Refreshing..." : "Refresh Status"}
+            </button>
+            <button
+              onClick={() => { resetForm(); setShowModal(true); }}
+              className="btn btn-primary"
+            >
+              <Plus />
+              Create Template
+            </button>
+          </>
+        }
+      />
 
       {templates.some((t) => t.approvalStatus === "pending") && (
-        <p className="text-xs text-gray-400 -mt-6 mb-2">
-          Some templates are still pending Meta review — click &quot;Refresh Status&quot; above to check for updates.
-        </p>
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+          <Clock className="w-4 h-4 mt-0.5 shrink-0" />
+          <p>Some templates are still pending Meta review — click &quot;Refresh Status&quot; above to check for updates.</p>
+        </div>
       )}
       {templates.some((t) => t.approvalStatus === "paused" || t.approvalStatus === "disabled") && (
-        <p className="text-xs text-orange-600 font-medium -mt-4 mb-6">
-          One or more templates have been paused or disabled by Meta due to quality issues — see the details on each affected template below before sending with it again.
-        </p>
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5 text-sm font-medium text-orange-800">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <p>One or more templates have been paused or disabled by Meta due to quality issues — see the details on each affected template below before sending with it again.</p>
+        </div>
       )}
 
       {fetchError && (
@@ -469,87 +449,102 @@ export default function WhatsAppTemplatesPage() {
       {loading ? (
         <CardGridSkeleton count={6} />
       ) : templates.length === 0 && !fetchError ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-          <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">No templates created yet</p>
-          <p className="text-sm text-gray-400 mt-1">
+        <div className="card px-6 py-14 text-center">
+          <div className="mx-auto mb-4 grid place-items-center w-12 h-12 rounded-full bg-blue-50">
+            <FileText className="w-6 h-6 text-blue-600" />
+          </div>
+          <p className="font-medium text-gray-900">No templates created yet</p>
+          <p className="text-sm text-gray-500 mt-1">
             Create your first template to start sending messages
           </p>
+          <button
+            onClick={() => { resetForm(); setShowModal(true); }}
+            className="btn btn-primary mt-5"
+          >
+            <Plus />
+            Create Template
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {templates.map((template) => (
-            <div key={template.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-semibold text-gray-900">{template.name}</h3>
-                  <p className="text-sm text-gray-500">{template.language} • {template.category}</p>
+            <div key={template.id} className="card flex flex-col p-4">
+              <div className="flex justify-between items-start gap-3 mb-3">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-900 truncate" title={template.name}>{template.name}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{template.language} · {template.category}</p>
                 </div>
-                {getStatusIcon(template.approvalStatus)}
+                <span className="shrink-0">{getStatusLabel(template.approvalStatus)}</span>
               </div>
-              
-              <div className="bg-gray-50 rounded-lg p-3 mb-3 text-sm text-gray-700 max-h-24 overflow-y-auto">
-                {template.headerType === 'text' && template.headerContent && (
-                  <p className="font-medium mb-1">{template.headerContent}</p>
-                )}
-                {template.content}
+
+              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 mb-3 text-sm leading-relaxed text-gray-700">
+                {/* Clamp lives on an inner block with no padding so the cut
+                    line can't peek through; full text is one click away in Preview. */}
+                <div className="whitespace-pre-line line-clamp-4">
+                  {template.headerType === 'text' && template.headerContent && (
+                    <span className="font-medium">{template.headerContent}{"\n"}</span>
+                  )}
+                  {template.content}
+                </div>
                 {template.footerContent && (
-                  <p className="text-gray-400 text-xs mt-1">{template.footerContent}</p>
+                  <p className="text-gray-400 text-xs mt-1 truncate">{template.footerContent}</p>
                 )}
               </div>
 
               {['image', 'video', 'document'].includes(template.headerType) && (
                 template.headerContent ? (
-                  <div className="mb-3 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-2.5 py-1.5">
-                    <p className="flex-1 text-xs text-blue-800 truncate" title={template.headerContent}>
+                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-gray-200 pl-2.5 pr-1 py-1">
+                    <Link2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    <p className="flex-1 min-w-0 text-xs text-gray-600 truncate" title={template.headerContent}>
                       {template.headerContent}
                     </p>
                     <button
                       onClick={() => copyMediaUrl(template.id, template.headerContent)}
-                      className="flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-900 shrink-0"
+                      className="btn btn-ghost btn-sm h-7 shrink-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                     >
                       <AnimatedCopyIcon copied={copiedId === template.id} className="w-3.5 h-3.5" />
                       {copiedId === template.id ? "Copied!" : "Copy URL"}
                     </button>
                   </div>
                 ) : (
-                  <p className="mb-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+                  <p className="mb-3 flex items-start gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 mt-px shrink-0" />
                     No {template.headerType} attached — edit this template to add one before sending.
                   </p>
                 )
               )}
 
               {getStatusExplanation(template) && (
-                <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg p-2 mb-3">
+                <p className="text-xs leading-relaxed text-orange-800 bg-orange-50 border border-orange-200 rounded-lg p-2.5 mb-3">
                   {getStatusExplanation(template)}
                 </p>
               )}
 
-              <div className="flex items-center justify-between">
-                {getStatusLabel(template.approvalStatus)}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setPreviewTemplate(template)}
-                    className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg"
-                    title="Preview"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleEditTemplate(template)}
-                    className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
-                    title="Edit"
-                  >
-                    <FileText className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteTemplate(template.id)}
-                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                    title="Delete"
-                  >
-                    <AnimatedDeleteIcon className="w-4 h-4" />
-                  </button>
-                </div>
+              <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-end gap-1">
+                <button
+                  onClick={() => setPreviewTemplate(template)}
+                  className="btn btn-ghost btn-sm"
+                  title="Preview"
+                >
+                  <Eye />
+                  Preview
+                </button>
+                <button
+                  onClick={() => handleEditTemplate(template)}
+                  className="btn btn-ghost btn-sm"
+                  title="Edit"
+                >
+                  <Pencil />
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteTemplate(template.id)}
+                  className="btn btn-ghost btn-sm btn-icon w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                  title="Delete"
+                  aria-label={`Delete ${template.name}`}
+                >
+                  <AnimatedDeleteIcon className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}
@@ -557,10 +552,10 @@ export default function WhatsAppTemplatesPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 sm:p-4">
-          <div className="bg-white w-full h-full sm:h-auto sm:rounded-xl sm:max-h-[90vh] sm:max-w-4xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 sm:p-4 animate-fade-in">
+          <div className="bg-white w-full h-full sm:h-auto sm:rounded-xl sm:shadow-xl sm:max-h-[90vh] sm:max-w-4xl overflow-hidden flex flex-col animate-modal-in">
             <div className="flex justify-between items-center px-4 sm:px-6 py-4 border-b border-gray-100 shrink-0">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate pr-2">
+              <h2 className="text-lg font-semibold text-gray-900 truncate pr-2">
                 {editingTemplate ? `Edit: ${editingTemplate.name}` : "Create Template"}
               </h2>
               <button onClick={() => setShowModal(false)} className="p-2 -mr-2 hover:bg-gray-100 rounded-lg shrink-0">
@@ -576,7 +571,7 @@ export default function WhatsAppTemplatesPage() {
                 onClick={() => setMobileView("edit")}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold border-b-2 transition-colors ${
                   mobileView === "edit"
-                    ? "border-green-600 text-green-700"
+                    ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-500"
                 }`}
               >
@@ -587,7 +582,7 @@ export default function WhatsAppTemplatesPage() {
                 onClick={() => setMobileView("preview")}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold border-b-2 transition-colors ${
                   mobileView === "preview"
-                    ? "border-green-600 text-green-700"
+                    ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-500"
                 }`}
               >
@@ -633,15 +628,15 @@ export default function WhatsAppTemplatesPage() {
                 )}
 
                 {/* Section 1 — Basic Info */}
-                <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
+                <section className="rounded-xl border border-gray-200 p-4 sm:p-5 space-y-4">
                   <div className="flex items-center gap-2">
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">1</span>
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Basic Info</h3>
+                    <h3 className="text-sm font-semibold text-gray-900">Basic Info</h3>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="field-label">
                         Template Name *
                       </label>
                       <input
@@ -649,17 +644,17 @@ export default function WhatsAppTemplatesPage() {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="my_template"
-                        className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                        className="input text-base sm:text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="field-label">
                         Language
                       </label>
                       <select
                         value={language}
                         onChange={(e) => setLanguage(e.target.value)}
-                        className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                        className="input text-base sm:text-sm"
                       >
                         <option value="en_US">English (US)</option>
                         <option value="en_GB">English (UK)</option>
@@ -672,13 +667,13 @@ export default function WhatsAppTemplatesPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="field-label">
                       Category
                     </label>
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                      className="input text-base sm:text-sm"
                     >
                       <option value="MARKETING">Marketing</option>
                       <option value="UTILITY">Utility</option>
@@ -688,20 +683,20 @@ export default function WhatsAppTemplatesPage() {
                 </section>
 
                 {/* Section 2 — Header */}
-                <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
+                <section className="rounded-xl border border-gray-200 p-4 sm:p-5 space-y-4">
                   <div className="flex items-center gap-2">
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">2</span>
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Header</h3>
+                    <h3 className="text-sm font-semibold text-gray-900">Header</h3>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="field-label">
                       Header Type
                     </label>
                     <select
                       value={headerType}
                       onChange={(e) => setHeaderType(e.target.value)}
-                      className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                      className="input text-base sm:text-sm"
                     >
                       <option value="none">No Header</option>
                       <option value="text">Text</option>
@@ -713,7 +708,7 @@ export default function WhatsAppTemplatesPage() {
 
                   {headerType !== 'none' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="field-label">
                         Header Content {headerType === 'text' ? '(Text)' : '(Upload Image/Video)'}
                       </label>
                       {headerType === 'text' ? (
@@ -722,7 +717,7 @@ export default function WhatsAppTemplatesPage() {
                           value={headerContent}
                           onChange={(e) => setHeaderContent(e.target.value)}
                           placeholder="Header text here"
-                          className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                          className="input text-base sm:text-sm"
                         />
                       ) : (
                         <div className="space-y-2">
@@ -731,7 +726,7 @@ export default function WhatsAppTemplatesPage() {
                             value={headerContent}
                             onChange={(e) => setHeaderContent(e.target.value)}
                             placeholder="Paste URL or upload file"
-                            className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                            className="input text-base sm:text-sm"
                           />
                           <div className="flex items-center gap-2 flex-wrap">
                             <input
@@ -745,17 +740,19 @@ export default function WhatsAppTemplatesPage() {
                               type="button"
                               onClick={() => fileInputRef.current?.click()}
                               disabled={uploading}
-                              className="flex items-center gap-2 px-4 py-3 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-base sm:text-sm"
+                              className="btn btn-secondary"
                             >
                               {uploading ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <Loader2 className="animate-spin" />
                               ) : (
-                                <Cloud className="w-4 h-4" />
+                                <Cloud />
                               )}
                               {uploading ? 'Uploading...' : 'Upload to Cloudinary'}
                             </button>
                             {headerContent && (
-                              <span className="text-sm text-green-600">✓ Uploaded</span>
+                              <span className="inline-flex items-center gap-1 text-sm font-medium text-green-700">
+                                <Check className="w-4 h-4" /> Uploaded
+                              </span>
                             )}
                           </div>
                         </div>
@@ -765,14 +762,14 @@ export default function WhatsAppTemplatesPage() {
                 </section>
 
                 {/* Section 3 — Body */}
-                <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
+                <section className="rounded-xl border border-gray-200 p-4 sm:p-5 space-y-4">
                   <div className="flex items-center gap-2">
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">3</span>
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Body</h3>
+                    <h3 className="text-sm font-semibold text-gray-900">Body</h3>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="field-label">
                       Message Content *
                     </label>
                     <textarea
@@ -780,7 +777,7 @@ export default function WhatsAppTemplatesPage() {
                       onChange={(e) => setContent(e.target.value)}
                       rows={4}
                       placeholder="Enter your message here... Use {{1}}, {{2}} for variables"
-                      className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                      className="input text-base sm:text-sm"
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Use {"{{1}}"}, {"{{2}}"} for dynamic placeholders
@@ -820,14 +817,14 @@ export default function WhatsAppTemplatesPage() {
                 </section>
 
                 {/* Section 4 — Footer & Buttons */}
-                <section className="rounded-xl border border-gray-100 p-4 sm:p-5 space-y-4">
+                <section className="rounded-xl border border-gray-200 p-4 sm:p-5 space-y-4">
                   <div className="flex items-center gap-2">
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">4</span>
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Footer &amp; Buttons</h3>
+                    <h3 className="text-sm font-semibold text-gray-900">Footer &amp; Buttons</h3>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="field-label">
                       Footer Text (optional)
                     </label>
                     <input
@@ -835,44 +832,35 @@ export default function WhatsAppTemplatesPage() {
                       value={footerContent}
                       onChange={(e) => setFooterContent(e.target.value)}
                       placeholder="Footer text"
-                      className="w-full px-4 py-3 sm:py-2 border border-gray-300 rounded-lg text-gray-900 text-base sm:text-sm"
+                      className="input text-base sm:text-sm"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="field-label">
                       Buttons
                     </label>
                     <div className="flex flex-wrap gap-2 mb-2">
-                      <button
-                        onClick={() => addButton("URL")}
-                        className="px-3 py-2 sm:py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
-                      >
-                        + URL Button
+                      <button onClick={() => addButton("URL")} className="btn btn-secondary btn-sm">
+                        <Plus /> URL Button
                       </button>
-                      <button
-                        onClick={() => addButton("PHONE")}
-                        className="px-3 py-2 sm:py-1 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200"
-                      >
-                        + Call Button
+                      <button onClick={() => addButton("PHONE")} className="btn btn-secondary btn-sm">
+                        <Plus /> Call Button
                       </button>
-                      <button
-                        onClick={() => addButton("QUICK_REPLY")}
-                        className="px-3 py-2 sm:py-1 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200"
-                      >
-                        + Quick Reply
+                      <button onClick={() => addButton("QUICK_REPLY")} className="btn btn-secondary btn-sm">
+                        <Plus /> Quick Reply
                       </button>
                     </div>
 
                     {buttons.map((btn, index) => (
                       <div key={index} className="flex flex-wrap gap-2 mb-2 items-center">
-                        <span className="text-sm text-gray-500 w-20">{btn.type}</span>
+                        <span className="badge badge-gray w-24 justify-center">{btn.type}</span>
                         <input
                           type="text"
                           value={btn.text}
                           onChange={(e) => updateButton(index, 'text', e.target.value)}
                           placeholder="Button text"
-                          className="flex-1 min-w-[120px] px-3 py-2 sm:py-1 border border-gray-300 rounded-lg text-gray-900 text-sm"
+                          className="input h-9 flex-1 min-w-[120px]"
                         />
                         {btn.type === 'URL' && (
                           <input
@@ -880,7 +868,7 @@ export default function WhatsAppTemplatesPage() {
                             value={btn.url || ''}
                             onChange={(e) => updateButton(index, 'url', e.target.value)}
                             placeholder="https://..."
-                            className="flex-1 min-w-[120px] px-3 py-2 sm:py-1 border border-gray-300 rounded-lg text-gray-900 text-sm"
+                            className="input h-9 flex-1 min-w-[120px]"
                           />
                         )}
                         {btn.type === 'PHONE' && (
@@ -889,11 +877,16 @@ export default function WhatsAppTemplatesPage() {
                             value={btn.phone_number || ''}
                             onChange={(e) => updateButton(index, 'phone_number', e.target.value)}
                             placeholder="+91..."
-                            className="flex-1 min-w-[120px] px-3 py-2 sm:py-1 border border-gray-300 rounded-lg text-gray-900 text-sm"
+                            className="input h-9 flex-1 min-w-[120px]"
                           />
                         )}
-                        <button onClick={() => removeButton(index)} className="p-1 text-red-500 hover:text-red-700">
-                          <XCircle className="w-4 h-4" />
+                        <button
+                          onClick={() => removeButton(index)}
+                          className="btn btn-ghost btn-sm btn-icon w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                          aria-label="Remove button"
+                          title="Remove button"
+                        >
+                          <X />
                         </button>
                       </div>
                     ))}
@@ -931,7 +924,7 @@ export default function WhatsAppTemplatesPage() {
               <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
                 <button
                   onClick={() => { resetForm(); setShowModal(false); }}
-                  className="w-full sm:w-auto px-4 py-3 sm:py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-base sm:text-sm"
+                  className="btn btn-ghost w-full sm:w-auto h-11 sm:h-9"
                 >
                   Cancel
                 </button>
@@ -941,9 +934,9 @@ export default function WhatsAppTemplatesPage() {
                   <button
                     onClick={handleUpdateLocal}
                     disabled={saving || !name || !content}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 text-base sm:text-sm"
+                    className="btn btn-secondary w-full sm:w-auto h-11 sm:h-9"
                   >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                    {saving ? <Loader2 className="animate-spin" /> : <FileText />}
                     Save Locally
                   </button>
                 )}
@@ -952,7 +945,7 @@ export default function WhatsAppTemplatesPage() {
                 <button
                   onClick={handleCreateOnMeta}
                   disabled={saving || !name || !content}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-base sm:text-sm"
+                  className="btn btn-primary w-full sm:w-auto h-11 sm:h-9"
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedSendIcon sending={saving} className="w-4 h-4" />}
                   {saving ? 'Submitting...' : editingTemplate ? 'Create on Meta' : 'Create Template'}
@@ -965,16 +958,16 @@ export default function WhatsAppTemplatesPage() {
 
       {previewTemplate && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 p-4 animate-fade-in"
           onClick={() => setPreviewTemplate(null)}
         >
           <div
-            className="bg-white rounded-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto animate-modal-in"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">{previewTemplate.name}</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{previewTemplate.name}</h2>
                 <p className="text-xs text-gray-500">
                   {previewTemplate.language} • {previewTemplate.category} •{" "}
                   {getStatusLabel(previewTemplate.approvalStatus)}

@@ -15,6 +15,7 @@ import autoTable from "jspdf-autotable";
 import { StatCardsSkeleton, CardGridSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 import { useToast } from "@/contexts/ToastContext";
+import PageHeader from "@/components/ui/PageHeader";
 import {
   Users,
   Loader2,
@@ -277,21 +278,21 @@ export default function LeadsPage() {
     switch (status) {
       case "ACTIVE":
         return (
-          <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+          <span className="badge badge-green">
             <CheckCircle className="w-3 h-3" />
             Active
           </span>
         );
       case "INACTIVE":
         return (
-          <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+          <span className="badge badge-gray">
             <AlertCircle className="w-3 h-3" />
             Inactive
           </span>
         );
       default:
         return (
-          <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
+          <span className="badge badge-gray">
             <Clock className="w-3 h-3" />
             {status}
           </span>
@@ -567,100 +568,101 @@ export default function LeadsPage() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Leads</h1>
-          <p className="text-gray-600">
+      <PageHeader
+        title="Leads"
+        description={
+          <>
             Lead Gen Forms from Meta Ads
             {lastUpdated && (
-              <span className="text-sm text-gray-400 ml-2">
-                | Updated: {lastUpdated.toLocaleTimeString()}
-              </span>
+              <span className="text-gray-400"> · Updated {lastUpdated.toLocaleTimeString()}</span>
             )}
-          </p>
-        </div>
+          </>
+        }
+        actions={
+          <>
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                className="btn btn-secondary"
+                aria-haspopup="listbox"
+                aria-expanded={showAccountDropdown}
+              >
+                <span className="max-w-[12rem] truncate">{selectedAccountName}</span>
+                <AnimatedChevronDown open={showAccountDropdown} className="w-4 h-4 text-gray-500" />
+              </button>
 
-        <div className="flex gap-2 flex-wrap">
-          <div className="relative">
+              {showAccountDropdown && (
+                <div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 mt-1.5 sm:w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 animate-fade-in">
+                  {META_ACCOUNTS.map((account) => (
+                    <button
+                      key={account.id}
+                      onClick={() => handleAccountChange(account.id)}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                        selectedAccount === account.id ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700"
+                      }`}
+                    >
+                      {account.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
-              onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              onClick={fetchForms}
+              disabled={refreshing}
+              className="btn btn-secondary btn-icon shrink-0"
+              aria-label="Refresh"
+              title="Refresh"
             >
-              <span className="text-sm font-medium text-gray-700">{selectedAccountName}</span>
-              <AnimatedChevronDown open={showAccountDropdown} className="w-4 h-4 text-gray-500" />
+              <RefreshCw className={refreshing ? "animate-spin" : ""} />
             </button>
-
-            {showAccountDropdown && (
-              <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                {META_ACCOUNTS.map((account) => (
-                  <button
-                    key={account.id}
-                    onClick={() => handleAccountChange(account.id)}
-                    className={`w-full text-left px-4 py-2 hover:bg-gray-50 ${
-                      selectedAccount === account.id ? "bg-blue-50 text-blue-600" : "text-gray-700"
-                    }`}
-                  >
-                    {account.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button
-            onClick={fetchForms}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
-          <button
-            onClick={() => exportFormsCSV()}
-            disabled={refreshing || filteredForms.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-          >
-            <Download className="w-4 h-4" />
-            Export CSV
-          </button>
-          <button
-            onClick={() => exportFormsPDF()}
-            disabled={refreshing || filteredForms.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-          >
-            <Download className="w-4 h-4" />
-            Export PDF
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={() => exportFormsCSV()}
+              disabled={refreshing || filteredForms.length === 0}
+              className="btn btn-secondary shrink-0"
+            >
+              <Download />
+              Export CSV
+            </button>
+            <button
+              onClick={() => exportFormsPDF()}
+              disabled={refreshing || filteredForms.length === 0}
+              className="btn btn-secondary shrink-0"
+            >
+              <Download />
+              Export PDF
+            </button>
+          </>
+        }
+      />
 
       {exporting && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="card mb-5 p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-            <span className="font-medium text-blue-900">Exporting Leads...</span>
+            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+            <span className="text-sm font-semibold text-gray-900">Exporting Leads...</span>
+            <span className="ml-auto text-sm text-gray-500 tabular-nums">
+              {exportProgress.current} of {exportProgress.total} forms
+            </span>
           </div>
-          <div className="text-sm text-blue-800 mb-2">
-            <span className="font-medium">Fetching:</span> {exportProgress.currentForm || "Starting..."}
-          </div>
-          <div className="text-sm text-blue-800 mb-2">
-            <span className="font-medium">Progress:</span> {exportProgress.current} of {exportProgress.total} forms
-          </div>
-          <div className="text-sm text-blue-800 mb-3">
-            <span className="font-medium">Leads fetched so far:</span> {exportProgress.leadsCount}
-          </div>
-          <div className="w-full bg-blue-200 rounded-full h-3">
-            <div 
-              className="bg-blue-600 h-3 rounded-full transition-all duration-300" 
+          <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${(exportProgress.current / Math.max(exportProgress.total, 1)) * 100}%` }}
             />
+          </div>
+          <div className="flex flex-col sm:flex-row sm:gap-6 gap-1 text-sm text-gray-600">
+            <span className="truncate"><span className="text-gray-500">Fetching:</span> {exportProgress.currentForm || "Starting..."}</span>
+            <span><span className="text-gray-500">Leads fetched so far:</span> <span className="tabular-nums font-medium text-gray-900">{exportProgress.leadsCount}</span></span>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center justify-between">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
+        <div className="mb-5 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700" aria-label="Dismiss">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -671,7 +673,7 @@ export default function LeadsPage() {
           partial failure (some/all forms didn't load) rather than the whole
           request failing, so it doesn't block the rest of the page. */}
       {Array.isArray(data?.errors) && data.errors.length > 0 && (
-        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+        <div className="mb-5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
           <p className="font-medium mb-1">Some lead forms may be missing:</p>
           <ul className="list-disc list-inside space-y-0.5">
             {data.errors.map((e: string, i: number) => <li key={i}>{e}</li>)}
@@ -679,59 +681,51 @@ export default function LeadsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-shadow hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Total Leads</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalLeads}</p>
-            </div>
-            <div className="p-2 sm:p-3 bg-blue-100 rounded-lg shrink-0">
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-            </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="card p-4 sm:p-5">
+          <div className="flex items-center gap-2 text-gray-400">
+            <Users className="w-4 h-4" />
+            <p className="stat-label truncate">Total Leads</p>
           </div>
+          <p className="stat-value">{totalLeads}</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-shadow hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Total Forms</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">{forms.length}</p>
-            </div>
-            <div className="p-2 sm:p-3 bg-purple-100 rounded-lg shrink-0">
-              <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
-            </div>
+        <div className="card p-4 sm:p-5">
+          <div className="flex items-center gap-2 text-gray-400">
+            <FileText className="w-4 h-4" />
+            <p className="stat-label truncate">Total Forms</p>
           </div>
+          <p className="stat-value">{forms.length}</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-shadow hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Active Forms</p>
-              <p className="text-xl sm:text-2xl font-bold text-green-600">{activeForms}</p>
-            </div>
-            <div className="p-2 sm:p-3 bg-green-100 rounded-lg shrink-0">
-              <Target className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-            </div>
+        <div className="card p-4 sm:p-5">
+          <div className="flex items-center gap-2 text-gray-400">
+            <Target className="w-4 h-4" />
+            <p className="stat-label truncate">Active Forms</p>
           </div>
+          <p className="stat-value">{activeForms}</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-shadow hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Auto Refresh</p>
-              <p className="text-base sm:text-lg font-bold text-gray-900">
-                {autoRefresh ? "On (30s)" : "Off"}
-              </p>
-            </div>
+        <div className="card p-4 sm:p-5">
+          <div className="flex items-center gap-2 text-gray-400">
+            <RefreshCw className="w-4 h-4" />
+            <p className="stat-label truncate">Auto Refresh</p>
+          </div>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <p className="text-lg font-semibold text-gray-900">
+              {autoRefresh ? "On (30s)" : "Off"}
+            </p>
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
+              role="switch"
+              aria-checked={autoRefresh}
+              aria-label="Auto refresh"
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
                 autoRefresh ? "bg-blue-600" : "bg-gray-300"
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
                   autoRefresh ? "translate-x-6" : "translate-x-1"
                 }`}
               />
@@ -740,99 +734,102 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      <div className="flex gap-4 mb-6 border-b border-gray-200 overflow-x-auto">
+      <div className="tabs mb-5" role="tablist">
         <button
+          role="tab"
+          aria-selected={activeTab === "campaigns"}
+          data-active={activeTab === "campaigns"}
           onClick={() => setActiveTab("campaigns")}
-          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
-            activeTab === "campaigns"
-              ? "border-b-2 border-blue-600 text-blue-600"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
+          className="tab"
         >
-          By Campaign ({campaignLeadRows.length})
+          By Campaign <span className="ml-1 text-gray-400 tabular-nums">{campaignLeadRows.length}</span>
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === "forms"}
+          data-active={activeTab === "forms"}
           onClick={() => setActiveTab("forms")}
-          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
-            activeTab === "forms"
-              ? "border-b-2 border-blue-600 text-blue-600"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
+          className="tab"
         >
-          Instant Forms ({filteredForms.length})
+          Instant Forms <span className="ml-1 text-gray-400 tabular-nums">{filteredForms.length}</span>
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === "summary"}
+          data-active={activeTab === "summary"}
           onClick={() => setActiveTab("summary")}
-          className={`pb-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
-            activeTab === "summary"
-              ? "border-b-2 border-blue-600 text-blue-600"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
+          className="tab"
         >
           Summary
         </button>
       </div>
 
       {activeTab === "campaigns" && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-base font-bold text-gray-900">Leads by Campaign</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Real conversion-tracked leads per campaign · Total: {realTotalLeads} leads, {inr(realTotalSpend)} spend, {inr(realAvgCpl)} avg CPL
-            </p>
+        <div className="card overflow-hidden">
+          <div className="card-header">
+            <div className="min-w-0">
+              <h2 className="card-title">Leads by Campaign</h2>
+              <p className="card-subtitle">
+                Real conversion-tracked leads per campaign · Total: {realTotalLeads} leads, {inr(realTotalSpend)} spend, {inr(realAvgCpl)} avg CPL
+              </p>
+            </div>
           </div>
           {campaignLeadRows.length === 0 ? (
-            <div className="p-10 text-center text-gray-400 text-sm">No campaigns with leads or spend found</div>
+            <div className="px-6 py-12 text-center">
+              <Target className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm font-medium text-gray-700">No campaigns with leads or spend found</p>
+              <p className="text-sm text-gray-500 mt-1">Try another account, or refresh once your campaigns start spending.</p>
+            </div>
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
-                      <th className="px-5 py-3 text-left">Campaign</th>
-                      <th className="px-4 py-3 text-left">Account</th>
-                      <th className="px-4 py-3 text-left">Status</th>
-                      <th className="px-4 py-3 text-right">Spend</th>
-                      <th className="px-4 py-3 text-right">Leads</th>
-                      <th className="px-4 py-3 text-right">CPL</th>
+                <table className="min-w-full">
+                  <thead className="table-head">
+                    <tr>
+                      <th>Campaign</th>
+                      <th>Account</th>
+                      <th>Status</th>
+                      <th className="text-right">Spend</th>
+                      <th className="text-right">Leads</th>
+                      <th className="text-right">CPL</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody>
                     {campaignRowsPage.map(c => (
-                      <tr key={c.id} className="hover:bg-gray-50">
-                        <td className="px-5 py-3 font-medium text-gray-900 max-w-xs truncate" title={c.name}>{c.name}</td>
-                        <td className="px-4 py-3 text-gray-600">{c.accountName}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${c.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                            {c.status}
+                      <tr key={c.id} className="table-row">
+                        <td className="font-medium !text-gray-900 max-w-xs truncate" title={c.name}>{c.name}</td>
+                        <td className="whitespace-nowrap">{c.accountName}</td>
+                        <td>
+                          <span className={`badge ${c.status === "ACTIVE" ? "badge-green" : "badge-gray"}`}>
+                            {c.status.charAt(0) + c.status.slice(1).toLowerCase()}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-800 font-semibold">{inr(c.insights?.spend || 0)}</td>
-                        <td className="px-4 py-3 text-right text-gray-800 font-semibold">{c.insights?.leads || 0}</td>
-                        <td className="px-4 py-3 text-right text-gray-600">{inr(c.insights?.cpl || 0)}</td>
+                        <td className="text-right !text-gray-900 font-medium whitespace-nowrap">{inr(c.insights?.spend || 0)}</td>
+                        <td className="text-right !text-gray-900 font-medium">{c.insights?.leads || 0}</td>
+                        <td className="text-right whitespace-nowrap">{inr(c.insights?.cpl || 0)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
               {campaignLeadRows.length > CAMPAIGN_PAGE_SIZE && (
-                <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-sm">
-                  <p className="text-gray-500">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t border-gray-100 text-sm">
+                  <p className="text-gray-500 tabular-nums">
                     Showing {(campaignPage - 1) * CAMPAIGN_PAGE_SIZE + 1}–{Math.min(campaignPage * CAMPAIGN_PAGE_SIZE, campaignLeadRows.length)} of {campaignLeadRows.length}
                   </p>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setCampaignPage(p => Math.max(1, p - 1))}
                       disabled={campaignPage === 1}
-                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="btn btn-secondary btn-sm"
                     >
                       Previous
                     </button>
-                    <span className="text-gray-500 px-1">Page {campaignPage} of {campaignPageCount}</span>
+                    <span className="text-gray-500 px-1 tabular-nums">Page {campaignPage} of {campaignPageCount}</span>
                     <button
                       onClick={() => setCampaignPage(p => Math.min(campaignPageCount, p + 1))}
                       disabled={campaignPage === campaignPageCount}
-                      className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="btn btn-secondary btn-sm"
                     >
                       Next
                     </button>
@@ -846,24 +843,23 @@ export default function LeadsPage() {
 
       {activeTab === "forms" && (
         <>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-            <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col md:flex-row gap-3 mb-4">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search forms by name or page..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
+                  className="input pl-9"
                 />
               </div>
-          <div className="relative" ref={exportDropdownRef}>
-                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <div className="relative md:w-64" ref={exportDropdownRef}>
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <select
                   value={selectedPage}
                   onChange={(e) => setSelectedPage(e.target.value)}
-                  className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                  className="input pl-9"
                 >
                   <option value="all">All Pages ({uniquePages.length})</option>
                   {uniquePages.map((page) => (
@@ -873,73 +869,68 @@ export default function LeadsPage() {
                   ))}
                 </select>
               </div>
-            </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden overflow-x-auto">
+          <div className="card overflow-hidden">
             {filteredForms.length === 0 && !error ? (
-              <div className="p-8 text-center">
-                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No forms found</p>
-                <p className="text-sm text-gray-400 mt-2">
+              <div className="px-6 py-12 text-center">
+                <FileText className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-700">No forms found</p>
+                <p className="text-sm text-gray-500 mt-1">
                   {forms.length > 0 ? "Try adjusting your filters" : "Connect a Meta account with lead forms"}
                 </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full">
+                  <thead className="table-head">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Form Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page / Business</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Leads</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                      <th>Form Name</th>
+                      <th>Page / Business</th>
+                      <th>Status</th>
+                      <th className="text-right">Leads</th>
+                      <th>Created</th>
+                      <th className="text-right"><span className="sr-only">Actions</span></th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody>
                     {filteredForms.map((form) => (
-                      <tr key={form.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                              <FileText className="w-5 h-5 text-purple-600" />
+                      <tr key={form.id} className="table-row">
+                        <td>
+                          <div className="flex items-center gap-3">
+                            <div className="shrink-0 h-9 w-9 bg-gray-100 rounded-lg grid place-items-center">
+                              <FileText className="w-4 h-4 text-gray-500" />
                             </div>
-                            <div className="ml-4">
+                            <div className="min-w-0">
                               <div className="text-sm font-medium text-gray-900">{form.name}</div>
-                              <div className="text-xs text-gray-500 font-mono">{form.id.substring(0, 20)}...</div>
+                              <div className="text-xs text-gray-400 font-mono">{form.id.substring(0, 20)}...</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">
-                            {form.pageName || form.businessName || "-"}
-                          </span>
+                        <td className="whitespace-nowrap">
+                          {form.pageName || form.businessName || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="whitespace-nowrap">
                           {getStatusBadge(form.status)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-700">
-                            {form.leadsCount}
+                        <td className="whitespace-nowrap text-right font-semibold !text-gray-900">
+                          {form.leadsCount}
+                        </td>
+                        <td className="whitespace-nowrap !text-gray-500">
+                          <span className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {new Date(form.createdTime).toLocaleDateString()}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="whitespace-nowrap text-right">
                           <button
                             onClick={() => handleViewFormLeads(form)}
                             disabled={form.leadsCount === 0}
-                            className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="btn btn-ghost btn-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye />
                             View
                           </button>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(form.createdTime).toLocaleDateString()}
-                          </span>
                         </td>
                       </tr>
                     ))}
@@ -952,10 +943,10 @@ export default function LeadsPage() {
       )}
 
       {activeTab === "summary" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Leads by Form</h3>
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+          <div className="card p-4 sm:p-5">
+            <h3 className="card-title mb-4">Leads by Form</h3>
+            <div className="space-y-3.5 max-h-96 overflow-y-auto pr-1">
               {forms
                 .sort((a, b) => (b.leadsCount || 0) - (a.leadsCount || 0))
                 .map((form) => (
@@ -967,15 +958,15 @@ export default function LeadsPage() {
                       <p className="text-xs text-gray-500">{form.pageName || form.businessName}</p>
                     </div>
                     <div className="ml-4 flex items-center gap-3">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                      <div className="w-20 sm:w-24 bg-gray-100 rounded-full h-1.5">
                         <div
-                          className="bg-blue-600 h-2 rounded-full"
+                          className="bg-blue-600 h-1.5 rounded-full"
                           style={{
                             width: `${Math.min(100, ((form.leadsCount || 0) / Math.max(...forms.map((f) => f.leadsCount || 0), 1)) * 100)}%`,
                           }}
                         />
                       </div>
-                      <span className="text-sm font-bold text-gray-900 w-8 text-right">
+                      <span className="text-sm font-semibold text-gray-900 w-10 text-right tabular-nums">
                         {form.leadsCount}
                       </span>
                     </div>
@@ -984,32 +975,32 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Forms by Page</h3>
-            <div className="space-y-4">
+          <div className="card p-4 sm:p-5">
+            <h3 className="card-title mb-4">Forms by Page</h3>
+            <div className="divide-y divide-gray-100 -my-3">
               {uniquePages.map((page) => {
                 const pageForms = forms.filter((f) => (f.pageName || f.businessName) === page);
                 const pageLeads = pageForms.reduce((sum, f) => sum + (f.leadsCount || 0), 0);
                 return (
-                  <div key={page} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium text-gray-900">{page}</p>
-                      <span className="text-xs text-gray-500">{pageForms.length} forms</span>
+                  <div key={page} className="py-3">
+                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                      <p className="text-sm font-medium text-gray-900 truncate">{page}</p>
+                      <span className="text-xs text-gray-500 shrink-0 tabular-nums">{pageForms.length} forms</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xl sm:text-2xl font-bold text-blue-600">{pageLeads} leads</p>
-                      <div className="flex gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-lg font-semibold text-gray-900 tabular-nums">{pageLeads} <span className="text-sm font-normal text-gray-500">leads</span></p>
+                      <div className="flex gap-1.5">
                         {pageForms.slice(0, 3).map((f) => (
                           <span
                             key={f.id}
-                            className="px-2 py-1 text-xs bg-white rounded border border-gray-200"
+                            className="badge badge-gray tabular-nums"
                             title={f.name}
                           >
                             {f.leadsCount}
                           </span>
                         ))}
                         {pageForms.length > 3 && (
-                          <span className="px-2 py-1 text-xs bg-gray-200 rounded">
+                          <span className="badge badge-blue">
                             +{pageForms.length - 3}
                           </span>
                         )}
@@ -1021,26 +1012,26 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-2">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Overall Statistics</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{forms.length}</p>
-                <p className="text-sm text-gray-500">Total Forms</p>
+          <div className="card p-4 sm:p-5 lg:col-span-2">
+            <h3 className="card-title mb-4">Overall Statistics</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100">
+              <div className="bg-white p-4">
+                <p className="stat-label">Total Forms</p>
+                <p className="stat-value">{forms.length}</p>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-2xl sm:text-3xl font-bold text-green-600">{activeForms}</p>
-                <p className="text-sm text-gray-500">Active Forms</p>
+              <div className="bg-white p-4">
+                <p className="stat-label">Active Forms</p>
+                <p className="stat-value">{activeForms}</p>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-2xl sm:text-3xl font-bold text-blue-600">{totalLeads}</p>
-                <p className="text-sm text-gray-500">Total Leads</p>
+              <div className="bg-white p-4">
+                <p className="stat-label">Total Leads</p>
+                <p className="stat-value">{totalLeads}</p>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-2xl sm:text-3xl font-bold text-purple-600">
+              <div className="bg-white p-4">
+                <p className="stat-label">Avg Leads/Form</p>
+                <p className="stat-value">
                   {forms.length > 0 ? Math.round(totalLeads / forms.length) : 0}
                 </p>
-                <p className="text-sm text-gray-500">Avg Leads/Form</p>
               </div>
             </div>
           </div>
@@ -1048,101 +1039,102 @@ export default function LeadsPage() {
       )}
 
       {selectedForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50">
-              <div className="flex items-center gap-3 min-w-0">
+        <div className="fixed inset-0 bg-gray-900/50 flex items-end sm:items-center justify-center z-50 sm:p-4 animate-fade-in">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl max-w-4xl w-full max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-modal-in">
+            <div className="px-4 py-3 sm:px-5 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
                 <button
                   onClick={closeFormLeads}
-                  className="p-2 hover:bg-gray-200 rounded-lg shrink-0"
+                  className="btn btn-ghost btn-icon shrink-0"
+                  aria-label="Back"
                 >
-                  <ArrowLeft className="w-5 h-5 text-gray-600" />
+                  <ArrowLeft />
                 </button>
                 <div className="min-w-0">
-                  <h2 className="text-lg font-bold text-gray-900 truncate">{selectedForm.name}</h2>
+                  <h2 className="text-base font-semibold text-gray-900 truncate">{selectedForm.name}</h2>
                   <p className="text-sm text-gray-500 truncate">
-                    {selectedForm.pageName || selectedForm.businessName} | {formLeads.length} leads
+                    {selectedForm.pageName || selectedForm.businessName} · <span className="tabular-nums">{formLeads.length}</span> leads
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={saveToDatabase}
                   disabled={savingToDb}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                  className="btn btn-primary flex-1 sm:flex-none"
                 >
-                  <Database className="w-4 h-4" />
+                  <Database />
                   {savingToDb ? "Saving..." : "Send to Database"}
                 </button>
                 <button
                   onClick={sendToWhatsApp}
                   disabled={savingToDb}
-                  className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+                  className="btn btn-whatsapp flex-1 sm:flex-none"
                 >
-                  <MessageSquare className="w-4 h-4" />
+                  <MessageSquare />
                   Send WA Message
                 </button>
-                <button onClick={closeFormLeads} className="p-2 hover:bg-gray-200 rounded-lg shrink-0">
-                  <X className="w-5 h-5 text-gray-500" />
+                <button onClick={closeFormLeads} className="btn btn-ghost btn-icon shrink-0 hidden sm:inline-flex" aria-label="Close">
+                  <X />
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-gray-50/60">
               {loadingFormLeads ? (
                 <ListSkeleton rows={6} />
               ) : formLeads.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No leads found for this form</p>
-                  <p className="text-sm text-gray-400 mt-2">
+                <div className="text-center py-10">
+                  <Users className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-700">No leads found for this form</p>
+                  <p className="text-sm text-gray-500 mt-1">
                     This may require leads_retrieval permission
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {formLeads.map((lead) => (
-                    <div key={lead.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-blue-600 font-medium">
+                    <div key={lead.id} className="card p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-9 w-9 shrink-0 bg-blue-50 rounded-full grid place-items-center">
+                            <span className="text-sm text-blue-700 font-semibold">
                               {getLeadName(lead).charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{getLeadName(lead)}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{getLeadName(lead)}</p>
                             <p className="text-xs text-gray-500">
                               {new Date(lead.createdTime).toLocaleString()}
                             </p>
                           </div>
                         </div>
-                        <span className="text-xs text-gray-400 font-mono">{lead.id}</span>
+                        <span className="hidden sm:block text-xs text-gray-400 font-mono truncate">{lead.id}</span>
                       </div>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600 truncate">{getLeadEmail(lead)}</span>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-2 text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span className="text-gray-700 truncate">{getLeadEmail(lead)}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">{getLeadPhone(lead)}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Phone className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span className="text-gray-700 tabular-nums">{getLeadPhone(lead)}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">{getLeadCity(lead)}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span className="text-gray-700 truncate">{getLeadCity(lead)}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Building className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">{lead.campaignName || "-"}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Building className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span className="text-gray-700 truncate">{lead.campaignName || "-"}</span>
                         </div>
                       </div>
 
                       {lead.fieldData && lead.fieldData.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-xs text-gray-500 mb-2">Additional Fields</p>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          <p className="text-xs font-medium text-gray-500 mb-2">Additional Fields</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                             {lead.fieldData.map((field, idx) => (
                               <div key={idx} className="text-sm">
                                 <span className="text-gray-500">{formatFieldName(field?.name || `Field ${idx + 1}`)}: </span>

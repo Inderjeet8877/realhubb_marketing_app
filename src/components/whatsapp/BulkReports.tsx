@@ -367,13 +367,13 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
     }, 30);
   };
 
-  if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-green-600" /></div>;
+  if (loading) return <div className="card flex justify-center p-10"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
   if (reports.length === 0) {
     return (
-      <div className="text-center p-12 bg-white rounded-xl border border-gray-200">
-        <BarChart3 className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-        <p className="text-gray-500 font-medium">No broadcasts yet</p>
-        <p className="text-sm text-gray-400 mt-1">Send a bulk message to see reports here</p>
+      <div className="card text-center px-6 py-14">
+        <BarChart3 className="w-9 h-9 mx-auto mb-3 text-gray-300" />
+        <p className="text-sm font-medium text-gray-900">No broadcasts yet</p>
+        <p className="text-sm text-gray-500 mt-1">Send a bulk message to see reports here</p>
       </div>
     );
   }
@@ -386,20 +386,17 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Broadcast Reports</h2>
-          <p className="text-sm text-gray-500">{reports.length} broadcast{reports.length === 1 ? "" : "s"}</p>
+          <h2 className="text-base font-semibold text-gray-900">Broadcast Reports</h2>
+          <p className="text-sm text-gray-500 tabular-nums">{reports.length} broadcast{reports.length === 1 ? "" : "s"}</p>
         </div>
         <button
           onClick={openReportPanel}
-          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-all duration-200 active:scale-[0.98] ${
-            reportPanelOpen
-              ? "bg-green-600 text-white border-green-600 shadow-sm"
-              : "bg-white text-green-700 border-green-300 hover:bg-green-50 hover:border-green-400 shadow-sm"
-          }`}
+          aria-expanded={reportPanelOpen}
+          className={`btn btn-secondary ${reportPanelOpen ? "bg-gray-100 text-gray-900" : ""}`}
         >
-          <FileDown className="w-4 h-4" /> Generate Report
+          <FileDown /> Generate Report
           <AnimatedChevronDown open={reportPanelOpen} className="w-4 h-4" />
         </button>
       </div>
@@ -413,15 +410,15 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
         aria-hidden={!reportPanelOpen}
       >
         <div className="overflow-hidden">
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="flex items-start justify-between gap-3 px-4 sm:px-5 py-4 bg-gradient-to-r from-green-50 to-white border-b border-gray-100">
+        <div className="card overflow-hidden">
+          <div className="card-header items-start">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-green-600 text-white flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 grid place-items-center shrink-0">
                 <FileDown className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <h3 className="font-semibold text-gray-900 text-sm">Generate Report</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <h3 className="card-title">Generate Report</h3>
+                <p className="card-subtitle">
                   Build a clean, presentation-ready PDF of broadcast performance.
                 </p>
               </div>
@@ -432,18 +429,18 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                   onClick={() => refreshAllReports()}
                   disabled={loadingAllReports}
                   title="Broadcast history is cached for this session — refresh if you've sent something new since opening this panel."
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-white disabled:opacity-50"
+                  className="btn btn-ghost btn-icon btn-sm"
                   aria-label="Refresh broadcast history"
                 >
-                  <RefreshCw className={`w-4 h-4 ${loadingAllReports ? "animate-spin" : ""}`} />
+                  <RefreshCw className={loadingAllReports ? "animate-spin" : ""} />
                 </button>
               )}
             <button
               onClick={() => setReportPanelOpen(false)}
-              className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-white shrink-0"
+              className="btn btn-ghost btn-icon btn-sm"
               aria-label="Close"
             >
-              <X className="w-4 h-4" />
+              <X />
             </button>
             </div>
           </div>
@@ -457,25 +454,26 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
               <>
                 {/* Step 1 — scope */}
                 <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">1. Choose scope</p>
+                  <p className="field-label">1. Choose scope</p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {scopeOptions.map(opt => {
                       const active = reportScope === opt.key;
                       return (
                         <button
                           key={opt.key}
+                          aria-pressed={active}
                           onClick={() => { setReportScope(opt.key); setSelectedTemplateKeys([]); setTemplateSearch(""); setReportNotice(null); }}
-                          className={`relative text-left p-3 rounded-xl border transition-all active:scale-[0.98] ${
+                          className={`relative text-left p-3 rounded-lg border transition-colors ${
                             active
-                              ? "border-green-500 bg-green-50 ring-1 ring-green-500"
+                              ? "border-blue-500 bg-blue-50/60 ring-1 ring-blue-500"
                               : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                           }`}
                         >
                           {active && (
-                            <CheckCircle2 className="w-4 h-4 text-green-600 absolute top-2 right-2" />
+                            <CheckCircle2 className="w-4 h-4 text-blue-600 absolute top-2.5 right-2.5" />
                           )}
-                          <opt.Icon className={`w-4 h-4 mb-1.5 ${active ? "text-green-700" : "text-gray-400"}`} />
-                          <p className={`text-sm font-semibold ${active ? "text-green-900" : "text-gray-800"}`}>{opt.label}</p>
+                          <opt.Icon className={`w-4 h-4 mb-1.5 ${active ? "text-blue-600" : "text-gray-400"}`} />
+                          <p className={`text-sm font-semibold ${active ? "text-blue-900" : "text-gray-800"}`}>{opt.label}</p>
                           <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
                         </button>
                       );
@@ -486,8 +484,8 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                 {/* Step 2 — template picker */}
                 {reportScope !== "all" && (
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-sm font-medium text-gray-700">
                         2. {reportScope === "single" ? "Pick a template" : "Pick templates"}
                       </p>
                       {reportScope === "multiple" && templateCounts.length > 1 && (
@@ -495,7 +493,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                           <button
                             type="button"
                             onClick={() => { setSelectedTemplateKeys(templateCounts.map(t => t.key)); setReportNotice(null); }}
-                            className="text-green-700 font-medium hover:underline"
+                            className="text-blue-600 font-medium hover:text-blue-700"
                           >
                             Select all
                           </button>
@@ -503,7 +501,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                           <button
                             type="button"
                             onClick={() => setSelectedTemplateKeys([])}
-                            className="text-gray-500 font-medium hover:underline"
+                            className="text-gray-500 font-medium hover:text-gray-800"
                           >
                             Clear
                           </button>
@@ -513,18 +511,19 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
 
                     {templateCounts.length > 6 && (
                       <div className="relative mb-2">
-                        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="text"
                           value={templateSearch}
                           onChange={(e) => setTemplateSearch(e.target.value)}
                           placeholder="Search templates…"
-                          className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                          aria-label="Search templates"
+                          className="input h-9 pl-9"
                         />
                       </div>
                     )}
 
-                    <div className="max-h-52 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
+                    <div className="max-h-52 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
                       {filteredTemplateCounts.length === 0 ? (
                         <p className="text-sm text-gray-400 text-center py-4">No templates match &quot;{templateSearch}&quot;.</p>
                       ) : filteredTemplateCounts.map(t => {
@@ -534,7 +533,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                           <label
                             key={t.key}
                             className={`flex items-center justify-between gap-3 px-3 py-2.5 text-sm cursor-pointer transition-colors ${
-                              checked ? "bg-green-50" : "hover:bg-gray-50"
+                              checked ? "bg-blue-50/60" : "hover:bg-gray-50"
                             }`}
                           >
                             <span className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -543,19 +542,19 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                                 name="report-template"
                                 checked={checked}
                                 onChange={() => toggleTemplateKey(t.key, reportScope === "multiple")}
-                                className="shrink-0 accent-green-600 w-4 h-4"
+                                className="shrink-0 w-4 h-4"
                               />
                               <span className="min-w-0 flex-1">
-                                <span className={`block truncate ${checked ? "text-green-900 font-medium" : "text-gray-800"}`}>{t.label}</span>
+                                <span className={`block truncate ${checked ? "text-blue-900 font-medium" : "text-gray-800"}`}>{t.label}</span>
                                 <span className="block h-1 mt-1 rounded-full bg-gray-100 overflow-hidden max-w-[140px]">
                                   <span
-                                    className={`block h-full rounded-full ${checked ? "bg-green-500" : "bg-gray-300"}`}
+                                    className={`block h-full rounded-full ${checked ? "bg-blue-500" : "bg-gray-300"}`}
                                     style={{ width: `${Math.max(6, (t.count / maxCount) * 100)}%` }}
                                   />
                                 </span>
                               </span>
                             </span>
-                            <span className={`text-xs shrink-0 px-2 py-0.5 rounded-full ${checked ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                            <span className={`badge tabular-nums shrink-0 ${checked ? "badge-blue" : "badge-gray"}`}>
                               {t.count} broadcast{t.count === 1 ? "" : "s"}
                             </span>
                           </label>
@@ -567,8 +566,8 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
 
                 {/* Live preview */}
                 {previewRows.length > 0 && (
-                  <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800">
-                    <BarChart3 className="w-4 h-4 shrink-0 text-blue-500" />
+                  <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700 tabular-nums">
+                    <BarChart3 className="w-4 h-4 shrink-0 text-gray-400" />
                     <span>
                       This report will include <strong>{previewRows.length}</strong> broadcast{previewRows.length === 1 ? "" : "s"}, covering{" "}
                       <strong>{previewTotalContacts.toLocaleString()}</strong> contacts.
@@ -577,18 +576,18 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                 )}
 
                 {/* Step 3 — optional engagement/replies section */}
-                <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                  includeEngagement ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  includeEngagement ? "border-blue-500 bg-blue-50/60" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                 }`}>
                   <input
                     type="checkbox"
                     checked={includeEngagement}
                     onChange={(e) => setIncludeEngagement(e.target.checked)}
-                    className="mt-0.5 shrink-0 accent-green-600 w-4 h-4"
+                    className="mt-0.5 shrink-0 w-4 h-4"
                   />
                   <span className="min-w-0">
                     <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
-                      <MessageSquare className="w-3.5 h-3.5 text-green-600" />
+                      <MessageSquare className="w-3.5 h-3.5 text-gray-500" />
                       Include recipient engagement &amp; replies
                     </span>
                     <span className="block text-xs text-gray-500 mt-0.5">
@@ -599,30 +598,30 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
 
                 {/* Inline notice — replaces native alert() for a more app-like feel */}
                 {reportNotice && (
-                  <div className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl text-xs ${
+                  <div className={`flex items-start gap-2.5 px-3.5 py-2.5 rounded-lg text-xs ${
                     reportNotice.type === "error" ? "bg-red-50 border border-red-100 text-red-700" : "bg-green-50 border border-green-100 text-green-700"
                   }`}>
                     {reportNotice.type === "error"
                       ? <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                       : <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />}
                     <span className="flex-1">{reportNotice.text}</span>
-                    <button onClick={() => setReportNotice(null)} className="shrink-0 opacity-60 hover:opacity-100">
+                    <button onClick={() => setReportNotice(null)} className="shrink-0 opacity-60 hover:opacity-100" aria-label="Dismiss">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 )}
 
-                <div className="flex items-center gap-3 pt-1">
+                <div className="flex flex-wrap items-center gap-3 pt-1">
                   <button
                     onClick={handleGenerateReport}
                     disabled={!canGenerate}
-                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98] shadow-sm"
+                    className="btn btn-primary"
                   >
-                    {generatingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                    {generatingPdf ? <Loader2 className="animate-spin" /> : <FileDown />}
                     {generatingPdf ? "Generating PDF…" : "Generate PDF"}
                   </button>
                   {!canGenerate && !generatingPdf && (
-                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                    <span className="text-xs text-gray-500 flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5" /> Pick a template above to continue
                     </span>
                   )}
@@ -642,37 +641,32 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
         const isExpanded      = expanded === r.id;
         const isLoadingStatus = loadingStatus === r.id;
 
-        const accentColor = r.status === "processing" ? "before:bg-green-500"
-          : r.status === "cancelled" ? "before:bg-yellow-500"
-          : r.status === "failed" ? "before:bg-red-500"
-          : "before:bg-transparent";
-
         return (
           <div
             key={r.id}
-            className={`relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 ${accentColor} bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200`}
+            className="card overflow-hidden"
           >
-            <div className="p-4">
+            <div className="p-4 sm:p-5">
               {/* Header row — stacks on narrow phones so 3-4 action buttons
                   never get squeezed into an overflowing single line */}
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-gray-900 truncate">{r.batchName}</h3>
+                    <h3 className="text-[15px] font-semibold text-gray-900 truncate">{r.batchName}</h3>
                     {r.status === "processing" && (
-                      <span className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-green-100 text-green-700 rounded">
-                        <Loader2 className="w-2.5 h-2.5 animate-spin" /> Sending
+                      <span className="badge badge-green">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Sending
                       </span>
                     )}
                     {r.status === "cancelled" && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-yellow-100 text-yellow-700 rounded">Cancelled</span>
+                      <span className="badge badge-amber">Cancelled</span>
                     )}
                     {r.status === "failed" && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-700 rounded">Failed</span>
+                      <span className="badge badge-red">Failed</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {r.templateName ? <span>Template: <span className="font-medium text-green-700">{r.templateName}</span></span> : "Custom text"}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {r.templateName ? <span>Template: <span className="font-medium text-gray-700">{r.templateName}</span></span> : "Custom text"}
                     {" · "}{r.createdAt ? new Date(r.createdAt).toLocaleString() : "—"}
                     {/* Only for a full completion — cancelled/failed jobs also have both
                         timestamps set, but showing a duration there would misleadingly
@@ -682,7 +676,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                     )}
                   </p>
                   {r.status === "cancelled" && r.cancelReason && (
-                    <p className="text-xs text-yellow-700 mt-1">Cancelled: {r.cancelReason}</p>
+                    <p className="text-xs text-amber-700 mt-1">Cancelled: {r.cancelReason}</p>
                   )}
                 </div>
                 <div className="flex gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
@@ -692,14 +686,14 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                         onClick={() => handleResume(r.id)}
                         disabled={resumingId === r.id}
                         title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 transition-colors active:scale-[0.98]"
+                        className="btn btn-secondary btn-sm"
                       >
                         {resumingId === r.id ? "Resuming…" : "Resume"}
                       </button>
                       <button
                         onClick={() => handleCancel(r.id)}
                         disabled={cancellingId === r.id}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors active:scale-[0.98]"
+                        className="btn btn-danger-ghost btn-sm"
                       >
                         {cancellingId === r.id ? "Cancelling…" : "Cancel"}
                       </button>
@@ -707,49 +701,50 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                   )}
                   <button
                     onClick={() => handleViewReplies(r)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors active:scale-[0.98]"
+                    className="btn btn-secondary btn-sm"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" /> Replies
+                    <MessageSquare className="text-green-600" /> Replies
                   </button>
                   <button
                     onClick={() => toggleExpanded(r.id)}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors active:scale-[0.98]"
+                    aria-expanded={isExpanded}
+                    className="btn btn-ghost btn-sm"
                   >
-                    {isLoadingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <AnimatedChevronDown open={isExpanded} className="w-3.5 h-3.5" />} Details
+                    {isLoadingStatus ? <Loader2 className="animate-spin" /> : <AnimatedChevronDown open={isExpanded} className="w-4 h-4" />} Details
                   </button>
                 </div>
               </div>
 
               {/* Stats — 3 columns on narrow phones (wraps to a tidy 2nd row of
                   2) instead of squeezing all 5 into one cramped line */}
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center">
+              <dl className="grid grid-cols-3 sm:grid-cols-5 gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100">
                 {[
-                  { label: "Total",     value: r.total,     bg: "bg-gray-50",   text: "text-gray-900"   },
-                  { label: "Sent",      value: r.sent,      bg: "bg-green-50",  text: "text-green-700"  },
-                  { label: "Failed",    value: r.failed,    bg: "bg-red-50",    text: "text-red-700"    },
-                  { label: "Delivered", value: r.delivered, bg: "bg-blue-50",   text: "text-blue-700"   },
-                  { label: "Read",      value: r.read,      bg: "bg-purple-50", text: "text-purple-700" },
-                ].map(({ label, value, bg, text }) => (
-                  <div key={label} className={`${bg} rounded-lg p-2 transition-colors`}>
-                    <p className={`text-lg font-bold ${text}`}>{value ?? 0}</p>
-                    <p className="text-xs text-gray-500 leading-tight">{label}</p>
+                  { label: "Total",     value: r.total,     text: "text-gray-900"  },
+                  { label: "Sent",      value: r.sent,      text: "text-green-700" },
+                  { label: "Failed",    value: r.failed,    text: (r.failed ?? 0) > 0 ? "text-red-600" : "text-gray-900" },
+                  { label: "Delivered", value: r.delivered, text: "text-gray-900"  },
+                  { label: "Read",      value: r.read,      text: "text-blue-600"  },
+                ].map(({ label, value, text }) => (
+                  <div key={label} className="bg-white px-3 py-2.5">
+                    <dt className="text-xs text-gray-500">{label}</dt>
+                    <dd className={`mt-0.5 text-lg font-semibold tabular-nums ${text}`}>{value ?? 0}</dd>
                   </div>
                 ))}
-              </div>
+              </dl>
             </div>
 
             {/* Expandable contact list */}
             {isExpanded && (
               <div className="border-t border-gray-100">
                 {failedList.length > 0 && (
-                  <div className="p-3 bg-red-50 border-b border-red-100">
+                  <div className="px-4 py-3 bg-red-50/70 border-b border-red-100">
                     <p className="text-xs font-semibold text-red-700 mb-2">{failedList.length} failed — click one for the full reason</p>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {failedList.map((c: any, i: number) => (
                         <button
                           key={i}
                           onClick={() => setSelectedFailure(c)}
-                          className="w-full flex justify-between text-xs bg-white hover:bg-red-100 rounded px-2 py-1.5 text-left transition-colors"
+                          className="w-full flex justify-between text-xs bg-white hover:bg-red-100 border border-red-100 rounded-md px-2.5 py-1.5 text-left transition-colors"
                         >
                           <span className="font-medium text-gray-800">{c.name || c.phone}</span>
                           <span className="text-red-500 truncate ml-2">{c.error || "Failed"}</span>
@@ -758,24 +753,24 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                     </div>
                   </div>
                 )}
-                <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
+                <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
                   {contacts.map((c: any, i: number) => {
                     const isFailed = c.status !== "read" && c.status !== "delivered" && c.status !== "sent";
                     return (
                       <div
                         key={i}
                         onClick={() => isFailed && setSelectedFailure(c)}
-                        className={`flex items-center justify-between px-4 py-2 text-xs ${isFailed ? "cursor-pointer hover:bg-red-50" : ""}`}
+                        className={`flex items-center justify-between gap-3 px-4 py-2.5 text-xs ${isFailed ? "cursor-pointer hover:bg-red-50" : ""}`}
                       >
                         <div className="min-w-0">
-                          <p className="font-medium text-gray-800 truncate">{c.name || c.phone}</p>
-                          <p className="text-gray-400">{c.phone}</p>
+                          <p className="text-sm font-medium text-gray-800 truncate">{c.name || c.phone}</p>
+                          <p className="text-gray-500 tabular-nums">{c.phone}</p>
                         </div>
-                        <span className={`flex-shrink-0 px-2 py-0.5 rounded-full font-medium ${
-                          c.status === "read"      ? "bg-purple-100 text-purple-700" :
-                          c.status === "delivered" ? "bg-blue-100 text-blue-700" :
-                          c.status === "sent"      ? "bg-green-100 text-green-700" :
-                          "bg-red-100 text-red-700"
+                        <span className={`badge flex-shrink-0 max-w-[45%] truncate ${
+                          c.status === "read"      ? "badge-blue" :
+                          c.status === "delivered" ? "badge-gray" :
+                          c.status === "sent"      ? "badge-green" :
+                          "badge-red"
                         }`}>
                           {c.status === "read" ? "Read" : c.status === "delivered" ? "Delivered" : c.status === "sent" ? "Sent" : c.error || "Failed"}
                         </span>
@@ -790,15 +785,15 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
       })}
 
       {selectedFailure && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setSelectedFailure(null)}>
-          <div className="bg-white rounded-xl p-5 max-w-md w-full shadow-2xl animate-modal-in" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setSelectedFailure(null)} role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl p-5 max-w-md w-full shadow-xl animate-modal-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-4">
               <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900 truncate">{selectedFailure.name || selectedFailure.phone}</h3>
-                <p className="text-xs text-gray-500">{selectedFailure.phone}</p>
+                <p className="text-xs text-gray-500 tabular-nums">{selectedFailure.phone}</p>
               </div>
-              <button onClick={() => setSelectedFailure(null)} className="p-1 hover:bg-gray-100 rounded shrink-0">
-                <X className="w-4 h-4 text-gray-500" />
+              <button onClick={() => setSelectedFailure(null)} className="btn btn-ghost btn-icon btn-sm -mr-1 shrink-0" aria-label="Close">
+                <X />
               </button>
             </div>
 
@@ -807,9 +802,9 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
               return (
                 <div className="space-y-2">
                   {category && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                      <p className="text-xs font-semibold text-orange-800 mb-1">Likely reason</p>
-                      <p className="text-sm text-orange-900">{category}</p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">Likely reason</p>
+                      <p className="text-sm text-amber-900">{category}</p>
                     </div>
                   )}
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
@@ -820,14 +815,14 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                     )}
                   </div>
                   {(selectedFailure.errorCode || selectedFailure.errorSubcode) && (
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-500">
                       Error code: {selectedFailure.errorCode ?? "—"}
                       {selectedFailure.errorSubcode ? ` (subcode ${selectedFailure.errorSubcode})` : ""}
                       {" — "}for reference if you need to check Meta&apos;s documentation or contact support.
                     </p>
                   )}
                   {!category && (
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-500">
                       This specific error code isn&apos;t in our known list yet — the message above is Meta&apos;s own explanation.
                     </p>
                   )}

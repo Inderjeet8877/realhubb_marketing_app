@@ -92,29 +92,28 @@ export default function LoginPage() {
 
   if (initializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-white">
-        <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 bg-[radial-gradient(60rem_30rem_at_50%_-10%,theme(colors.blue.50),transparent)] flex items-center justify-center px-4 py-10 pt-safe">
       <div className="w-full max-w-sm">
-        <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
-
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4" style={{ backgroundColor: "#075e54" }}>
-              <span className="text-white font-bold text-xl">R</span>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Realhubb</h1>
-            <p className="text-gray-500 text-sm mt-1">Marketing Platform</p>
+        {/* Logo */}
+        <div className="text-center mb-6">
+          <div className="inline-grid place-items-center w-12 h-12 rounded-xl bg-blue-600 text-white text-xl font-bold shadow-sm mb-4">
+            R
           </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Realhubb</h1>
+          <p className="text-gray-500 text-sm mt-1">Marketing Platform</p>
+        </div>
 
+        <div className="card shadow-[0_1px_3px_rgba(16,24,40,0.06),0_8px_24px_-8px_rgba(16,24,40,0.08)] p-6 sm:p-8">
           {/* Error */}
           {error && (
-            <div className="mb-5 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div role="alert" className="mb-5 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
               {error}
             </div>
           )}
@@ -122,34 +121,37 @@ export default function LoginPage() {
           {/* Email / Password form */}
           <form onSubmit={handleEmailSignIn} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Email</label>
+              <label htmlFor="login-email" className="field-label">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@gmail.com"
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="input pl-9"
                   autoComplete="email"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Password</label>
+              <label htmlFor="login-password" className="field-label">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
+                  id="login-password"
                   type={showPw ? "text" : "password"}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-9 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="input pl-9 pr-10"
                   autoComplete="current-password"
                 />
                 <button type="button" onClick={() => setShowPw(!showPw)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -158,10 +160,9 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 text-white font-semibold rounded-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              style={{ backgroundColor: "#075e54" }}
+              className="btn btn-primary btn-lg w-full"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {loading ? <Loader2 className="animate-spin" /> : null}
               {loading ? "Signing in…" : "Sign In"}
             </button>
           </form>
@@ -177,7 +178,7 @@ export default function LoginPage() {
           <button
             onClick={handleGoogleSignIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
+            className="btn btn-secondary btn-lg w-full gap-3"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -188,10 +189,11 @@ export default function LoginPage() {
             Continue with Google
           </button>
 
-          <p className="text-center text-xs text-gray-400 mt-6">
-            Access restricted to authorised users only.
-          </p>
         </div>
+
+        <p className="text-center text-xs text-gray-500 mt-6">
+          Access restricted to authorised users only.
+        </p>
       </div>
     </div>
   );

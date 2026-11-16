@@ -8,6 +8,7 @@ import { StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 import { AnimatedDeleteIcon, AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 import { useToast } from "@/contexts/ToastContext";
 import { useConfirm } from "@/contexts/ConfirmContext";
+import PageHeader from "@/components/ui/PageHeader";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
   state = { error: null };
@@ -79,13 +80,13 @@ function ImportModal({
   const busy = uploadPhase === "parsing" || uploadPhase === "uploading";
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="bg-white rounded-xl shadow-xl p-5 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto animate-modal-in">
         {/* Header */}
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Import Contacts</h2>
-          <button onClick={onClose} disabled={busy} className="p-1 hover:bg-gray-100 rounded disabled:opacity-40">
-            <X className="w-5 h-5 text-gray-500" />
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-lg font-semibold text-gray-900">Import Contacts</h2>
+          <button onClick={onClose} disabled={busy} className="btn btn-ghost btn-icon -mr-2" aria-label="Close">
+            <X />
           </button>
         </div>
 
@@ -104,13 +105,13 @@ function ImportModal({
             <div className="flex items-center gap-3">
               <Loader2 className="w-5 h-5 animate-spin text-blue-600 flex-shrink-0" />
               <div className="flex-1">
-                <div className="flex justify-between text-sm font-medium text-gray-700 mb-1">
+                <div className="flex justify-between text-sm font-medium text-gray-700 mb-1.5">
                   <span>Uploading contacts…</span>
-                  <span>{uploadedCount} / {totalToUpload}</span>
+                  <span className="tabular-nums">{uploadedCount} / {totalToUpload}</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>
@@ -148,20 +149,20 @@ function ImportModal({
             )}
 
             {/* Stat pills */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="flex flex-col items-center p-3 bg-green-50 rounded-lg border border-green-100">
-                <span className="text-lg sm:text-2xl font-bold text-green-700">{uploadSummary.saved}</span>
-                <span className="text-xs text-green-600 mt-0.5 text-center">Added</span>
+            <div className="grid grid-cols-3 gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-100">
+              <div className="bg-white p-3 text-center">
+                <span className="block text-xl font-semibold text-green-700 tabular-nums">{uploadSummary.saved}</span>
+                <span className="text-xs text-gray-500">Added</span>
               </div>
-              <div className="flex flex-col items-center p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                <span className="text-lg sm:text-2xl font-bold text-yellow-700">
+              <div className="bg-white p-3 text-center">
+                <span className="block text-xl font-semibold text-amber-700 tabular-nums">
                   {uploadSummary.dbDuplicates + uploadSummary.intraFileDuplicates}
                 </span>
-                <span className="text-xs text-yellow-600 mt-0.5 text-center">Duplicates</span>
+                <span className="text-xs text-gray-500">Duplicates</span>
               </div>
-              <div className="flex flex-col items-center p-3 bg-red-50 rounded-lg border border-red-100">
-                <span className="text-lg sm:text-2xl font-bold text-red-700">{uploadSummary.corrupted}</span>
-                <span className="text-xs text-red-600 mt-0.5 text-center">Invalid</span>
+              <div className="bg-white p-3 text-center">
+                <span className="block text-xl font-semibold text-red-700 tabular-nums">{uploadSummary.corrupted}</span>
+                <span className="text-xs text-gray-500">Invalid</span>
               </div>
             </div>
 
@@ -210,7 +211,7 @@ function ImportModal({
 
             <button
               onClick={onClose}
-              className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold"
+              className="btn btn-primary w-full"
             >
               Done
             </button>
@@ -221,32 +222,35 @@ function ImportModal({
         {uploadPhase === "idle" && (
           <>
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
+              <label htmlFor="import-batch-name" className="field-label">
                 Batch Name <span className="text-red-500">*</span>
               </label>
               <input
+                id="import-batch-name"
                 type="text"
                 value={dataName}
                 onChange={e => setDataName(e.target.value)}
                 placeholder="e.g. Godrej Leads May 2025, Premium Clients…"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                className="input"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="field-hint">
                 Used to identify this upload in bulk messaging.
               </p>
             </div>
 
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+              className={`border-2 border-dashed rounded-xl px-6 py-8 text-center transition-colors ${
+                dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50/50'
               }`}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
             >
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600 mb-1 text-sm">Drag & drop your CSV or Excel file here</p>
-              <p className="text-xs text-gray-400 mb-4">or click to browse</p>
+              <div className="w-11 h-11 rounded-full bg-white border border-gray-200 grid place-items-center mx-auto mb-3">
+                <Upload className="w-5 h-5 text-gray-500" />
+              </div>
+              <p className="text-sm font-medium text-gray-700 mb-0.5">Drag & drop your CSV or Excel file here</p>
+              <p className="text-xs text-gray-500 mb-4">or click to browse</p>
               <input
                 type="file"
                 accept=".csv,.xlsx,.xls"
@@ -260,20 +264,20 @@ function ImportModal({
               />
               <label
                 htmlFor="csv-upload"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer inline-block text-sm"
+                className="btn btn-primary cursor-pointer"
               >
                 Choose File
               </label>
             </div>
 
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-xs font-semibold text-gray-700 mb-2">Supported column headers:</p>
+            <div className="mt-4">
+              <p className="text-xs font-medium text-gray-700 mb-2">Supported column headers:</p>
               <div className="flex flex-wrap gap-1.5">
                 {['name/names', 'phone/mobile', 'contact', 'email', 'tags'].map(h => (
-                  <span key={h} className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">{h}</span>
+                  <span key={h} className="badge badge-gray font-mono">{h}</span>
                 ))}
               </div>
-              <p className="text-xs text-gray-400 mt-2">Phone numbers are auto-formatted. Duplicates are skipped automatically.</p>
+              <p className="text-xs text-gray-500 mt-2">Phone numbers are auto-formatted. Duplicates are skipped automatically.</p>
             </div>
           </>
         )}
@@ -595,165 +599,163 @@ export default function ContactsPage() {
   return (
     <ErrorBoundary>
     <div>
-      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Contacts</h1>
-          <p className="text-gray-600 text-sm">Manage your contacts and batches</p>
-        </div>
-        <button
-          onClick={() => setShowImportModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-        >
-          <Upload className="w-4 h-4" />
-          Import
-        </button>
-      </div>
+      <PageHeader
+        title="Contacts"
+        description="Manage your contacts and batches"
+        actions={
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="btn btn-primary shrink-0"
+          >
+            <Upload />
+            Import
+          </button>
+        }
+      />
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
         <button
           onClick={() => { setViewMode("good"); setStatFilter("all"); }}
-          className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 text-left transition-colors hover:shadow-md ${
-            viewMode === "good" && statFilter === "all" ? "border-blue-300 ring-1 ring-blue-200" : "border-gray-100 hover:border-blue-200"
+          aria-pressed={viewMode === "good" && statFilter === "all"}
+          className={`card p-4 sm:p-5 text-left transition-colors ${
+            viewMode === "good" && statFilter === "all" ? "!border-blue-400 ring-2 ring-blue-500/15" : "hover:border-gray-300"
           }`}
         >
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="p-2.5 sm:p-3 bg-blue-100 rounded-lg shrink-0">
-              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalContacts}</p>
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Total Contacts</p>
-            </div>
+          <div className="flex items-center gap-2 text-gray-400">
+            <Users className="w-4 h-4" />
+            <p className="stat-label truncate">Total Contacts</p>
           </div>
+          <p className="stat-value">{totalContacts}</p>
         </button>
         <button
           onClick={() => { setViewMode("good"); setStatFilter("tagged"); }}
-          className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 text-left transition-colors hover:shadow-md ${
-            viewMode === "good" && statFilter === "tagged" ? "border-green-300 ring-1 ring-green-200" : "border-gray-100 hover:border-green-200"
+          aria-pressed={viewMode === "good" && statFilter === "tagged"}
+          className={`card p-4 sm:p-5 text-left transition-colors ${
+            viewMode === "good" && statFilter === "tagged" ? "!border-blue-400 ring-2 ring-blue-500/15" : "hover:border-gray-300"
           }`}
         >
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="p-2.5 sm:p-3 bg-green-100 rounded-lg shrink-0">
-              <Tag className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">{uniqueTags.length}</p>
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Active Tags</p>
-            </div>
+          <div className="flex items-center gap-2 text-gray-400">
+            <Tag className="w-4 h-4" />
+            <p className="stat-label truncate">Active Tags</p>
           </div>
+          <p className="stat-value">{uniqueTags.length}</p>
         </button>
         <button
           onClick={() => { setViewMode("failed"); setFilterBatch("all"); }}
-          className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 text-left transition-colors hover:shadow-md ${
-            viewMode === "failed" ? "border-red-300 ring-1 ring-red-200" : "border-gray-100 hover:border-red-200"
+          aria-pressed={viewMode === "failed"}
+          className={`card p-4 sm:p-5 text-left transition-colors ${
+            viewMode === "failed" ? "!border-red-300 ring-2 ring-red-500/15" : "hover:border-gray-300"
           }`}
         >
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="p-2.5 sm:p-3 bg-red-100 rounded-lg shrink-0">
-              <X className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">
-                {failedLoading ? "…" : failedContacts.length}
-              </p>
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Failed Numbers</p>
-            </div>
+          <div className={`flex items-center gap-2 ${viewMode === "failed" ? "text-red-500" : "text-gray-400"}`}>
+            <TriangleAlert className="w-4 h-4" />
+            <p className="stat-label truncate">Failed Numbers</p>
           </div>
+          <p className="stat-value">
+            {failedLoading ? "…" : failedContacts.length}
+          </p>
         </button>
         <button
           onClick={() => { setViewMode("good"); setStatFilter("recent"); }}
-          className={`bg-white rounded-xl shadow-sm border p-4 sm:p-6 text-left transition-colors hover:shadow-md ${
-            viewMode === "good" && statFilter === "recent" ? "border-purple-300 ring-1 ring-purple-200" : "border-gray-100 hover:border-purple-200"
+          aria-pressed={viewMode === "good" && statFilter === "recent"}
+          className={`card p-4 sm:p-5 text-left transition-colors ${
+            viewMode === "good" && statFilter === "recent" ? "!border-blue-400 ring-2 ring-blue-500/15" : "hover:border-gray-300"
           }`}
         >
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="p-2.5 sm:p-3 bg-purple-100 rounded-lg shrink-0">
-              <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">
-                {contacts.filter(isRecent).length}
-              </p>
-              <p className="text-xs sm:text-sm text-gray-600 truncate">Added This Month</p>
-            </div>
+          <div className="flex items-center gap-2 text-gray-400">
+            <Plus className="w-4 h-4" />
+            <p className="stat-label truncate">Added This Month</p>
           </div>
+          <p className="stat-value">
+            {contacts.filter(isRecent).length}
+          </p>
         </button>
       </div>
 
       {viewMode === "failed" && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-          <X className="w-4 h-4 shrink-0" />
-          <span>Viewing failed/invalid numbers, separated out during validation — not part of your sendable contacts.</span>
-          <button onClick={() => setViewMode("good")} className="ml-auto font-medium text-red-800 hover:text-red-900 shrink-0">
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+          <span className="flex items-start gap-2">
+            <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5" />
+            Viewing failed/invalid numbers, separated out during validation — not part of your sendable contacts.
+          </span>
+          <button onClick={() => setViewMode("good")} className="sm:ml-auto font-medium text-red-800 hover:text-red-900 shrink-0 self-start sm:self-auto">
             Back to Contacts
           </button>
         </div>
       )}
       {viewMode === "good" && statFilter === "tagged" && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+        <div className="mb-4 flex items-center gap-2 text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
           <Tag className="w-4 h-4 shrink-0" />
           <span>Viewing contacts that have at least one tag.</span>
-          <button onClick={() => setStatFilter("all")} className="ml-auto font-medium text-green-800 hover:text-green-900 shrink-0">
+          <button onClick={() => setStatFilter("all")} className="ml-auto font-medium text-blue-700 hover:text-blue-900 shrink-0">
             Show All
           </button>
         </div>
       )}
       {viewMode === "good" && statFilter === "recent" && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+        <div className="mb-4 flex items-center gap-2 text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
           <Plus className="w-4 h-4 shrink-0" />
           <span>Viewing contacts added in the last 30 days.</span>
-          <button onClick={() => setStatFilter("all")} className="ml-auto font-medium text-purple-800 hover:text-purple-900 shrink-0">
+          <button onClick={() => setStatFilter("all")} className="ml-auto font-medium text-blue-700 hover:text-blue-900 shrink-0">
             Show All
           </button>
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-200 space-y-3">
-          <div className="flex items-center gap-3 flex-wrap">
+      <div className="card overflow-hidden">
+        <div className="p-3 sm:p-4 border-b border-gray-100 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
             <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search contacts..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
+                className="input pl-9"
+                aria-label="Search contacts"
               />
             </div>
-            {/* Batch filter */}
-            <select
-              value={filterBatch}
-              onChange={e => { setFilterBatch(e.target.value); setSelectedIds(new Set()); setSelectAll(false); }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Batches ({contacts.length})</option>
-              {allBatches.map(b => (
-                <option key={b} value={b}>{b} ({contacts.filter(c => (c.dataName || 'Uncategorized') === b).length})</option>
-              ))}
-            </select>
-            {selectedIds.size > 0 && (
-              <button onClick={handleDeleteSelected} disabled={deleting}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+            <div className="flex gap-2">
+              {/* Batch filter */}
+              <select
+                value={filterBatch}
+                onChange={e => { setFilterBatch(e.target.value); setSelectedIds(new Set()); setSelectAll(false); }}
+                className="input flex-1 sm:w-60"
+                aria-label="Filter by batch"
               >
-                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedDeleteIcon className="w-4 h-4" />}
-                Delete ({selectedIds.size})
-              </button>
-            )}
+                <option value="all">All Batches ({contacts.length})</option>
+                {allBatches.map(b => (
+                  <option key={b} value={b}>{b} ({contacts.filter(c => (c.dataName || 'Uncategorized') === b).length})</option>
+                ))}
+              </select>
+              {selectedIds.size > 0 && (
+                <button onClick={handleDeleteSelected} disabled={deleting}
+                  className="btn btn-danger h-10 shrink-0"
+                >
+                  {deleting ? <Loader2 className="animate-spin" /> : <AnimatedDeleteIcon className="w-4 h-4" />}
+                  Delete ({selectedIds.size})
+                </button>
+              )}
+            </div>
           </div>
           {filterBatch !== 'all' && (
-            <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg">
-              <Tag className="w-3 h-3" />
-              Showing batch: <strong>{filterBatch}</strong> — {filteredContacts.length} contacts
-              <button
-                onClick={() => handleDedupe(filterBatch)}
-                disabled={deduping}
-                className="ml-auto text-blue-700 hover:text-blue-900 font-medium disabled:opacity-50 flex items-center gap-1"
-              >
-                {deduping && <Loader2 className="w-3 h-3 animate-spin" />}
-                Remove duplicates
-              </button>
-              <button onClick={() => setFilterBatch('all')} className="text-blue-500 hover:text-blue-700"><X className="w-3 h-3" /></button>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 pl-3 pr-1.5 py-1.5 rounded-lg">
+              <span className="flex items-center gap-2 min-w-0">
+                <Tag className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                <span className="truncate">Showing batch: <strong className="font-semibold text-gray-900">{filterBatch}</strong> — <span className="tabular-nums">{filteredContacts.length}</span> contacts</span>
+              </span>
+              <span className="ml-auto flex items-center gap-1">
+                <button
+                  onClick={() => handleDedupe(filterBatch)}
+                  disabled={deduping}
+                  className="btn btn-danger-ghost btn-sm"
+                >
+                  {deduping && <Loader2 className="animate-spin" />}
+                  Remove duplicates
+                </button>
+                <button onClick={() => setFilterBatch('all')} className="btn btn-ghost btn-sm btn-icon w-8" aria-label="Clear batch filter"><X /></button>
+              </span>
             </div>
           )}
         </div>
@@ -765,35 +767,59 @@ export default function ContactsPage() {
           // backend failed for any reason (down, quota-exceeded, a bad
           // response), which made a real outage indistinguishable from an
           // empty account and impossible to diagnose from this page alone.
-          <div className="p-8 text-center">
-            <TriangleAlert className="w-12 h-12 text-red-300 mx-auto mb-4" />
-            <p className="text-red-600 font-semibold">Couldn&apos;t load contacts</p>
-            <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto break-words">
+          <div className="px-6 py-12 text-center">
+            <TriangleAlert className="w-8 h-8 text-red-400 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-gray-900">Couldn&apos;t load contacts</p>
+            <p className="text-sm text-gray-500 mt-1 max-w-md mx-auto break-words">
               {contactsError.message || "The contacts source didn't respond as expected."}
             </p>
             <button
               onClick={() => reloadContacts()}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+              className="btn btn-secondary mt-4"
             >
               Try again
             </button>
           </div>
         ) : contacts.length === 0 ? (
-          <div className="p-8 text-center">
-            <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No contacts found</p>
-            <p className="text-sm text-gray-400 mt-2">
+          <div className="px-6 py-12 text-center">
+            <div className="w-11 h-11 rounded-full bg-gray-100 grid place-items-center mx-auto mb-3">
+              <Users className="w-5 h-5 text-gray-400" />
+            </div>
+            <p className="text-sm font-semibold text-gray-900">No contacts found</p>
+            <p className="text-sm text-gray-500 mt-1">
               Import a CSV file to add contacts
             </p>
+            <button onClick={() => setShowImportModal(true)} className="btn btn-primary mt-4">
+              <Upload />
+              Import
+            </button>
+          </div>
+        ) : filteredContacts.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            {viewMode === "failed" && failedLoading ? (
+              <p className="text-sm text-gray-500">Loading failed numbers…</p>
+            ) : (
+              <>
+                <Search className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-gray-900">
+                  {viewMode === "failed" && !searchTerm && filterBatch === "all" ? "No failed numbers" : "No contacts match these filters"}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {viewMode === "failed" && !searchTerm && filterBatch === "all"
+                    ? "Numbers that fail to receive a message will appear here."
+                    : "Try a different search, or pick another batch."}
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full">
+              <thead className="table-head">
                 <tr>
                   {viewMode === "good" ? (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-10">
-                      <button onClick={toggleSelectAll} className="p-1 hover:bg-gray-100 rounded">
+                    <th className="w-10 !pl-3 !pr-0">
+                      <button onClick={toggleSelectAll} className="p-1 hover:bg-gray-200/60 rounded" aria-label={selectAll ? "Deselect all" : "Select all"}>
                         {selectAll ? (
                           <CheckSquare className="w-4 h-4 text-blue-600" />
                         ) : (
@@ -802,24 +828,24 @@ export default function ContactsPage() {
                       </button>
                     </th>
                   ) : (
-                    <th className="px-6 py-3 w-10" />
+                    <th className="w-10 !pl-3 !pr-0" />
                   )}
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Batch / Tags</th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th className="hidden sm:table-cell">Batch / Tags</th>
                   {viewMode === "failed" ? (
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                    <th>Reason</th>
                   ) : (
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Added</th>
+                    <th className="hidden md:table-cell">Added</th>
                   )}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {pagedContacts.map((contact) => (
-                  <tr key={contact.id} className="hover:bg-gray-50">
+                  <tr key={contact.id} className={`table-row ${selectedIds.has(contact.id) ? "bg-blue-50/50" : ""}`}>
                     {viewMode === "good" ? (
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <button onClick={() => toggleSelect(contact.id)} className="p-1 hover:bg-gray-100 rounded">
+                      <td className="!pl-3 !pr-0 whitespace-nowrap">
+                        <button onClick={() => toggleSelect(contact.id)} className="p-1 hover:bg-gray-200/60 rounded" aria-label={`Select ${String(contact.name ?? '')}`}>
                           {selectedIds.has(contact.id) ? (
                             <CheckSquare className="w-4 h-4 text-blue-600" />
                           ) : (
@@ -828,25 +854,25 @@ export default function ContactsPage() {
                         </button>
                       </td>
                     ) : (
-                      <td className="px-3 py-3" />
+                      <td className="!pl-3 !pr-0" />
                     )}
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                          <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center font-medium text-sm ${
-                            viewMode === "failed" ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
+                    <td className="whitespace-nowrap">
+                      <div className="flex items-center gap-2.5">
+                          <div className={`w-8 h-8 rounded-full shrink-0 grid place-items-center font-semibold text-[13px] ${
+                            viewMode === "failed" ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-700"
                           }`}>
                             {String(contact.name ?? '?').charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-gray-900 text-sm">{String(contact.name ?? 'Unknown')}</span>
+                          <span className="font-medium text-gray-900">{String(contact.name ?? 'Unknown')}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-gray-600 text-sm">
+                    <td className="whitespace-nowrap tabular-nums">
                       {String(contact.phone ?? '—')}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap hidden sm:table-cell">
+                    <td className="whitespace-nowrap hidden sm:table-cell">
                       <div className="flex flex-wrap gap-1">
                         {contact.dataName && (
-                          <span className="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                          <span className="badge badge-blue">
                             {contact.dataName}
                           </span>
                         )}
@@ -856,19 +882,19 @@ export default function ContactsPage() {
                              : typeof t === 'string' ? (t as string).split(',').filter(Boolean)
                              : [];
                            return tags.map((tag) => (
-                             <span key={tag} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">{tag}</span>
+                             <span key={tag} className="badge badge-gray">{tag}</span>
                            ));
                          })()}
                       </div>
                     </td>
                     {viewMode === "failed" ? (
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                      <td className="whitespace-nowrap">
+                        <span className="badge badge-red">
                           {(contact as any).failReason || 'Unknown'}
                         </span>
                       </td>
                     ) : (
-                      <td className="px-3 py-3 whitespace-nowrap text-gray-500 text-sm hidden md:table-cell">
+                      <td className="whitespace-nowrap !text-gray-500 hidden md:table-cell">
                          {contact.addedAt ? (() => { try { return new Date(contact.addedAt).toLocaleDateString(); } catch { return '—'; } })() : '—'}
                       </td>
                     )}
@@ -880,24 +906,24 @@ export default function ContactsPage() {
         )}
 
         {filteredContacts.length > 0 && totalPages > 1 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
-            <p className="text-xs text-gray-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-gray-100">
+            <p className="text-sm text-gray-500 tabular-nums">
               Showing <span className="font-medium text-gray-700">{(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredContacts.length)}</span> of{" "}
               <span className="font-medium text-gray-700">{filteredContacts.length}</span>
             </p>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn btn-secondary btn-sm"
               >
                 Previous
               </button>
-              <span className="text-xs text-gray-500 px-2 tabular-nums">Page {currentPage} / {totalPages}</span>
+              <span className="text-sm text-gray-500 px-1 tabular-nums">Page {currentPage} / {totalPages}</span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn btn-secondary btn-sm"
               >
                 Next
               </button>
@@ -905,7 +931,6 @@ export default function ContactsPage() {
           </div>
         )}
       </div>
-
       {showImportModal && (
         <ImportModal
           dragOver={dragOver}

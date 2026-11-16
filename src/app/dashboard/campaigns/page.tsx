@@ -3,8 +3,8 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { fetcher, metaSwrConfig } from "@/lib/swr";
-import { Megaphone, TrendingUp, RefreshCw, Eye, Target, DollarSign, Users } from "lucide-react";
-import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
+import { Megaphone, TrendingUp, RefreshCw, Target, IndianRupee, Users } from "lucide-react";
+import PageHeader from "@/components/ui/PageHeader";
 import { StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 
 const ACCOUNTS = [
@@ -15,9 +15,9 @@ const ACCOUNTS = [
 ];
 
 const ACCOUNT_COLORS: Record<string, string> = {
-  "1": "bg-blue-100 text-blue-700",
-  "2": "bg-purple-100 text-purple-700",
-  "3": "bg-orange-100 text-orange-700",
+  "1": "badge-blue",
+  "2": "bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/15",
+  "3": "bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/15",
 };
 
 interface Campaign {
@@ -40,17 +40,17 @@ function currency(n: number) { return `₹${n.toLocaleString('en-IN', { minimumF
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, string> = {
-    ACTIVE: "bg-green-100 text-green-700",
-    PAUSED: "bg-yellow-100 text-yellow-700",
-    COMPLETED: "bg-gray-100 text-gray-600",
-    ARCHIVED: "bg-red-100 text-red-600",
+    ACTIVE: "badge-green",
+    PAUSED: "badge-amber",
+    COMPLETED: "badge-gray",
+    ARCHIVED: "badge-red",
   };
-  return <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${cfg[status] || "bg-gray-100 text-gray-600"}`}>{status}</span>;
+  return <span className={`badge ${cfg[status] || "badge-gray"}`}>{status.charAt(0) + status.slice(1).toLowerCase()}</span>;
 }
 
 function CplBadge({ cpl }: { cpl: number }) {
   if (!cpl) return <span className="text-gray-400">—</span>;
-  const color = cpl < 300 ? "text-green-600 font-semibold" : cpl < 600 ? "text-yellow-600 font-semibold" : "text-red-600 font-semibold";
+  const color = cpl < 300 ? "text-green-700 font-semibold" : cpl < 600 ? "text-amber-700 font-semibold" : "text-red-700 font-semibold";
   return <span className={color}>{currency(cpl)}</span>;
 }
 
@@ -62,7 +62,6 @@ const OBJ: Record<string, string> = {
 
 export default function CampaignsPage() {
   const [selectedAccount, setSelectedAccount] = useState("all");
-  const [showDropdown, setShowDropdown] = useState(false);
   const [sortBy, setSortBy] = useState<"spend" | "cpl" | "leads">("spend");
 
   const { data, isLoading, isValidating, mutate, error: swrErr } =
@@ -97,72 +96,60 @@ export default function CampaignsPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Campaigns</h1>
-          <p className="text-gray-500 text-sm">Last 30 days · {campaigns.length} campaigns · {activeCount} active</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {/* Account selector */}
-          <div className="relative">
-            <button onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-              {ACCOUNTS.find(a => a.id === selectedAccount)?.name}
-              <AnimatedChevronDown open={showDropdown} className="w-4 h-4 text-gray-500" />
+      <PageHeader
+        title="Campaigns"
+        description={`Last 30 days · ${campaigns.length} campaigns · ${activeCount} active`}
+        actions={
+          <>
+            <select
+              value={selectedAccount}
+              onChange={(e) => setSelectedAccount(e.target.value)}
+              className="input h-9 w-auto min-w-[10rem]"
+              aria-label="Ad account"
+            >
+              {ACCOUNTS.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <button onClick={fetchCampaigns} disabled={refreshing} className="btn btn-secondary">
+              <RefreshCw className={refreshing ? "animate-spin" : ""} />
+              Refresh
             </button>
-            {showDropdown && (
-              <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                {ACCOUNTS.map(a => (
-                  <button key={a.id} onClick={() => { setSelectedAccount(a.id); setShowDropdown(false); }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedAccount === a.id ? "bg-blue-50 text-blue-600 font-medium" : "text-gray-700"}`}>
-                    {a.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button onClick={fetchCampaigns} disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm">
-            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
         {[
-          { label: "Campaigns", value: campaigns.length, icon: Megaphone, color: "blue" },
-          { label: "Active", value: activeCount, icon: TrendingUp, color: "green" },
-          { label: "Total Spend", value: currency(totalSpend), icon: DollarSign, color: "purple" },
-          { label: "Total Leads", value: totalLeads.toLocaleString(), icon: Users, color: "indigo" },
-          { label: "Avg CPL", value: avgCpl > 0 ? currency(avgCpl) : "—", icon: Target, color: avgCpl < 300 ? "green" : avgCpl < 600 ? "yellow" : "red" },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg bg-${color}-100`}>
-                <Icon className={`w-4 h-4 text-${color}-600`} />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">{label}</p>
-                <p className="text-lg font-bold text-gray-900">{value}</p>
-              </div>
+          { label: "Campaigns", value: campaigns.length, icon: Megaphone, tile: "bg-blue-50 text-blue-600" },
+          { label: "Active", value: activeCount, icon: TrendingUp, tile: "bg-green-50 text-green-600" },
+          { label: "Total Spend", value: currency(totalSpend), icon: IndianRupee, tile: "bg-gray-100 text-gray-600" },
+          { label: "Total Leads", value: totalLeads.toLocaleString(), icon: Users, tile: "bg-blue-50 text-blue-600" },
+          { label: "Avg CPL", value: avgCpl > 0 ? currency(avgCpl) : "—", icon: Target, tile: avgCpl < 300 ? "bg-green-50 text-green-600" : avgCpl < 600 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600" },
+        ].map(({ label, value, icon: Icon, tile }) => (
+          <div key={label} className="card p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="stat-label">{label}</p>
+              <span className={`grid place-items-center w-8 h-8 rounded-lg ${tile}`}>
+                <Icon className="w-4 h-4" />
+              </span>
             </div>
+            <p className="stat-value text-xl">{value}</p>
           </div>
         ))}
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-gray-700">Campaign Performance</span>
-          <div className="flex flex-wrap gap-1">
+      <div className="card overflow-hidden">
+        <div className="card-header flex-wrap">
+          <div>
+            <h2 className="card-title">Campaign Performance</h2>
+            <p className="card-subtitle">Sorted by {sortBy === "cpl" ? "CPL" : sortBy}, highest first</p>
+          </div>
+          <div className="segmented" role="group" aria-label="Sort campaigns by">
             {(["spend", "leads", "cpl"] as const).map(s => (
-              <button key={s} onClick={() => setSortBy(s)}
-                className={`px-3 py-1 text-xs rounded-lg font-medium ${sortBy === s ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              <button key={s} onClick={() => setSortBy(s)} data-active={sortBy === s} className="segmented-item h-7 text-[13px]">
                 {s === "cpl" ? "CPL" : s.charAt(0).toUpperCase() + s.slice(1)}
               </button>
             ))}
@@ -170,57 +157,60 @@ export default function CampaignsPage() {
         </div>
 
         {sorted.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
-            <Megaphone className="w-10 h-10 mx-auto mb-2 text-gray-200" />
-            <p>No campaigns found for selected account</p>
+          <div className="px-6 py-14 text-center">
+            <div className="mx-auto mb-3 grid place-items-center w-12 h-12 rounded-full bg-gray-100">
+              <Megaphone className="w-6 h-6 text-gray-400" />
+            </div>
+            <p className="font-medium text-gray-900">No campaigns found</p>
+            <p className="text-sm text-gray-500 mt-1">Try another ad account from the selector above.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
-                  <th className="px-5 py-3 text-left font-medium">Campaign</th>
-                  {selectedAccount === "all" && <th className="px-4 py-3 text-left font-medium">Account</th>}
-                  <th className="px-4 py-3 text-left font-medium">Status</th>
-                  <th className="px-4 py-3 text-right font-medium">Spend</th>
-                  <th className="px-4 py-3 text-right font-medium">Impressions</th>
-                  <th className="px-4 py-3 text-right font-medium">Clicks</th>
-                  <th className="px-4 py-3 text-right font-medium">CTR</th>
-                  <th className="px-4 py-3 text-right font-medium">Leads</th>
-                  <th className="px-4 py-3 text-right font-medium">CPL 🎯</th>
+                <tr className="table-head">
+                  <th className="!pl-5">Campaign</th>
+                  {selectedAccount === "all" && <th>Account</th>}
+                  <th>Status</th>
+                  <th className="text-right">Spend</th>
+                  <th className="text-right">Impressions</th>
+                  <th className="text-right">Clicks</th>
+                  <th className="text-right">CTR</th>
+                  <th className="text-right">Leads</th>
+                  <th className="text-right !pr-5">CPL</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {sorted.map(c => (
-                  <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3">
+                  <tr key={c.id} className="table-row">
+                    <td className="!pl-5">
                       <div className="font-medium text-gray-900 max-w-xs truncate" title={c.name}>{c.name}</div>
-                      <div className="text-xs text-gray-400">{OBJ[c.objective] || c.objective}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{OBJ[c.objective] || c.objective}</div>
                     </td>
                     {selectedAccount === "all" && (
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ACCOUNT_COLORS[c.accountId || "1"]}`}>
+                      <td>
+                        <span className={`badge ${ACCOUNT_COLORS[c.accountId || "1"]}`}>
                           {c.accountName}
                         </span>
                       </td>
                     )}
-                    <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-800">{currency(c.insights?.spend || 0)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{fmt(c.insights?.impressions || 0)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{fmt(c.insights?.clicks || 0)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">
-                      <span className={(c.insights?.ctr || 0) >= 2 ? "text-green-600 font-medium" : ""}>
+                    <td><StatusBadge status={c.status} /></td>
+                    <td className="text-right font-medium !text-gray-900">{currency(c.insights?.spend || 0)}</td>
+                    <td className="text-right">{fmt(c.insights?.impressions || 0)}</td>
+                    <td className="text-right">{fmt(c.insights?.clicks || 0)}</td>
+                    <td className="text-right">
+                      <span className={(c.insights?.ctr || 0) >= 2 ? "text-green-700 font-medium" : ""}>
                         {(c.insights?.ctr || 0).toFixed(2)}%
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-800">{c.insights?.leads || 0}</td>
-                    <td className="px-4 py-3 text-right"><CplBadge cpl={c.insights?.cpl || 0} /></td>
+                    <td className="text-right font-semibold !text-gray-900">{c.insights?.leads || 0}</td>
+                    <td className="text-right !pr-5"><CplBadge cpl={c.insights?.cpl || 0} /></td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className="bg-gray-50 font-semibold text-gray-700 text-sm">
-                  <td className="px-5 py-3" colSpan={selectedAccount === "all" ? 3 : 2}>Total / Avg</td>
+                <tr className="border-t border-gray-200 bg-gray-50/80 font-semibold text-gray-900 text-sm">
+                  <td className="pl-5 pr-4 py-3" colSpan={selectedAccount === "all" ? 3 : 2}>Total / Avg</td>
                   <td className="px-4 py-3 text-right">{currency(totalSpend)}</td>
                   <td className="px-4 py-3 text-right">{fmt(totalImpr)}</td>
                   <td className="px-4 py-3 text-right">{fmt(totalClicks)}</td>
@@ -228,7 +218,7 @@ export default function CampaignsPage() {
                     {totalImpr > 0 ? `${((totalClicks / totalImpr) * 100).toFixed(2)}%` : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">{totalLeads}</td>
-                  <td className="px-4 py-3 text-right"><CplBadge cpl={avgCpl} /></td>
+                  <td className="pl-4 pr-5 py-3 text-right"><CplBadge cpl={avgCpl} /></td>
                 </tr>
               </tfoot>
             </table>

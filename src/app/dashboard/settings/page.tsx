@@ -10,6 +10,7 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { FormSkeleton } from "@/components/Skeletons";
+import PageHeader from "@/components/ui/PageHeader";
 import { fetcher, swrConfig } from "@/lib/swr";
 
 type Slot = "1" | "2" | "3";
@@ -147,16 +148,16 @@ function MetaConnections() {
   const expiringSoon = slots.filter((s) => s.connected && s.daysUntilExpiry !== null && s.daysUntilExpiry <= 7);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-      <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Meta Connection</h2>
-          <p className="text-sm text-gray-500">Campaigns, leads, and WhatsApp all use this login.</p>
+    <section className="card overflow-hidden">
+      <div className="card-header flex-wrap">
+        <div className="min-w-0">
+          <h2 className="card-title">Meta Connection</h2>
+          <p className="card-subtitle">Campaigns, leads, and WhatsApp all use this login.</p>
         </div>
         <button
           onClick={handleConnect}
           disabled={connecting || !user}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1877F2] text-white rounded-lg hover:bg-[#1567d3] disabled:opacity-50 text-sm font-medium"
+          className="btn bg-[#1877F2] text-white shadow-sm hover:bg-[#1567d3]"
         >
           {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Facebook className="w-4 h-4" />}
           {anyConnected ? "Connect another account" : "Connect with Facebook"}
@@ -164,15 +165,15 @@ function MetaConnections() {
       </div>
 
       {connectError && (
-        <div className="m-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+        <div className="mx-4 sm:mx-5 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
           <XCircle className="w-4 h-4 text-red-500 shrink-0" />
           <span className="text-red-700 text-sm flex-1">{connectError}</span>
-          <button onClick={() => setConnectError(null)} className="text-red-500 hover:text-red-700"><XCircle className="w-4 h-4" /></button>
+          <button onClick={() => setConnectError(null)} aria-label="Dismiss error" className="grid place-items-center w-7 h-7 rounded-md text-red-500 hover:bg-red-100 hover:text-red-700"><XCircle className="w-4 h-4" /></button>
         </div>
       )}
 
       {expiringSoon.length > 0 && (
-        <div className="m-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+        <div className="mx-4 sm:mx-5 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
           <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-sm text-amber-800">
             {expiringSoon.map((s) => `Account ${s.slot}`).join(", ")} expiring soon — reconnect before it stops working.
@@ -182,8 +183,8 @@ function MetaConnections() {
 
       {/* Asset picker — shown right after a login redirect, until assigned to a slot */}
       {pendingId && (
-        <div className="m-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
-          <h3 className="font-semibold text-blue-900 mb-1">Choose what each account slot uses</h3>
+        <div className="mx-4 sm:mx-5 mt-4 p-4 border border-blue-200 bg-blue-50/60 rounded-lg">
+          <h3 className="text-sm font-semibold text-blue-900 mb-1">Choose what each account slot uses</h3>
           {pendingData?.connectedByName && (
             <p className="text-sm text-blue-700 mb-3">Signed in as {pendingData.connectedByName} on Facebook.</p>
           )}
@@ -197,11 +198,11 @@ function MetaConnections() {
                 {SLOTS.map((slot) => (
                   <div key={slot} className="bg-white rounded-lg border border-blue-100 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Account {slot} — Ad Account</label>
+                      <label className="field-label text-xs">Account {slot} — Ad Account</label>
                       <select
                         value={assignments[slot]?.adAccountId || ""}
                         onChange={(e) => handleAssignmentChange(slot, "adAccountId", e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                        className="input"
                       >
                         <option value="">Not used</option>
                         {pendingData.adAccounts.map((a) => (
@@ -210,11 +211,11 @@ function MetaConnections() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Account {slot} — WhatsApp Number</label>
+                      <label className="field-label text-xs">Account {slot} — WhatsApp Number</label>
                       <select
                         value={assignments[slot]?.phoneNumberId || ""}
                         onChange={(e) => handleAssignmentChange(slot, "phoneNumberId", e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                        className="input"
                       >
                         <option value="">Not used</option>
                         {pendingData.wabas.flatMap((w) => w.phoneNumbers.map((p) => (
@@ -229,14 +230,14 @@ function MetaConnections() {
                 <button
                   onClick={handleSaveSelection}
                   disabled={saving}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+                  className="btn btn-primary"
                 >
                   {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   Save
                 </button>
                 <button
                   onClick={() => { setPendingId(null); setPendingData(null); setAssignments({}); }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                  className="btn btn-secondary"
                 >
                   Cancel
                 </button>
@@ -246,27 +247,27 @@ function MetaConnections() {
         </div>
       )}
 
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-gray-100 mt-1">
         {slots.map((s) => (
-          <div key={s.slot} className="p-4 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-3">
-              <div className={`w-2.5 h-2.5 rounded-full ${s.connected ? "bg-green-500" : "bg-gray-300"}`} />
-              <div>
-                <p className="font-medium text-gray-900">Account {s.slot}{s.label ? ` — ${s.label}` : ""}</p>
-                <p className="text-xs text-gray-500 flex items-center gap-1.5">
+          <div key={s.slot} className="px-4 sm:px-5 py-3.5 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`w-2 h-2 rounded-full shrink-0 ring-4 ${s.connected ? "bg-green-500 ring-green-100" : "bg-gray-300 ring-gray-100"}`} />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900">Account {s.slot}{s.label ? ` — ${s.label}` : ""}</p>
+                <p className="mt-0.5 text-xs text-gray-500">
                   {s.connected ? (
                     <>
-                      <CheckCircle2 className="w-3 h-3 text-green-600" />
+                      <CheckCircle2 className="inline w-3 h-3 mr-1 -mt-px text-green-600" />
                       Connected
                       {s.daysUntilExpiry !== null && (
                         <span className={s.daysUntilExpiry <= 7 ? "text-amber-600 font-medium" : ""}>
-                          · expires in {s.daysUntilExpiry}d
+                          {" "}· expires in {s.daysUntilExpiry}d
                         </span>
                       )}
                     </>
                   ) : (
                     <>
-                      <Clock className="w-3 h-3 text-gray-400" />
+                      <Clock className="inline w-3 h-3 mr-1 -mt-px text-gray-400" />
                       Not connected — using environment variables, if configured
                     </>
                   )}
@@ -277,7 +278,7 @@ function MetaConnections() {
               <button
                 onClick={() => handleDisconnect(s.slot)}
                 disabled={disconnectingSlot === s.slot}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                className="btn btn-sm btn-danger-ghost"
               >
                 {disconnectingSlot === s.slot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unlink className="w-3.5 h-3.5" />}
                 Disconnect
@@ -287,11 +288,11 @@ function MetaConnections() {
         ))}
       </div>
 
-      <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-500">
-        <RefreshCw className="w-3 h-3" />
+      <div className="px-4 sm:px-5 py-3 bg-gray-50/80 border-t border-gray-100 flex items-start gap-2 text-xs text-gray-500">
+        <RefreshCw className="w-3 h-3 mt-0.5 shrink-0" />
         Meta logins expire after about 60 days — reconnect from here when the warning above appears.
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -353,47 +354,74 @@ function RegisteredDevices() {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 mt-6 overflow-hidden">
-      <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
-        <Smartphone className="w-5 h-5 text-gray-400" />
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Registered Devices</h2>
-          <p className="text-sm text-gray-500">
+    <section className="card overflow-hidden">
+      <div className="card-header">
+        <div className="min-w-0">
+          <h2 className="card-title">Registered Devices</h2>
+          <p className="card-subtitle">
             {devices.length} device{devices.length === 1 ? "" : "s"} receiving push notifications
           </p>
         </div>
       </div>
       {devices.length === 0 ? (
-        <p className="p-6 text-sm text-gray-400 text-center">No devices registered yet</p>
-      ) : (
-        <div className="divide-y divide-gray-100">
-          {devices.map((d) => (
-            <div key={d.token} className="p-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <PlatformIcon platform={d.platform} />
-                <div className="min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{d.label}</p>
-                  <p className="text-xs text-gray-500">
-                    {d.platform}{d.osVersion ? ` ${d.osVersion}` : ""} · Last active {timeAgo(d.updatedAt)}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Installed {formatDate(d.registeredAt)}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => handleRemove(d.token)}
-                disabled={removingToken === d.token}
-                className="text-red-500 hover:text-red-700 disabled:opacity-50 shrink-0 p-1"
-                title="Remove this device"
-              >
-                {removingToken === d.token ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              </button>
-            </div>
-          ))}
+        <div className="px-5 py-10 text-center">
+          <Smartphone className="w-8 h-8 text-gray-300 mx-auto" />
+          <p className="mt-2 text-sm font-medium text-gray-700">No devices registered yet</p>
         </div>
+      ) : (
+        <>
+          {/* Column headings on desktop; phones get stacked rows */}
+          <div className={`hidden md:grid ${DEVICE_COLS} gap-4 px-5 py-2.5 bg-gray-50/80 border-b border-gray-100 text-xs font-medium text-gray-500`}>
+            <span>Device</span><span>Platform</span><span>Last active</span><span>Installed</span><span className="sr-only">Actions</span>
+          </div>
+          <ul className="divide-y divide-gray-100">
+            {devices.map((d) => (
+              <li key={d.token} className={`px-4 sm:px-5 py-3 flex items-center gap-3 md:grid ${DEVICE_COLS} md:gap-4 hover:bg-gray-50/60 transition-colors`}>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <span className="grid place-items-center w-8 h-8 rounded-lg bg-gray-100 shrink-0"><PlatformIcon platform={d.platform} /></span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{d.label}</p>
+                    <p className="md:hidden text-xs text-gray-500">
+                      {d.platform}{d.osVersion ? ` ${d.osVersion}` : ""} · Last active {timeAgo(d.updatedAt)}
+                    </p>
+                    <p className="md:hidden text-xs text-gray-400">
+                      Installed {formatDate(d.registeredAt)}
+                    </p>
+                  </div>
+                </div>
+                <span className="hidden md:block text-sm text-gray-600 truncate">{d.platform}{d.osVersion ? ` ${d.osVersion}` : ""}</span>
+                <span className="hidden md:block text-sm text-gray-600 tabular-nums">{timeAgo(d.updatedAt)}</span>
+                <span className="hidden md:block text-sm text-gray-600 truncate">{formatDate(d.registeredAt)}</span>
+                <button
+                  onClick={() => handleRemove(d.token)}
+                  disabled={removingToken === d.token}
+                  className="btn btn-sm btn-icon w-8 btn-danger-ghost shrink-0"
+                  title="Remove this device"
+                  aria-label={`Remove ${d.label}`}
+                >
+                  {removingToken === d.token ? <Loader2 className="animate-spin" /> : <Trash2 />}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
-    </div>
+    </section>
+  );
+}
+
+const DEVICE_COLS = "md:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)_2rem]";
+
+function SettingSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
+  return (
+    <label className="flex items-center justify-between gap-4 px-4 sm:px-5 py-3.5 cursor-pointer hover:bg-gray-50/60 transition-colors">
+      <span className="text-sm font-medium text-gray-900">{label}</span>
+      <span className="relative inline-flex shrink-0">
+        <input type="checkbox" role="switch" checked={checked} onChange={onChange} className="peer sr-only" />
+        <span className="w-10 h-6 rounded-full bg-gray-200 transition-colors peer-checked:bg-blue-600 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2" />
+        <span className="pointer-events-none absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4" />
+      </span>
+    </label>
   );
 }
 
@@ -427,56 +455,33 @@ function SettingsContent() {
   }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600">Manage your Meta Business accounts</p>
-      </div>
+    <div className="max-w-4xl">
+      <PageHeader title="Settings" description="Manage your Meta Business accounts" />
 
-      <MetaConnections />
+      <div className="space-y-6">
+        <MetaConnections />
 
-      <div className="max-w-md">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Bell className="w-5 h-5 text-gray-400" />
-            <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
+        <section className="card overflow-hidden">
+          <div className="card-header">
+            <div className="flex items-start gap-3 min-w-0">
+              <Bell className="w-[18px] h-[18px] text-gray-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <h2 className="card-title">Notifications</h2>
+                <p className="card-subtitle">
+                  Browser notifications work when the app is open in a browser tab. Background push is the fallback for when the browser is closed.
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="space-y-4">
-            <label className="flex items-center justify-between gap-3">
-              <span className="text-gray-700">Browser notifications</span>
-              <input
-                type="checkbox"
-                checked={browserNotificationsEnabled}
-                onChange={toggleBrowserNotifications}
-                className="w-5 h-5 text-blue-600"
-              />
-            </label>
-            <label className="flex items-center justify-between gap-3">
-              <span className="text-gray-700">Sound alerts</span>
-              <input
-                type="checkbox"
-                checked={soundEnabled}
-                onChange={toggleSound}
-                className="w-5 h-5 text-blue-600"
-              />
-            </label>
-            <label className="flex items-center justify-between gap-3">
-              <span className="text-gray-700">Background push (FCM)</span>
-              <input
-                type="checkbox"
-                checked={backgroundPushEnabled}
-                onChange={toggleBackgroundPush}
-                className="w-5 h-5 text-blue-600"
-              />
-            </label>
+          <div className="divide-y divide-gray-100">
+            <SettingSwitch label="Browser notifications" checked={browserNotificationsEnabled} onChange={toggleBrowserNotifications} />
+            <SettingSwitch label="Sound alerts" checked={soundEnabled} onChange={toggleSound} />
+            <SettingSwitch label="Background push (FCM)" checked={backgroundPushEnabled} onChange={toggleBackgroundPush} />
           </div>
-          <p className="text-sm text-gray-500 mt-3">
-            Browser notifications work when the app is open in a browser tab. Background push is the fallback for when the browser is closed.
-          </p>
-        </div>
-      </div>
+        </section>
 
-      <RegisteredDevices />
+        <RegisteredDevices />
+      </div>
     </div>
   );
 }

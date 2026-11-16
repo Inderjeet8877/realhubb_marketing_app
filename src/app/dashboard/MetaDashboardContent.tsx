@@ -18,11 +18,16 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-const CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
-const ACCOUNT_COLORS: Record<string, { bg: string; text: string; badge: string }> = {
-  "1": { bg: "bg-blue-50",   text: "text-blue-700",   badge: "bg-blue-100 text-blue-700"   },
-  "2": { bg: "bg-purple-50", text: "text-purple-700", badge: "bg-purple-100 text-purple-700" },
-  "3": { bg: "bg-orange-50", text: "text-orange-700", badge: "bg-orange-100 text-orange-700" },
+const CHART_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6"];
+// Status slices keep a fixed meaning: live = green, paused = neutral gray.
+const STATUS_COLORS: Record<string, string> = { ACTIVE: "#16a34a", PAUSED: "#9ca3af", ARCHIVED: "#d1d5db", DELETED: "#ef4444" };
+const AXIS_TICK = { fontSize: 11, fill: "#6b7280" };
+const TOOLTIP_STYLE = { borderRadius: 8, border: "1px solid #e5e7eb", boxShadow: "0 4px 12px rgba(16,24,40,0.08)", fontSize: 12 };
+// Each ad account keeps one identity colour (dot, badge, spend bar).
+const ACCOUNT_COLORS: Record<string, { dot: string; bar: string; badge: string }> = {
+  "1": { dot: "bg-blue-500",   bar: "bg-blue-500",   badge: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/15"       },
+  "2": { dot: "bg-violet-500", bar: "bg-violet-500", badge: "bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-600/15" },
+  "3": { dot: "bg-orange-500", bar: "bg-orange-500", badge: "bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/15" },
 };
 
 const ACCOUNTS = [
@@ -57,27 +62,30 @@ interface Campaign {
 function fmt(n: number) { return n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toString(); }
 function currency(n: number) { return n > 0 ? `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"; }
 
-function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: any; color: string }) {
+function StatCard({ label, value, sub, icon: Icon }: { label: string; value: string; sub?: React.ReactNode; icon: any }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs text-gray-500 font-medium mb-1">{label}</p>
-          <p className="text-xl sm:text-2xl font-bold text-gray-900">{value}</p>
-          {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
-        </div>
-        <div className={`p-2.5 rounded-xl ${color}`}>
-          <Icon className="w-5 h-5" />
-        </div>
+    <div className="card p-4 sm:p-5 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <p className="stat-label truncate">{label}</p>
+        <Icon className="w-4 h-4 text-gray-400 shrink-0" />
       </div>
+      <p className="stat-value truncate" title={value}>{value}</p>
+      <div className="mt-1 h-5 text-xs text-gray-500 truncate">{sub}</div>
     </div>
   );
 }
 
 function CplBadge({ cpl }: { cpl: number }) {
   if (!cpl) return <span className="text-gray-400 text-sm">—</span>;
-  const cls = cpl < 300 ? "text-green-600 font-bold" : cpl < 600 ? "text-yellow-600 font-bold" : "text-red-600 font-bold";
-  return <span className={`text-sm ${cls}`}>{currency(cpl)}</span>;
+  const cls = cpl < 300 ? "text-green-700" : cpl < 600 ? "text-amber-700" : "text-red-700";
+  return <span className={`text-sm font-semibold ${cls}`}>{currency(cpl)}</span>;
+}
+
+function CplRating({ cpl }: { cpl: number }) {
+  if (!cpl) return null;
+  if (cpl < 300) return <span className="badge badge-green">Good</span>;
+  if (cpl < 600) return <span className="badge badge-amber">Moderate</span>;
+  return <span className="badge badge-red">High</span>;
 }
 
 export default function MetaDashboardContent() {
@@ -344,12 +352,12 @@ export default function MetaDashboardContent() {
   };
 
   if (loading) return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <StatCardsSkeleton count={6} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <AppSkeletonTheme>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="card p-5">
               <Skeleton width={140} height={16} style={{ marginBottom: 16 }} />
               <Skeleton height={260} />
             </div>
@@ -360,46 +368,46 @@ export default function MetaDashboardContent() {
     </div>
   );
 
+  const reportSpend = reportCamps.reduce((s, c) => s + (c.insights?.spend || 0), 0);
+  const reportLeads = reportCamps.reduce((s, c) => s + (c.insights?.leads || 0), 0);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap justify-between items-center gap-2">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 text-sm">Meta Ads performance · {dateLabel}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <div className="space-y-5">
+      {/* Toolbar — what this view shows + its filters */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <p className="text-sm text-gray-500">
+          Meta Ads performance · <span className="font-medium text-gray-700">{dateLabel}</span>
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
-            <button onClick={() => setShowDateDropdown(!showDateDropdown)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              {dateLabel}
-              <AnimatedChevronDown open={showDateDropdown} className="w-4 h-4 text-gray-400" />
+            <button onClick={() => setShowDateDropdown(!showDateDropdown)} className="btn btn-secondary">
+              <Calendar className="text-gray-400" />
+              <span className="max-w-[11rem] truncate">{dateLabel}</span>
+              <AnimatedChevronDown open={showDateDropdown} className="!w-3.5 !h-3.5 text-gray-400" />
             </button>
             {showDateDropdown && (
-              <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-2">
+              <div className="absolute left-0 md:left-auto md:right-0 mt-1.5 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-20 p-1.5 animate-modal-in">
                 {DATE_PRESETS.map(d => (
                   <button key={d.id} onClick={() => { setDatePreset(d.id); if (d.id !== "custom") setShowDateDropdown(false); }}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-md hover:bg-gray-50 ${datePreset === d.id ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}>
+                    className={`w-full text-left px-3 py-2 text-sm rounded-lg ${datePreset === d.id ? "text-blue-700 font-medium bg-blue-50" : "text-gray-700 hover:bg-gray-50"}`}>
                     {d.label}
                   </button>
                 ))}
                 {datePreset === "custom" && (
-                  <div className="mt-2 pt-2 border-t border-gray-100 space-y-2 px-1">
+                  <div className="mt-1.5 pt-2.5 border-t border-gray-100 space-y-2.5 px-1.5 pb-1">
                     <div>
-                      <label className="text-xs text-gray-500">From</label>
+                      <label className="field-label !text-xs !mb-1">From</label>
                       <input type="date" value={customSince} max={customUntil}
                         onChange={e => setCustomSince(e.target.value)}
-                        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm" />
+                        className="input !h-9" />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500">To</label>
+                      <label className="field-label !text-xs !mb-1">To</label>
                       <input type="date" value={customUntil} min={customSince} max={todayISO()}
                         onChange={e => setCustomUntil(e.target.value)}
-                        className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm" />
+                        className="input !h-9" />
                     </div>
-                    <button onClick={() => setShowDateDropdown(false)}
-                      className="w-full bg-blue-600 text-white text-sm font-medium rounded-md py-1.5 hover:bg-blue-700">
+                    <button onClick={() => setShowDateDropdown(false)} className="btn btn-primary w-full">
                       Apply
                     </button>
                   </div>
@@ -408,59 +416,51 @@ export default function MetaDashboardContent() {
             )}
           </div>
           <div className="relative">
-            <button onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
+            <button onClick={() => setShowDropdown(!showDropdown)} className="btn btn-secondary">
               {ACCOUNTS.find(a => a.id === selectedAccount)?.name}
-              <AnimatedChevronDown open={showDropdown} className="w-4 h-4 text-gray-400" />
+              <AnimatedChevronDown open={showDropdown} className="!w-3.5 !h-3.5 text-gray-400" />
             </button>
             {showDropdown && (
-              <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+              <div className="absolute left-0 md:left-auto md:right-0 mt-1.5 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-20 p-1.5 animate-modal-in">
                 {ACCOUNTS.map(a => (
                   <button key={a.id} onClick={() => { setSelectedAccount(a.id); setShowDropdown(false); }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedAccount === a.id ? "text-blue-600 font-medium bg-blue-50" : "text-gray-700"}`}>
+                    className={`w-full flex items-center gap-2 text-left px-3 py-2 text-sm rounded-lg ${selectedAccount === a.id ? "text-blue-700 font-medium bg-blue-50" : "text-gray-700 hover:bg-gray-50"}`}>
+                    {ACCOUNT_COLORS[a.id] && <span className={`w-2 h-2 rounded-full ${ACCOUNT_COLORS[a.id].dot}`} />}
                     {a.name}
                   </button>
                 ))}
               </div>
             )}
           </div>
-          <button onClick={fetchAllData} disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          <button onClick={fetchAllData} disabled={refreshing} className="btn btn-secondary btn-icon"
+            aria-label="Refresh data" title="Refresh data">
+            <RefreshCw className={`text-gray-500 ${refreshing ? "animate-spin" : ""}`} />
           </button>
 
           {/* Download dropdown */}
           <div className="relative">
-            <button
-              onClick={() => setShowDlDropdown(!showDlDropdown)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 font-medium"
-            >
-              <Download className="w-4 h-4" />
+            <button onClick={() => setShowDlDropdown(!showDlDropdown)} className="btn btn-primary">
+              <Download />
               Download
-              <AnimatedChevronDown open={showDlDropdown} className="w-3 h-3" />
+              <AnimatedChevronDown open={showDlDropdown} className="!w-3.5 !h-3.5" />
             </button>
             {showDlDropdown && (
-              <div className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-lg shadow-xl z-30">
-                <button
-                  onClick={downloadExcel}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 rounded-t-lg"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                  <div className="text-left">
-                    <p className="font-medium">Download Excel</p>
-                    <p className="text-xs text-gray-400">Summary + all campaigns</p>
-                  </div>
+              <div className="absolute right-0 mt-1.5 w-60 bg-white border border-gray-200 rounded-xl shadow-lg z-30 p-1.5 animate-modal-in">
+                <button onClick={downloadExcel}
+                  className="w-full flex items-start gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">
+                  <FileSpreadsheet className="w-4 h-4 mt-0.5 text-green-600 shrink-0" />
+                  <span className="text-left">
+                    <span className="block font-medium text-gray-900">Download Excel</span>
+                    <span className="block text-xs text-gray-500">Summary + all campaigns</span>
+                  </span>
                 </button>
-                <div className="border-t border-gray-100" />
-                <button
-                  onClick={downloadPDF}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-b-lg"
-                >
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  <div className="text-left">
-                    <p className="font-medium">Download PDF</p>
-                    <p className="text-xs text-gray-400">Formatted report (landscape)</p>
-                  </div>
+                <button onClick={downloadPDF}
+                  className="w-full flex items-start gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg">
+                  <FileText className="w-4 h-4 mt-0.5 text-red-500 shrink-0" />
+                  <span className="text-left">
+                    <span className="block font-medium text-gray-900">Download PDF</span>
+                    <span className="block text-xs text-gray-500">Formatted report (landscape)</span>
+                  </span>
                 </button>
               </div>
             )}
@@ -469,52 +469,55 @@ export default function MetaDashboardContent() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard label="Total Campaigns" value={filtered.length.toString()} sub={`${activeCount} active`} icon={BarChart3} color="bg-blue-100 text-blue-600" />
-        <StatCard label="Total Spend"     value={currency(totalSpend)} icon={DollarSign} color="bg-purple-100 text-purple-600" />
-        <StatCard label="Impressions"     value={fmt(totalImpr)} icon={Eye} color="bg-orange-100 text-orange-600" />
-        <StatCard label="Clicks"          value={fmt(totalClicks)} sub={totalImpr > 0 ? `${((totalClicks / totalImpr) * 100).toFixed(2)}% CTR` : ""} icon={TrendingUp} color="bg-indigo-100 text-indigo-600" />
-        <StatCard label="Total Leads"     value={totalLeadsC > 0 ? totalLeadsC.toString() : totalLeads.toString()} icon={Users} color="bg-green-100 text-green-600" />
-        <StatCard label="Avg CPL"         value={currency(avgCpl)} sub={avgCpl < 300 ? "✅ Good" : avgCpl < 600 ? "⚠️ Moderate" : avgCpl > 0 ? "🔴 High" : ""} icon={Target} color={avgCpl < 300 && avgCpl > 0 ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"} />
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <StatCard label="Total Campaigns" value={filtered.length.toString()} sub={`${activeCount} active`} icon={BarChart3} />
+        <StatCard label="Total Spend"     value={currency(totalSpend)} icon={DollarSign} />
+        <StatCard label="Impressions"     value={fmt(totalImpr)} icon={Eye} />
+        <StatCard label="Clicks"          value={fmt(totalClicks)} sub={totalImpr > 0 ? `${((totalClicks / totalImpr) * 100).toFixed(2)}% CTR` : ""} icon={TrendingUp} />
+        <StatCard label="Total Leads"     value={totalLeadsC > 0 ? totalLeadsC.toString() : totalLeads.toString()} icon={Users} />
+        <StatCard label="Avg CPL"         value={currency(avgCpl)} sub={<CplRating cpl={avgCpl} />} icon={Target} />
       </div>
 
       {/* Per-Account Summary Cards + Action Queue */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-3">
           {accountStats.map(acc => {
             const col = ACCOUNT_COLORS[acc.id] || ACCOUNT_COLORS["1"];
             const spendShare = totalSpendAllAccounts > 0 ? (acc.spend / totalSpendAllAccounts) * 100 : 0;
             return (
-              <div key={acc.id} className={`rounded-xl border border-gray-100 shadow-sm p-5 ${col.bg}`}>
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <p className={`text-xs font-semibold uppercase tracking-wide ${col.text}`}>{acc.name}</p>
+              <div key={acc.id} className="card p-4 sm:p-5 flex flex-col">
+                <div className="flex justify-between items-start gap-2 mb-4">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                      <span className={`w-2 h-2 rounded-full ${col.dot}`} />
+                      {acc.name}
+                    </p>
                     <p className="text-xs text-gray-500 mt-0.5">{acc.camps} campaigns · {acc.active} active</p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${col.badge}`}>
+                  <span className={`badge ${acc.active > 0 ? "badge-green" : "badge-gray"}`}>
                     {acc.active > 0 ? "Live" : "Inactive"}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-x-2 gap-y-3 mb-4">
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-500 mb-1">Spend</p>
-                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={currency(acc.spend)}>{currency(acc.spend)}</p>
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-3 mb-4">
+                  <div className="col-span-2 min-w-0">
+                    <dt className="text-xs text-gray-500">Spend</dt>
+                    <dd className="mt-0.5 text-xl font-semibold tracking-tight text-gray-900 truncate tabular-nums" title={currency(acc.spend)}>{currency(acc.spend)}</dd>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs text-gray-500 mb-1">Leads</p>
-                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`}>{acc.leads}</p>
+                    <dt className="text-xs text-gray-500">Leads</dt>
+                    <dd className="mt-0.5 text-[15px] font-semibold text-gray-900 truncate tabular-nums">{acc.leads}</dd>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs text-gray-500 mb-1">CPL</p>
-                    <p className={`text-sm sm:text-base font-bold truncate ${col.text}`} title={currency(acc.cpl)}>{currency(acc.cpl)}</p>
+                    <dt className="text-xs text-gray-500">CPL</dt>
+                    <dd className="mt-0.5 truncate" title={currency(acc.cpl)}><CplBadge cpl={acc.cpl} /></dd>
                   </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-[11px] text-gray-500 mb-1">
+                </dl>
+                <div className="mt-auto">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1.5">
                     <span>Share of total spend</span>
-                    <span className="font-medium">{spendShare.toFixed(0)}%</span>
+                    <span className="font-medium text-gray-700 tabular-nums">{spendShare.toFixed(0)}%</span>
                   </div>
-                  <ProgressBar percent={spendShare} colorClass={acc.id === "1" ? "bg-blue-500" : acc.id === "2" ? "bg-purple-500" : "bg-orange-500"} />
+                  <ProgressBar percent={spendShare} colorClass={col.bar} />
                 </div>
               </div>
             );
@@ -526,43 +529,68 @@ export default function MetaDashboardContent() {
       {/* Charts row */}
       {cplChart.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-sm font-semibold text-gray-700 mb-4">CPL by Campaign (best performers)</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={cplChart} margin={{ top: 0, right: 10, bottom: 40, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-35} textAnchor="end" interval={0} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₹${v}`} />
-                <Tooltip formatter={(v: any) => [`₹${v}`, "CPL"]} />
-                <Bar dataKey="cpl" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="lg:col-span-2 card">
+            <div className="card-header">
+              <div>
+                <h2 className="card-title">CPL by campaign</h2>
+                <p className="card-subtitle">Top campaigns by spend · cost per lead</p>
+              </div>
+            </div>
+            <div className="p-3 sm:p-5">
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={cplChart} margin={{ top: 4, right: 8, bottom: 44, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                  <XAxis dataKey="name" tick={{ ...AXIS_TICK, fontSize: 10 }} angle={-30} textAnchor="end" interval={0} axisLine={false} tickLine={false} />
+                  <YAxis tick={AXIS_TICK} tickFormatter={v => `₹${v}`} axisLine={false} tickLine={false} width={56} />
+                  <Tooltip formatter={(v: any) => [`₹${v}`, "CPL"]} contentStyle={TOOLTIP_STYLE} cursor={{ fill: "#f3f4f6" }} />
+                  <Bar dataKey="cpl" fill="#2563eb" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <p className="text-sm font-semibold text-gray-700 mb-4">Campaign Status</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={statusData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({ name, value }) => `${name} (${value})`} labelLine={false}>
-                  {statusData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <h2 className="card-title">Campaign status</h2>
+                <p className="card-subtitle">{filtered.length} campaigns</p>
+              </div>
+            </div>
+            <div className="p-3 sm:p-5">
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={statusData} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={statusData.length > 1 ? 2 : 0} dataKey="value" stroke="none">
+                    {statusData.map((s, i) => <Cell key={i} fill={STATUS_COLORS[s.name] || CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
+                </PieChart>
+              </ResponsiveContainer>
+              <ul className="mt-3 space-y-1.5">
+                {statusData.map((s, i) => (
+                  <li key={s.name} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-gray-600">
+                      <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: STATUS_COLORS[s.name] || CHART_COLORS[i % CHART_COLORS.length] }} />
+                      {s.name.charAt(0) + s.name.slice(1).toLowerCase()}
+                    </span>
+                    <span className="font-medium text-gray-900 tabular-nums">{s.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       )}
 
       {/* ── REPORT SECTION ── */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
+      <div className="card overflow-hidden">
+        <div className="card-header flex-wrap">
           <div>
-            <h2 className="text-base font-bold text-gray-900">Campaign-Level Report</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Spend · Leads · CPL per campaign</p>
+            <h2 className="card-title">Campaign-level report</h2>
+            <p className="card-subtitle">Spend · Leads · CPL per campaign</p>
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="segmented">
             {(["all", "1", "2", "3"] as const).map(id => (
-              <button key={id} onClick={() => setActiveReport(id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg ${activeReport === id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              <button key={id} onClick={() => setActiveReport(id)} data-active={activeReport === id}
+                className="segmented-item !h-7 !px-2.5 !text-xs">
                 {id === "all" ? "All" : `Acc ${id}`}
               </button>
             ))}
@@ -570,59 +598,57 @@ export default function MetaDashboardContent() {
         </div>
 
         {reportCamps.length === 0 ? (
-          <div className="p-10 text-center text-gray-400 text-sm">No campaign data available</div>
+          <div className="p-10 text-center text-gray-500 text-sm">No campaign data for this account and date range.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full">
               <thead>
-                <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
-                  <th className="px-5 py-3 text-left">Campaign</th>
-                  <th className="px-4 py-3 text-left">Account</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-right">Spend</th>
-                  <th className="px-4 py-3 text-right">Impressions</th>
-                  <th className="px-4 py-3 text-right">Clicks</th>
-                  <th className="px-4 py-3 text-right">Leads</th>
-                  <th className="px-4 py-3 text-right">CPL 🎯</th>
+                <tr className="table-head">
+                  <th className="!pl-5">Campaign</th>
+                  <th>Account</th>
+                  <th>Status</th>
+                  <th className="text-right">Spend</th>
+                  <th className="text-right">Impressions</th>
+                  <th className="text-right">Clicks</th>
+                  <th className="text-right">Leads</th>
+                  <th className="text-right !pr-5">CPL</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {reportCampsPage.map(c => {
                   const col = ACCOUNT_COLORS[c.accountId || "1"];
                   const cpl = c.insights?.cpl || 0;
-                  const rowBg = cpl > 0 && cpl < 300 ? "bg-green-50/40" : cpl >= 600 ? "bg-red-50/40" : "";
                   return (
-                    <tr key={c.id} className={`hover:bg-gray-50 ${rowBg}`}>
-                      <td className="px-5 py-3">
+                    <tr key={c.id} className="table-row">
+                      <td className="!pl-5">
                         <div className="font-medium text-gray-900 max-w-xs truncate" title={c.name}>{c.name}</div>
-                        <div className="text-xs text-gray-400">{c.objective?.replace(/_/g, " ")}</div>
+                        <div className="text-xs text-gray-500 capitalize">{c.objective?.replace(/_/g, " ").toLowerCase()}</div>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${col?.badge}`}>{c.accountName}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${c.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                          {c.status}
+                      <td><span className={`badge ${col?.badge || "badge-gray"}`}>{c.accountName}</span></td>
+                      <td>
+                        <span className={`badge ${c.status === "ACTIVE" ? "badge-green" : "badge-gray"}`}>
+                          {c.status === "ACTIVE" && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+                          {c.status.charAt(0) + c.status.slice(1).toLowerCase()}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-800">{currency(c.insights?.spend || 0)}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{fmt(c.insights?.impressions || 0)}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{fmt(c.insights?.clicks || 0)}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-800">{c.insights?.leads || 0}</td>
-                      <td className="px-4 py-3 text-right"><CplBadge cpl={cpl} /></td>
+                      <td className="text-right font-medium !text-gray-900">{currency(c.insights?.spend || 0)}</td>
+                      <td className="text-right">{fmt(c.insights?.impressions || 0)}</td>
+                      <td className="text-right">{fmt(c.insights?.clicks || 0)}</td>
+                      <td className="text-right font-medium !text-gray-900">{c.insights?.leads || 0}</td>
+                      <td className="text-right !pr-5"><CplBadge cpl={cpl} /></td>
                     </tr>
                   );
                 })}
               </tbody>
               <tfoot>
-                <tr className="bg-gray-50 font-semibold text-gray-700">
-                  <td className="px-5 py-3" colSpan={3}>Total</td>
-                  <td className="px-4 py-3 text-right">{currency(reportCamps.reduce((s, c) => s + (c.insights?.spend || 0), 0))}</td>
+                <tr className="border-t border-gray-200 bg-gray-50/80 text-sm font-semibold text-gray-900">
+                  <td className="px-4 py-3 !pl-5" colSpan={3}>Total</td>
+                  <td className="px-4 py-3 text-right">{currency(reportSpend)}</td>
                   <td className="px-4 py-3 text-right">{fmt(reportCamps.reduce((s, c) => s + (c.insights?.impressions || 0), 0))}</td>
                   <td className="px-4 py-3 text-right">{fmt(reportCamps.reduce((s, c) => s + (c.insights?.clicks || 0), 0))}</td>
-                  <td className="px-4 py-3 text-right">{reportCamps.reduce((s, c) => s + (c.insights?.leads || 0), 0)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <CplBadge cpl={(() => { const s = reportCamps.reduce((a, c) => a + (c.insights?.spend || 0), 0); const l = reportCamps.reduce((a, c) => a + (c.insights?.leads || 0), 0); return l > 0 ? s / l : 0; })()} />
+                  <td className="px-4 py-3 text-right">{reportLeads}</td>
+                  <td className="px-4 py-3 text-right !pr-5">
+                    <CplBadge cpl={reportLeads > 0 ? reportSpend / reportLeads : 0} />
                   </td>
                 </tr>
               </tfoot>
@@ -630,24 +656,18 @@ export default function MetaDashboardContent() {
           </div>
         )}
         {reportCamps.length > REPORT_PAGE_SIZE && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-sm">
-            <p className="text-gray-500">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-5 py-3 border-t border-gray-100 text-sm">
+            <p className="text-gray-500 tabular-nums">
               Showing {(reportPage - 1) * REPORT_PAGE_SIZE + 1}–{Math.min(reportPage * REPORT_PAGE_SIZE, reportCamps.length)} of {reportCamps.length}
             </p>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setReportPage(p => Math.max(1, p - 1))}
-                disabled={reportPage === 1}
-                className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
+              <button onClick={() => setReportPage(p => Math.max(1, p - 1))} disabled={reportPage === 1}
+                className="btn btn-secondary btn-sm">
                 Previous
               </button>
-              <span className="text-gray-500 px-1">Page {reportPage} of {reportPageCount}</span>
-              <button
-                onClick={() => setReportPage(p => Math.min(reportPageCount, p + 1))}
-                disabled={reportPage === reportPageCount}
-                className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
+              <span className="text-gray-500 px-1 tabular-nums">Page {reportPage} of {reportPageCount}</span>
+              <button onClick={() => setReportPage(p => Math.min(reportPageCount, p + 1))} disabled={reportPage === reportPageCount}
+                className="btn btn-secondary btn-sm">
                 Next
               </button>
             </div>
@@ -656,32 +676,36 @@ export default function MetaDashboardContent() {
       </div>
 
       {/* ── PAGES ── */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-base font-bold text-gray-900">Connected Pages</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Facebook Pages granted access · lead forms per page</p>
+      <div className="card overflow-hidden">
+        <div className="card-header">
+          <div>
+            <h2 className="card-title">Connected Pages</h2>
+            <p className="card-subtitle">Facebook Pages granted access · lead forms per page</p>
+          </div>
         </div>
         {pagesSummary.length === 0 ? (
-          <div className="p-10 text-center text-gray-400 text-sm">No connected Pages found</div>
+          <div className="p-10 text-center text-gray-500 text-sm">No connected Pages found</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full">
               <thead>
-                <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
-                  <th className="px-5 py-3 text-left">Page</th>
-                  <th className="px-4 py-3 text-right">Lead Forms</th>
-                  <th className="px-4 py-3 text-right">Leads</th>
+                <tr className="table-head">
+                  <th className="!pl-5">Page</th>
+                  <th className="text-right">Lead Forms</th>
+                  <th className="text-right !pr-5">Leads</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {pagesSummary.map((p: any) => (
-                  <tr key={p.pageId || p.pageName} className="hover:bg-gray-50">
-                    <td className="px-5 py-3 flex items-center gap-2">
-                      <FileBadge className="w-4 h-4 text-gray-400" />
-                      <span className="font-medium text-gray-900">{p.pageName}</span>
+                  <tr key={p.pageId || p.pageName} className="table-row">
+                    <td className="!pl-5">
+                      <span className="flex items-center gap-2">
+                        <FileBadge className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="font-medium text-gray-900">{p.pageName}</span>
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-600">{p.forms}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-800">{p.leads}</td>
+                    <td className="text-right">{p.forms}</td>
+                    <td className="text-right font-medium !text-gray-900 !pr-5">{p.leads}</td>
                   </tr>
                 ))}
               </tbody>

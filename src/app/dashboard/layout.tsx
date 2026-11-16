@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import AuthProvider from "@/components/AuthProvider";
@@ -13,37 +13,52 @@ import { ConfirmProvider } from "@/contexts/ConfirmContext";
 import {
   LayoutDashboard, Megaphone, Users, MessageSquare,
   Settings, LogOut, Menu, X, Target, FileText, Radio, Inbox,
+  PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
-import { useState } from "react";
-import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 
-// Meta and WhatsApp now share one /dashboard route (a toggle switches
-// between them there), so "Dashboard" is a single standalone nav link —
-// not duplicated inside either dropdown below.
-const dashboardNavItem = { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard };
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+}
 
-// Grouped into two dropdowns (Meta, WhatsApp) on desktop to cut top-nav
-// clutter — each group's own items still render flat in the mobile menu,
-// under a small section label, since a narrow screen doesn't have the same
-// horizontal-space problem a dropdown solves.
-const metaGroup = [
-  { name: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone       },
-  { name: "Leads",     href: "/dashboard/leads",     icon: Target          },
+interface NavSection {
+  label?: string;
+  items: NavItem[];
+}
+
+// Grouped the way the team works: overview, the Meta ads side, the
+// WhatsApp side, then the people (contacts + website enquiries).
+const navSections: NavSection[] = [
+  { items: [{ name: "Dashboard", href: "/dashboard", icon: LayoutDashboard }] },
+  {
+    label: "Meta Ads",
+    items: [
+      { name: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone },
+      { name: "Leads",     href: "/dashboard/leads",     icon: Target    },
+    ],
+  },
+  {
+    label: "WhatsApp",
+    items: [
+      { name: "Messages",  href: "/dashboard/whatsapp",           icon: MessageSquare },
+      { name: "Templates", href: "/dashboard/whatsapp/templates", icon: FileText      },
+      { name: "RCS",       href: "/dashboard/rcs",                icon: Radio, badge: "Soon" },
+    ],
+  },
+  {
+    label: "Audience",
+    items: [
+      { name: "Contacts",  href: "/dashboard/contacts",  icon: Users },
+      { name: "Enquiries", href: "/dashboard/enquiries", icon: Inbox },
+    ],
+  },
 ];
 
-const whatsappGroup = [
-  { name: "Inbox",     href: "/dashboard/whatsapp",           icon: MessageSquare },
-  { name: "Templates", href: "/dashboard/whatsapp/templates", icon: FileText      },
-  { name: "RCS",       href: "/dashboard/rcs",                icon: Radio, badge: "Soon" },
-];
+const settingsItem: NavItem = { name: "Settings", href: "/dashboard/settings", icon: Settings };
 
-const standaloneNav = [
-  { name: "Enquiries", href: "/dashboard/enquiries", icon: Inbox    },
-  { name: "Contacts",  href: "/dashboard/contacts",  icon: Users    },
-  { name: "Settings",  href: "/dashboard/settings",  icon: Settings },
-];
-
-const bottomNav = [
+const bottomNav: NavItem[] = [
   { name: "Home",      href: "/dashboard",          icon: LayoutDashboard },
   { name: "Campaigns", href: "/dashboard/campaigns",icon: Megaphone       },
   { name: "Leads",     href: "/dashboard/leads",    icon: Target          },
@@ -52,16 +67,59 @@ const bottomNav = [
 ];
 
 const WHATSAPP_HREF = "/dashboard/whatsapp";
+const COLLAPSE_KEY = "rh.sidebarCollapsed";
+
+const allNavItems = [...navSections.flatMap((s) => s.items), settingsItem];
+
+function BrandMark({ compact = false }: { compact?: boolean }) {
+  return (
+    <span className="flex items-center gap-2.5 min-w-0">
+      <span className="grid place-items-center w-8 h-8 shrink-0 rounded-lg bg-blue-600 text-white text-[15px] font-bold shadow-sm">
+        R
+      </span>
+      {!compact && <span className="text-[17px] font-bold tracking-tight text-gray-900 truncate">Realhubb</span>}
+    </span>
+  );
+}
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
-  const pathname                       = usePathname();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { unreadCount, clearUnread }   = useNotifications();
+  const pathname                     = usePathname();
+  const [drawerOpen, setDrawerOpen]  = useState(false);
+  const [collapsed, setCollapsed]    = useState(false);
+  const { unreadCount, clearUnread } = useNotifications();
 
   const handleSignOut = async () => { await signOut(auth); };
 
-  const isActive = (href: string) =>
-    href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+  // "Inbox" (/dashboard/whatsapp) must not light up while on its
+  // Templates child page, so the most specific matching href wins.
+  const activeHref = allNavItems
+    .map((i) => i.href)
+    .filter((href) => (href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(href + "/")))
+    .sort((a, b) => b.length - a.length)[0];
+  const isActive = (href: string) => href === activeHref;
+  const currentTitle = allNavItems.find((i) => i.href === activeHref)?.name ?? "Realhubb";
+
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1"); } catch { /* storage unavailable */ }
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      try { localStorage.setItem(COLLAPSE_KEY, c ? "0" : "1"); } catch { /* storage unavailable */ }
+      return !c;
+    });
+  };
+
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => { setDrawerOpen(false); }, [pathname]);
+
+  // Escape closes the drawer.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDrawerOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
 
   // Clear unread badge when user is on the WhatsApp page
   useEffect(() => {
@@ -75,269 +133,192 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     return () => { document.title = base; };
   }, [unreadCount]);
 
-  const waIsActive = isActive(WHATSAPP_HREF);
+  const unreadBadge = pathname.startsWith(WHATSAPP_HREF) ? 0 : unreadCount;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ── Top nav ── */}
-      <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-14">
-            <div className="flex items-center">
-              <Link href="/dashboard" className="text-lg font-bold text-blue-600 mr-6 flex-shrink-0">
-                Realhubb
-              </Link>
-              {/* Desktop nav */}
-              <div className="hidden lg:flex lg:items-center lg:space-x-1">
-                <Link
-                  href={dashboardNavItem.href}
-                  className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    isActive(dashboardNavItem.href)
-                      ? "text-blue-600 bg-blue-50"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  }`}
-                >
-                  <dashboardNavItem.icon className="w-4 h-4 mr-1.5" />
-                  {dashboardNavItem.name}
-                </Link>
-                <NavDropdown label="Meta" icon={Megaphone} items={metaGroup} isActive={isActive} />
-                <NavDropdown
-                  label="WhatsApp" icon={MessageSquare} items={whatsappGroup} isActive={isActive}
-                  badge={!waIsActive ? unreadCount : 0}
-                />
-                {standaloneNav.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                      isActive(item.href)
-                        ? "text-blue-600 bg-blue-50"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                    }`}
-                  >
-                    <item.icon className="w-4 h-4 mr-1.5" />
-                    {item.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
+      {/* ── Desktop sidebar ── */}
+      <aside
+        className={`hidden lg:flex fixed inset-y-0 left-0 z-30 flex-col bg-white border-r border-gray-200 transition-[width] duration-200 ease-out ${
+          collapsed ? "w-[var(--sidebar-w-collapsed)]" : "w-[var(--sidebar-w)]"
+        }`}
+      >
+        <div className={`flex items-center h-16 shrink-0 border-b border-gray-100 ${collapsed ? "justify-center px-2" : "px-5"}`}>
+          <Link href="/dashboard" aria-label="Realhubb home"><BrandMark compact={collapsed} /></Link>
+        </div>
+        <SidebarNav
+          collapsed={collapsed}
+          isActive={isActive}
+          unreadCount={unreadBadge}
+          onSignOut={handleSignOut}
+          footer={
+            <button
+              onClick={toggleCollapsed}
+              className={`flex items-center gap-3 w-full h-9 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors ${collapsed ? "justify-center" : "px-3"}`}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={collapsed ? "Expand sidebar" : undefined}
+            >
+              {collapsed ? <PanelLeftOpen className="w-[18px] h-[18px]" /> : <PanelLeftClose className="w-[18px] h-[18px]" />}
+              {!collapsed && "Collapse"}
+            </button>
+          }
+        />
+      </aside>
 
-            <div className="flex items-center gap-2">
+      {/* ── Mobile / tablet top bar ── */}
+      <header className="lg:hidden sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gray-200 pt-safe">
+        <div className="flex items-center gap-2 h-14 px-2 sm:px-4">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="grid place-items-center w-10 h-10 rounded-lg text-gray-600 hover:bg-gray-100"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <Link href="/dashboard" aria-label="Realhubb home" className="shrink-0"><BrandMark compact /></Link>
+          <span className="ml-1 text-[15px] font-semibold text-gray-900 truncate">{currentTitle}</span>
+        </div>
+      </header>
+
+      {/* ── Mobile / tablet drawer ── */}
+      {drawerOpen && (
+        <div className="lg:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Navigation">
+          <div className="absolute inset-0 bg-gray-900/40 animate-fade-in" onClick={() => setDrawerOpen(false)} />
+          <div className="absolute inset-y-0 left-0 w-[17rem] max-w-[85vw] bg-white shadow-xl flex flex-col animate-drawer-in pt-safe">
+            <div className="flex items-center justify-between h-14 px-4 border-b border-gray-100 shrink-0">
+              <BrandMark />
               <button
-                onClick={handleSignOut}
-                className="hidden lg:inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 rounded-md hover:bg-gray-50"
+                onClick={() => setDrawerOpen(false)}
+                className="grid place-items-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100"
+                aria-label="Close menu"
               >
-                <LogOut className="w-4 h-4 mr-1.5" />
-                Sign Out
-              </button>
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-              >
-                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                <X className="w-5 h-5" />
               </button>
             </div>
+            <SidebarNav collapsed={false} isActive={isActive} unreadCount={unreadBadge} onSignOut={handleSignOut} />
           </div>
         </div>
+      )}
 
-        {/* Mobile menu — same grouping as the desktop dropdowns, just under
-            section labels instead, since a narrow screen doesn't have the
-            horizontal-clutter problem a dropdown solves. */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-gray-100 bg-white shadow-lg max-h-[calc(100vh-3.5rem)] overflow-y-auto">
-            <div className="px-3 py-2 space-y-3">
-              <Link
-                href={dashboardNavItem.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg ${
-                  isActive(dashboardNavItem.href) ? "text-blue-600 bg-blue-50" : "text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <dashboardNavItem.icon className="w-4 h-4 flex-shrink-0" />
-                {dashboardNavItem.name}
-              </Link>
-              <MobileNavSection label="Meta" items={metaGroup} isActive={isActive} onNavigate={() => setMobileMenuOpen(false)} />
-              <MobileNavSection
-                label="WhatsApp" items={whatsappGroup} isActive={isActive}
-                onNavigate={() => setMobileMenuOpen(false)}
-                unreadHref={WHATSAPP_HREF} unreadCount={!waIsActive ? unreadCount : 0}
-              />
-              <div className="grid grid-cols-2 gap-1 pt-1 border-t border-gray-100">
-                {standaloneNav.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg ${
-                      isActive(item.href) ? "text-blue-600 bg-blue-50" : "text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    <item.icon className="w-4 h-4 flex-shrink-0" />
-                    {item.name}
-                  </Link>
-                ))}
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-lg col-span-2"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </nav>
-
-      {/* Page content */}
-      <main className="max-w-7xl mx-auto py-4 sm:py-6 px-3 sm:px-6 lg:px-8 pb-20 sm:pb-6">
-        {children}
-      </main>
+      {/* ── Page content ── */}
+      <div className={`transition-[padding] duration-200 ease-out ${collapsed ? "lg:pl-[var(--sidebar-w-collapsed)]" : "lg:pl-[var(--sidebar-w)]"}`}>
+        <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 pb-24 sm:pb-10">
+          {children}
+        </main>
+      </div>
 
       <NotificationSetup />
 
-      {/* Bottom tab bar — mobile */}
-      <div className="sm:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-40">
+      {/* ── Bottom tab bar — phones ── */}
+      <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-gray-200 pb-safe" aria-label="Primary">
         <div className="flex">
           {bottomNav.map((item) => {
-            const active  = isActive(item.href);
-            const isWA    = item.href === WHATSAPP_HREF;
-            const badge   = isWA && unreadCount > 0 && !active;
+            const active = isActive(item.href) || (item.href === WHATSAPP_HREF && pathname.startsWith(WHATSAPP_HREF));
+            const badge  = item.href === WHATSAPP_HREF && unreadBadge > 0;
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`relative flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
-                  active ? "text-blue-600" : "text-gray-400 active:text-gray-600"
+                aria-current={active ? "page" : undefined}
+                className={`relative flex-1 flex flex-col items-center justify-center pt-2 pb-1.5 gap-1 transition-colors ${
+                  active ? "text-blue-600" : "text-gray-500 active:text-gray-700"
                 }`}
               >
-                <item.icon className={`w-5 h-5 ${active ? "stroke-2" : ""}`} />
+                <span className={`absolute top-0 h-0.5 w-8 rounded-full ${active ? "bg-blue-600" : "bg-transparent"}`} />
+                <item.icon className="w-5 h-5" />
                 {badge && (
-                  <span className="absolute top-1 right-[18%] min-w-[16px] h-[16px] px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {unreadCount > 9 ? "9+" : unreadCount}
+                  <span className="absolute top-1 left-1/2 ml-1.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-semibold rounded-full grid place-items-center tabular-nums">
+                    {unreadBadge > 9 ? "9+" : unreadBadge}
                   </span>
                 )}
-                <span className="text-[10px] font-medium">{item.name}</span>
+                <span className={`text-[11px] ${active ? "font-semibold" : "font-medium"}`}>{item.name}</span>
               </Link>
             );
           })}
         </div>
-      </div>
+      </nav>
     </div>
   );
 }
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: string;
-}
-
-function NavDropdown({
-  label, icon: Icon, items, isActive, badge,
+function SidebarNav({
+  collapsed, isActive, unreadCount, onSignOut, footer,
 }: {
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  items: NavItem[];
+  collapsed: boolean;
   isActive: (href: string) => boolean;
-  badge?: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const groupActive = items.some((i) => isActive(i.href));
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-          groupActive ? "text-blue-600 bg-blue-50" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-        }`}
-      >
-        <Icon className="w-4 h-4 mr-1.5" />
-        {label}
-        <AnimatedChevronDown open={open} className="w-3.5 h-3.5 ml-1" />
-        {!!badge && badge > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-            {badge > 99 ? "99+" : badge}
-          </span>
-        )}
-      </button>
-      {open && (
-        <div className="absolute left-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-40">
-          {items.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              className={`flex items-center gap-2 px-3 py-2 text-sm ${
-                isActive(item.href) ? "text-blue-600 bg-blue-50 font-medium" : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <item.icon className="w-4 h-4" />
-              {item.name}
-              {item.badge && (
-                <span className="ml-auto px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MobileNavSection({
-  label, items, isActive, onNavigate, unreadHref, unreadCount,
-}: {
-  label: string;
-  items: NavItem[];
-  isActive: (href: string) => boolean;
-  onNavigate: () => void;
-  unreadHref?: string;
-  unreadCount?: number;
+  unreadCount: number;
+  onSignOut: () => void;
+  footer?: React.ReactNode;
 }) {
   return (
-    <div>
-      <p className="px-3 text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{label}</p>
-      <div className="grid grid-cols-2 gap-1">
-        {items.map((item) => (
-          <Link
-            key={item.name}
-            href={item.href}
-            onClick={onNavigate}
-            className={`relative flex items-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg ${
-              isActive(item.href) ? "text-blue-600 bg-blue-50" : "text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            <item.icon className="w-4 h-4 flex-shrink-0" />
-            {item.name}
-            {item.badge && (
-              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full leading-none">
-                {item.badge}
-              </span>
+    <>
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5" aria-label="Main">
+        {navSections.map((section, i) => (
+          <div key={section.label ?? i}>
+            {section.label && (
+              collapsed
+                ? <div className="mx-auto mb-2 h-px w-6 bg-gray-200" aria-hidden />
+                : <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{section.label}</p>
             )}
-            {item.href === unreadHref && !!unreadCount && unreadCount > 0 && (
-              <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </Link>
+            <ul className="space-y-0.5">
+              {section.items.map((item) => (
+                <li key={item.href}>
+                  <SidebarLink
+                    item={item}
+                    active={isActive(item.href)}
+                    collapsed={collapsed}
+                    count={item.href === WHATSAPP_HREF ? unreadCount : 0}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
+      </nav>
+      <div className="shrink-0 border-t border-gray-100 px-3 py-3 space-y-0.5 pb-safe">
+        <SidebarLink item={settingsItem} active={isActive(settingsItem.href)} collapsed={collapsed} count={0} />
+        <button
+          onClick={onSignOut}
+          className={`flex items-center gap-3 w-full h-9 rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-700 transition-colors ${collapsed ? "justify-center" : "px-3"}`}
+          title={collapsed ? "Sign out" : undefined}
+        >
+          <LogOut className="w-[18px] h-[18px] shrink-0" />
+          {!collapsed && "Sign out"}
+        </button>
+        {footer}
       </div>
-    </div>
+    </>
+  );
+}
+
+function SidebarLink({
+  item, active, collapsed, count,
+}: {
+  item: NavItem;
+  active: boolean;
+  collapsed: boolean;
+  count: number;
+}) {
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      title={collapsed ? item.name : undefined}
+      className={`relative flex items-center gap-3 h-9 rounded-lg text-sm font-medium transition-colors ${
+        collapsed ? "justify-center" : "px-3"
+      } ${active ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+    >
+      <item.icon className={`w-[18px] h-[18px] shrink-0 ${active ? "text-blue-600" : "text-gray-400"}`} />
+      {!collapsed && <span className="truncate">{item.name}</span>}
+      {!collapsed && item.badge && <span className="ml-auto badge badge-amber">{item.badge}</span>}
+      {count > 0 && (
+        collapsed
+          ? <span className="absolute top-1 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" aria-label={`${count} unread`} />
+          : <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-semibold grid place-items-center tabular-nums">
+              {count > 99 ? "99+" : count}
+            </span>
+      )}
+    </Link>
   );
 }
 

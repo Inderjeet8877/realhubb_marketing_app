@@ -50,10 +50,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed top-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:left-auto z-[100] flex flex-col gap-2 sm:w-96 pointer-events-none">
+      <div
+        aria-live="polite"
+        className="fixed top-[calc(0.75rem+env(safe-area-inset-top))] inset-x-3 sm:inset-x-auto sm:right-4 sm:left-auto sm:top-4 z-[100] flex flex-col gap-2 sm:w-96 pointer-events-none"
+      >
         {toasts.map((t) => (
-          <div key={t.id} className="pointer-events-auto animate-fade-in">
-            <Alert status={TYPE_TO_STATUS[t.type]} onClose={() => dismiss(t.id)}>
+          <div key={t.id} className="pointer-events-auto animate-modal-in">
+            <Alert status={TYPE_TO_STATUS[t.type]} onClose={() => dismiss(t.id)} className="shadow-lg">
               <Alert.Indicator />
               <Alert.Content>
                 <Alert.Description>{t.message}</Alert.Description>

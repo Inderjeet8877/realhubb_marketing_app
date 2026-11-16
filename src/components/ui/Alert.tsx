@@ -40,10 +40,14 @@ function AlertRoot({ status = "info", children, className = "", onClose }: Alert
   const style = STATUS_STYLES[status];
   return (
     <AlertStatusContext.Provider value={status}>
-      <div className={`flex items-start gap-3 rounded-xl border ${style.bg} ${style.border} p-4 shadow-sm ${className}`}>
+      <div className={`flex items-start gap-3 rounded-xl border ${style.bg} ${style.border} px-4 py-3 shadow-sm ${className}`}>
         {children}
         {onClose && (
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 shrink-0">
+          <button
+            onClick={onClose}
+            aria-label="Dismiss"
+            className="grid place-items-center w-7 h-7 -mr-1.5 -my-0.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-black/5 shrink-0"
+          >
             <X className="w-4 h-4" />
           </button>
         )}
@@ -69,7 +73,7 @@ function Title({ children }: { children: React.ReactNode }) {
 }
 
 function Description({ children }: { children: React.ReactNode }) {
-  return <div className="text-sm text-gray-600 mt-0.5">{children}</div>;
+  return <div className="text-sm text-gray-700 leading-relaxed [&:not(:first-child)]:mt-0.5">{children}</div>;
 }
 
 export const Alert = Object.assign(AlertRoot, { Indicator, Content, Title, Description });

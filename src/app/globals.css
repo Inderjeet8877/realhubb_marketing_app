@@ -3,49 +3,134 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 255, 255, 255;
-  --background-end-rgb: 255, 255, 255;
   /* Tells the browser this app only has a light design, so it never
      auto-applies dark styling to native form controls (input/select/button
      chrome) based on the visitor's OS/browser theme. */
   color-scheme: light;
+  --sidebar-w: 15rem;
+  --sidebar-w-collapsed: 4.5rem;
 }
 
-/* This app is deliberately light-themed everywhere (every page hardcodes
-   bg-white/bg-gray-50 etc. via Tailwind) with no dark-mode design of its
-   own — so the default create-next-app dark-mode override that used to be
-   here (flipping body's text to white on a dark-mode system/browser) made
-   any input or button without an explicit Tailwind text color invisible:
-   white text still sitting on a Tailwind-forced white/light background. */
+/* This app is deliberately light-themed everywhere, with no dark-mode
+   design of its own — so body text is pinned dark rather than following
+   the OS theme (a dark-mode override here once made unstyled inputs
+   render white-on-white). */
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  ::selection { @apply bg-blue-100 text-blue-900; }
+
+  /* One keyboard-focus ring for every control in the app. Mouse clicks
+     don't show it (focus-visible), keyboard users always do. */
+  :focus-visible {
+    outline: 2px solid theme("colors.blue.500");
+    outline-offset: 2px;
+  }
+  /* .input draws its own focus ring, so only it drops the outline;
+     checkboxes and radios keep the shared one. */
+  .input:focus-visible { outline: none; }
+
+  /* Numbers in tables and stat figures line up column to column. */
+  table, .tabular { font-variant-numeric: tabular-nums; }
+
+  /* Quiet scrollbars that match the gray palette instead of browser chrome. */
+  * { scrollbar-width: thin; scrollbar-color: theme("colors.gray.300") transparent; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-thumb { background: theme("colors.gray.300"); border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
+  *::-webkit-scrollbar-thumb:hover { background-color: theme("colors.gray.400"); }
+  *::-webkit-scrollbar-track { background: transparent; }
+
+  input[type="checkbox"], input[type="radio"] { accent-color: theme("colors.blue.600"); }
+}
+
+/* ── Shared component vocabulary ──────────────────────────────────────
+   Every screen uses these so a "primary button", "card" or "input" looks
+   identical everywhere. Brand blue for primary actions, WhatsApp green
+   only for WhatsApp send actions, red only for destructive ones. */
+@layer components {
+  .card { @apply bg-white border border-gray-200/80 rounded-xl shadow-[0_1px_2px_rgba(16,24,40,0.04)]; }
+  .card-header { @apply flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-gray-100; }
+  .card-title { @apply text-[15px] font-semibold text-gray-900; }
+  .card-subtitle { @apply text-xs text-gray-500 mt-0.5; }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium whitespace-nowrap
+      transition-colors duration-150 select-none
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn svg { @apply w-4 h-4 shrink-0; }
+  .btn-sm { @apply h-8 px-2.5 text-[13px]; }
+  .btn-lg { @apply h-11 px-5 text-[15px]; }
+  .btn-icon { @apply w-9 px-0; }
+  .btn-primary { @apply bg-blue-600 text-white shadow-sm hover:bg-blue-700 active:bg-blue-800; }
+  .btn-whatsapp { @apply bg-green-600 text-white shadow-sm hover:bg-green-700 active:bg-green-800; }
+  .btn-secondary { @apply bg-white text-gray-700 border border-gray-300 shadow-sm hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100; }
+  .btn-ghost { @apply text-gray-600 hover:bg-gray-100 hover:text-gray-900; }
+  .btn-danger { @apply bg-red-600 text-white shadow-sm hover:bg-red-700 active:bg-red-800; }
+  .btn-danger-ghost { @apply text-red-600 hover:bg-red-50; }
+
+  .field-label { @apply block text-sm font-medium text-gray-700 mb-1.5; }
+  .field-hint { @apply mt-1.5 text-xs text-gray-500; }
+  .input {
+    @apply block w-full h-10 px-3 rounded-lg border border-gray-300 bg-white text-sm text-gray-900 placeholder:text-gray-400
+      shadow-sm transition-colors
+      focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15
+      disabled:bg-gray-50 disabled:text-gray-500;
+  }
+  textarea.input { @apply h-auto py-2 leading-relaxed; }
+  select.input { @apply pr-8; }
+
+  .badge { @apply inline-flex items-center gap-1 h-5 px-2 rounded-full text-[11px] font-medium leading-none whitespace-nowrap; }
+  .badge-gray { @apply bg-gray-100 text-gray-700; }
+  .badge-blue { @apply bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/15; }
+  .badge-green { @apply bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20; }
+  .badge-amber { @apply bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20; }
+  .badge-red { @apply bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/15; }
+
+  /* Segmented tabs (filled pill style) — used for in-page view switches. */
+  .segmented { @apply inline-flex items-center gap-0.5 p-1 rounded-lg bg-gray-100; }
+  .segmented-item { @apply inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-md text-sm font-medium text-gray-600 whitespace-nowrap transition-colors hover:text-gray-900; }
+  .segmented-item svg { @apply w-4 h-4; }
+  .segmented-item[data-active="true"] { @apply bg-white text-gray-900 shadow-sm; }
+  /* Segmented items that wrap a visually-hidden radio show focus on the pill. */
+  .segmented-item:has(input:focus-visible) { @apply ring-2 ring-blue-500; }
+
+  /* Underline tabs — used for sections inside a page. */
+  .tabs { @apply flex gap-5 border-b border-gray-200 overflow-x-auto; }
+  .tab { @apply relative -mb-px py-2.5 text-sm font-medium text-gray-500 whitespace-nowrap border-b-2 border-transparent hover:text-gray-800 transition-colors; }
+  .tab[data-active="true"] { @apply text-blue-600 border-blue-600; }
+
+  .table-head { @apply bg-gray-50/80 text-left text-xs font-medium text-gray-500; }
+  .table-head th { @apply px-4 py-2.5 font-medium; }
+  .table-row { @apply border-t border-gray-100 hover:bg-gray-50/60 transition-colors; }
+  .table-row td { @apply px-4 py-3 text-sm text-gray-700; }
+
+  .stat-label { @apply text-[13px] font-medium text-gray-500; }
+  .stat-value { @apply mt-1 text-2xl font-semibold tracking-tight text-gray-900 tabular-nums; }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+  .text-balance { text-wrap: balance; }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 }
 
 /* ── Global responsive helpers ── */
 
-/* Prevent horizontal page overflow on mobile */
-html, body { overflow-x: hidden; }
+/* Prevent horizontal page overflow on mobile. `clip` (not `hidden`) so body
+   doesn't become its own scroll container, which breaks sticky headers. */
+body { overflow-x: clip; }
 
 /* Smooth scrolling */
 html { scroll-behavior: smooth; }
 
 /* Better tap targets on mobile */
 @media (max-width: 640px) {
-  button, a, select, input[type="checkbox"], input[type="radio"] {
+  button, select, input[type="checkbox"], input[type="radio"] {
     min-height: 36px;
   }
 
@@ -73,9 +158,14 @@ html { scroll-behavior: smooth; }
   from { opacity: 0; transform: scale(0.96) translateY(4px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
 .animate-fade-in  { animation: fadeIn 0.15s ease-out both; }
 .animate-modal-in { animation: fadeInScale 0.18s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-drawer-in { animation: slideInLeft 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-in, .animate-modal-in { animation: none; }
+  .animate-fade-in, .animate-modal-in, .animate-drawer-in { animation: none; }
 }

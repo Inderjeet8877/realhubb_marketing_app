@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3, Filter } from "lucide-react";
+import { MessageSquare, Send, CheckCircle, Loader2, Users, X, RefreshCw, Search, Phone, Check, CheckCheck, BarChart3, Filter, ChevronLeft, AlertTriangle, XCircle, Image as ImageIcon, Inbox as InboxIcon, Radio } from "lucide-react";
+import PageHeader from "@/components/ui/PageHeader";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, orderBy, limit, doc } from "firebase/firestore";
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
@@ -757,105 +758,99 @@ export default function WhatsAppPage() {
     setSelectedContacts(selectedContacts.length === contacts.length ? [] : phones);
   };
 
+  const unreadConversationCount = conversations.filter(c => (c.unreadCount ?? 0) > 0).length;
+  const templateHeaderLabel = (t: any) =>
+    t.headerType === "image" ? " · image" : t.headerType === "video" ? " · video" : t.headerType === "document" ? " · document" : "";
+
   return (
     <div>
-      {/* Top bar */}
-      <div className="mb-4 flex flex-wrap justify-between items-center gap-2">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">WhatsApp</h1>
-          <p className="text-gray-600">Send messages and manage conversations</p>
-        </div>
-         <div className="flex flex-wrap gap-2">
-           <div className="flex bg-gray-100 rounded-lg p-1">
-             <button
-               onClick={() => setActiveTab("send")}
-               className={`flex items-center gap-2 px-4 py-2 rounded-lg ${activeTab === "send" ? "bg-white shadow text-green-600" : "text-gray-600 hover:text-gray-900"}`}
-             >
-               <Send className="w-4 h-4" /> Send
-             </button>
-             <button
-               onClick={() => setActiveTab("inbox")}
-               className={`flex items-center gap-2 px-4 py-2 rounded-lg ${activeTab === "inbox" ? "bg-white shadow text-green-600" : "text-gray-600 hover:text-gray-900"}`}
-             >
-               <MessageSquare className="w-4 h-4" /> Inbox
-               {conversations.filter(c => (c.unreadCount ?? 0) > 0).length > 0 && (
-                 <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                   {conversations.filter(c => (c.unreadCount ?? 0) > 0).length}
-                 </span>
-               )}
-             </button>
-           </div>
-           {activeTab === "send" && (
-             <button onClick={async () => {
-               setShowBulkModal(true);
-               try {
-                 const r = await fetch("/api/contacts?listCategories=true");
-                 const d = await r.json();
-                 setBatches(d.categories || []);
-               } catch {}
-             }} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-               <Users className="w-4 h-4" /> Bulk Send
-             </button>
-           )}
-           <button
-             onClick={() => setActiveTab("reports")}
-             className={`flex items-center gap-2 px-4 py-2 rounded-lg ${activeTab === "reports" ? "bg-green-600 text-white shadow" : "bg-gray-100 text-gray-600 hover:text-gray-900"}`}
-           >
-             <BarChart3 className="w-4 h-4" /> Reports
-           </button>
-         </div>
-      </div>
+      <PageHeader
+        title="Messages"
+        description="Send WhatsApp messages and manage conversations"
+        actions={
+          <>
+            <div className="segmented shrink-0 [&_svg]:hidden sm:[&_svg]:block" role="tablist" aria-label="WhatsApp views">
+              {([["send", Send, "Send"], ["inbox", MessageSquare, "Inbox"], ["reports", BarChart3, "Reports"]] as const).map(([tab, Icon, label]) => (
+                <button key={tab} role="tab" aria-selected={activeTab === tab} data-active={activeTab === tab} onClick={() => setActiveTab(tab)} className="segmented-item">
+                  <Icon /> {label}
+                  {tab === "inbox" && unreadConversationCount > 0 && (
+                    <span className="min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full bg-red-500 text-white text-[10px] font-semibold tabular-nums">{unreadConversationCount}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {activeTab === "send" && (
+              <button onClick={async () => {
+                setShowBulkModal(true);
+                try {
+                  const r = await fetch("/api/contacts?listCategories=true");
+                  const d = await r.json();
+                  setBatches(d.categories || []);
+                } catch {}
+              }} className="btn btn-whatsapp shrink-0">
+                <Users /> Bulk Send
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Persistent broadcast progress — visible regardless of tab/modal so
           you can navigate anywhere in the app while a broadcast runs. */}
       {activeBroadcastId && sendingBulk && (
-        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3 flex flex-wrap items-center gap-3">
-          <Loader2 className="w-4 h-4 animate-spin text-green-600 shrink-0" />
-          <span className="text-sm text-green-800 font-medium">
-            Broadcast running in the background — {bulkSentCount} / {bulkTotalCount} processed
+        <div className="card mb-5 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
+            <Loader2 className="w-4 h-4 animate-spin text-green-600 shrink-0" />
+            Broadcast running in the background
+          </span>
+          <span className="text-sm text-gray-500 tabular-nums">
+            {bulkSentCount} / {bulkTotalCount} processed
             {optedOutSkippedCount > 0 && ` (${optedOutSkippedCount} skipped — opted out)`}
           </span>
-          <div className="flex-1 min-w-[100px] bg-green-200 rounded-full h-2 overflow-hidden">
-            <div className="bg-green-600 h-2 rounded-full transition-all duration-300"
+          <div className="flex-1 min-w-[120px] bg-gray-100 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-green-600 h-full rounded-full transition-all duration-300"
               style={{ width: bulkTotalCount > 0 ? `${Math.round((bulkSentCount / bulkTotalCount) * 100)}%` : "0%" }} />
           </div>
-          <button
-            onClick={handleResumeBroadcast}
-            disabled={resumingBroadcast}
-            title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
-            className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50 shrink-0"
-          >
-            {resumingBroadcast ? "Resuming…" : "Resume"}
-          </button>
-          <button
-            onClick={handleCancelBroadcast}
-            disabled={cancellingBroadcast}
-            className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50 shrink-0"
-          >
-            {cancellingBroadcast ? "Cancelling…" : "Cancel"}
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={handleResumeBroadcast}
+              disabled={resumingBroadcast}
+              title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
+              className="btn btn-ghost btn-sm"
+            >
+              {resumingBroadcast ? "Resuming…" : "Resume"}
+            </button>
+            <button
+              onClick={handleCancelBroadcast}
+              disabled={cancellingBroadcast}
+              className="btn btn-danger-ghost btn-sm"
+            >
+              {cancellingBroadcast ? "Cancelling…" : "Cancel"}
+            </button>
+          </div>
         </div>
       )}
 
       {/* ===== INBOX ===== */}
       {activeTab === "inbox" && (
-        <div className="flex rounded-xl overflow-hidden shadow-lg border border-gray-200" style={{ height: "calc(100vh - 160px)", minHeight: 500 }}>
-          <div className={`flex-shrink-0 flex flex-col bg-white border-r border-gray-200 w-full md:w-80 ${selectedConversation ? "hidden md:flex" : "flex"}`}>
-            <div className="px-4 py-3 flex items-center justify-between flex-shrink-0" style={{ backgroundColor: "#075e54" }}>
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-                  <Phone className="w-4 h-4 text-white" />
+        <div className="card flex overflow-hidden h-[calc(100dvh-250px)] sm:h-[calc(100dvh-190px)] min-h-[460px]">
+          <div className={`flex-shrink-0 flex flex-col bg-white border-r border-gray-200 w-full md:w-[340px] ${selectedConversation ? "hidden md:flex" : "flex"}`}>
+            <div className="px-4 pt-3.5 pb-3 flex-shrink-0 border-b border-gray-100 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-green-600 grid place-items-center shrink-0"><Phone className="w-4 h-4 text-white" /></div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 leading-tight truncate">RealHubb Ventures</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1.5">WhatsApp Business
+                      <span className="inline-flex items-center gap-1 text-green-700"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Live</span>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-white font-semibold text-sm leading-none">RealHubb Ventures</p>
-                  <p className="text-green-200 text-xs mt-0.5">WhatsApp Business</p>
-                </div>
+                <button onClick={fetchConversations} disabled={loadingConversations} className="btn btn-ghost btn-icon btn-sm shrink-0" title="Force refresh" aria-label="Refresh conversations">
+                  <RefreshCw className={loadingConversations ? "animate-spin" : ""} />
+                </button>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-green-300 text-xs flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
-                  Live
-                </span>
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
                     // A specific broadcast's reply filter and "every reply
@@ -865,45 +860,34 @@ export default function WhatsAppPage() {
                     setShowRepliesOnly(!showRepliesOnly);
                     if (!showRepliesOnly) { setBroadcastReplyPhones(null); setBroadcastReplyLabel(""); }
                   }}
-                  className={`px-2 py-1 text-[10px] rounded border ${showRepliesOnly ? "bg-white/30 text-white border-white/40" : "bg-white/10 text-white/70 border-white/20 hover:bg-white/20"}`}
+                  aria-pressed={showRepliesOnly}
+                  className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-medium border transition-colors ${showRepliesOnly ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}
                   title="Show every reply received, across all contacts and broadcasts"
                 >
-                  {showRepliesOnly ? "✓ All Replies" : "All Replies"}
+                  {showRepliesOnly && <Check className="w-3.5 h-3.5" />} All Replies
                 </button>
                 <button
                   onClick={fetchWebhookLogs}
-                  className="px-1.5 py-0.5 text-[10px] text-white/70 hover:text-white hover:bg-white/10 rounded border border-white/20"
+                  className="inline-flex items-center h-7 px-2.5 rounded-full text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800"
                   title="Check if Meta webhook is delivering messages"
                 >
                   Webhook?
                 </button>
-                <button onClick={fetchConversations} disabled={loadingConversations} className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-full" title="Force refresh">
-                  <RefreshCw className={`w-4 h-4 ${loadingConversations ? "animate-spin" : ""}`} />
-                </button>
               </div>
-            </div>
-
-            <div className="px-3 py-2 flex-shrink-0" style={{ backgroundColor: "#f0f2f5" }}>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search or start new chat"
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-white rounded-lg border-0 focus:outline-none focus:ring-1 focus:ring-green-300"
-                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search or start new chat" aria-label="Search chats" className="input h-9 pl-9 bg-gray-50 shadow-none" />
               </div>
             </div>
 
             {/* Broadcast reply filter banner */}
             {broadcastReplyPhones && (
-              <div className="px-3 py-2 bg-green-50 border-b border-green-200 flex items-center justify-between gap-2 flex-shrink-0">
-                <div className="flex items-center gap-1.5 text-xs text-green-800 min-w-0">
-                  <Filter className="w-3 h-3 flex-shrink-0" />
+              <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 flex items-center justify-between gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-blue-800 min-w-0">
+                  <Filter className="w-3.5 h-3.5 flex-shrink-0" />
                   <span className="truncate">Replies from <strong>{broadcastReplyLabel}</strong></span>
                 </div>
-                <button onClick={() => { setBroadcastReplyPhones(null); setBroadcastReplyLabel(""); }} className="text-green-600 hover:text-green-800 flex-shrink-0">
+                <button onClick={() => { setBroadcastReplyPhones(null); setBroadcastReplyLabel(""); }} className="p-0.5 rounded text-blue-600 hover:bg-blue-100 flex-shrink-0" aria-label="Clear reply filter">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -913,9 +897,9 @@ export default function WhatsAppPage() {
               {loadingConversations && conversations.length === 0 ? (
                 <ChatListSkeleton rows={7} />
               ) : displayedConversations.length === 0 ? (
-                <div className="p-8 text-center text-gray-400">
-                  <MessageSquare className="w-10 h-10 mx-auto mb-2 text-gray-200" />
-                  <p className="text-sm">{showRepliesOnly ? "No inbound replies yet" : broadcastReplyPhones ? "No replies from this broadcast" : "No conversations yet"}</p>
+                <div className="px-6 py-12 text-center">
+                  <MessageSquare className="w-9 h-9 mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm text-gray-500">{showRepliesOnly ? "No inbound replies yet" : broadcastReplyPhones ? "No replies from this broadcast" : "No conversations yet"}</p>
                 </div>
               ) : (
                 displayedConversations
@@ -926,27 +910,28 @@ export default function WhatsAppPage() {
                       <button
                         key={conv.id}
                         onClick={() => selectConversation(conv)}
-                        className={`w-full text-left flex items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors ${isSelected ? "bg-[#f0f2f5]" : "hover:bg-[#f5f6f6]"}`}
+                        aria-current={isSelected ? "true" : undefined}
+                        className={`w-full text-left flex items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors ${isSelected ? "bg-blue-50/70" : "hover:bg-gray-50"}`}
                       >
-                        <div className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white font-semibold text-sm" style={{ backgroundColor: "#128c7e" }}>
+                        <div className="w-10 h-10 rounded-full flex-shrink-0 grid place-items-center bg-green-100 text-green-800 font-semibold text-sm">
                           {getInitials(conv.name, conv.phone)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-0.5">
-                            <p className="font-semibold text-gray-900 text-sm truncate">
+                          <div className="flex items-baseline justify-between gap-2 mb-0.5">
+                            <p className={`text-sm truncate ${(conv.unreadCount ?? 0) > 0 ? "font-semibold text-gray-900" : "font-medium text-gray-900"}`}>
                               {conv.name && conv.name !== conv.phone ? conv.name : conv.phone}
                             </p>
-                            <span className={`text-xs flex-shrink-0 ml-1 ${(conv.unreadCount ?? 0) > 0 ? "text-[#25d366] font-medium" : "text-gray-400"}`}>
+                            <span className={`text-[11px] flex-shrink-0 tabular-nums ${(conv.unreadCount ?? 0) > 0 ? "text-green-700 font-semibold" : "text-gray-400"}`}>
                               {formatConvTime(conv.lastMessageAt)}
                             </span>
                           </div>
-                          <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-1 min-w-0">
                               {conv.lastMessageDirection === "outbound" && <MsgTick status="sent" />}
-                              <p className="text-xs text-gray-500 truncate">{conv.lastMessage || "No messages"}</p>
+                              <p className="text-[13px] text-gray-500 truncate">{conv.lastMessage || "No messages"}</p>
                             </div>
                             {(conv.unreadCount ?? 0) > 0 && (
-                              <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: "#25d366" }}>
+                              <span className="flex-shrink-0 min-w-[20px] h-5 px-1 rounded-full grid place-items-center bg-green-600 text-white text-[11px] font-semibold tabular-nums">
                                 {(conv.unreadCount ?? 0) > 9 ? "9+" : conv.unreadCount}
                               </span>
                             )}
@@ -962,41 +947,42 @@ export default function WhatsAppPage() {
           <div className={`flex-1 flex flex-col min-w-0 ${!selectedConversation ? "hidden md:flex" : "flex"}`}>
             {selectedConversation ? (
               <>
-                <div className="px-3 py-3 flex items-center gap-2 flex-shrink-0" style={{ backgroundColor: "#075e54" }}>
+                <div className="h-[64px] px-3 sm:px-4 flex items-center gap-2.5 flex-shrink-0 bg-white border-b border-gray-200">
                   <button onClick={() => setSelectedConversation(null)}
-                    className="md:hidden p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-full flex-shrink-0">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+                    className="md:hidden btn btn-ghost btn-icon btn-sm -ml-1 flex-shrink-0" aria-label="Back to chats">
+                    <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <div className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white font-semibold text-sm" style={{ backgroundColor: "#128c7e" }}>
+                  <div className="w-9 h-9 rounded-full flex-shrink-0 grid place-items-center bg-green-100 text-green-800 font-semibold text-sm">
                     {getInitials(selectedConversation.name, selectedConversation.phone)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
                       {selectedConversation.name && selectedConversation.name !== selectedConversation.phone ? selectedConversation.name : selectedConversation.phone}
                     </p>
-                    <p className="text-green-200 text-xs">{selectedConversation.phone}</p>
+                    <p className="text-xs text-gray-500 tabular-nums">{selectedConversation.phone}</p>
                   </div>
                   <button
                     onClick={handleCopyDetails}
-                    className="flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-black/40 hover:bg-black/60 text-white transition-colors"
+                    className="btn btn-secondary btn-icon btn-sm shrink-0"
                     title="Copy this contact's name and phone number"
+                    aria-label="Copy contact details"
                   >
                     <AnimatedCopyIcon copied={copiedDetails} className="w-4 h-4" />
                   </button>
-                  <button onClick={() => setSelectedConversation(null)} className="p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-full">
-                    <X className="w-4 h-4" />
+                  <button onClick={() => setSelectedConversation(null)} className="hidden md:inline-flex btn btn-ghost btn-icon btn-sm shrink-0" aria-label="Close chat">
+                    <X />
                   </button>
                 </div>
 
-                <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4" style={{ backgroundColor: "#efeae2" }}>
+                <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-3 sm:px-6 py-4" style={{ backgroundColor: "#efeae2" }}>
                   {loadingMessages ? (
                     <ChatBubblesSkeleton />
                   ) : chatMessages.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
-                      <div className="text-center bg-white/80 rounded-xl px-6 py-5 shadow-sm">
-                        <MessageSquare className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                        <p className="text-gray-500 text-sm">No messages yet</p>
-                        <p className="text-gray-400 text-xs mt-1">Send a message to start the conversation</p>
+                      <div className="text-center bg-white rounded-xl px-6 py-5 shadow-sm">
+                        <MessageSquare className="w-9 h-9 mx-auto mb-2 text-gray-300" />
+                        <p className="text-gray-700 text-sm font-medium">No messages yet</p>
+                        <p className="text-gray-500 text-xs mt-1">Send a message to start the conversation</p>
                       </div>
                     </div>
                   ) : (() => {
@@ -1010,14 +996,14 @@ export default function WhatsAppPage() {
                         <div key={msg.id}>
                           {showSep && label && (
                             <div className="flex justify-center my-3">
-                              <span className="bg-[#e1f2fb] text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm select-none">
+                              <span className="bg-white/90 text-gray-600 text-[11px] font-medium px-3 py-1 rounded-md shadow-sm select-none">
                                 {label}
                               </span>
                             </div>
                           )}
                           <div className={`flex mb-1 ${isOut ? "justify-end" : "justify-start"}`}>
                             <div
-                              className={`max-w-[65%] px-3 py-2 shadow-sm ${isOut ? "rounded-[18px] rounded-tr-sm" : "rounded-[18px] rounded-tl-sm"}`}
+                              className={`max-w-[85%] sm:max-w-[65%] px-3 py-2 shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] ${isOut ? "rounded-lg rounded-tr-none" : "rounded-lg rounded-tl-none"}`}
                               style={{ backgroundColor: isOut ? "#d9fdd3" : "#ffffff" }}
                             >
                               {msg.templateName && (
@@ -1039,33 +1025,24 @@ export default function WhatsAppPage() {
                   })()}
                 </div>
 
-                <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0" style={{ backgroundColor: "#f0f2f5" }}>
-                  <input
-                    type="text"
-                    value={replyText}
-                    onChange={e => setReplyText(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSendReply()}
-                    placeholder="Type a message"
-                    className="flex-1 px-4 py-2.5 text-sm bg-white rounded-full border-0 focus:outline-none focus:ring-1 focus:ring-green-300 shadow-sm"
-                  />
-                  <button
-                    onClick={handleSendReply}
-                    disabled={sendingReply || !replyText.trim()}
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white transition-colors disabled:opacity-50"
-                    style={{ backgroundColor: sendingReply || !replyText.trim() ? "#aaa" : "#075e54" }}
-                  >
+                <div className="px-3 sm:px-4 py-3 flex items-center gap-2 flex-shrink-0 bg-white border-t border-gray-200">
+                  <input type="text" value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSendReply()}
+                    placeholder="Type a message" aria-label="Message" className="input flex-1 rounded-full px-4 bg-gray-50" />
+                  <button onClick={handleSendReply} disabled={sendingReply || !replyText.trim()} aria-label="Send reply"
+                    className="w-10 h-10 shrink-0 rounded-full grid place-items-center text-white bg-green-600 hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">
+
                     {sendingReply ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedSendIcon className="w-4 h-4" />}
                   </button>
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center" style={{ backgroundColor: "#f0f2f5" }}>
-                <div className="text-center">
-                  <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
-                    <MessageSquare className="w-10 h-10 text-gray-400" />
+              <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 px-6">
+                <div className="text-center max-w-xs">
+                  <div className="w-14 h-14 rounded-full bg-white border border-gray-200 grid place-items-center mx-auto mb-4">
+                    <MessageSquare className="w-6 h-6 text-gray-400" />
                   </div>
-                  <h3 className="text-xl font-light text-gray-500 mb-2">WhatsApp Business</h3>
-                  <p className="text-sm text-gray-400">Select a conversation to start messaging</p>
+                  <h3 className="text-base font-semibold text-gray-900 mb-1">WhatsApp Business</h3>
+                  <p className="text-sm text-gray-500">Select a conversation to start messaging</p>
                 </div>
               </div>
             )}
@@ -1075,42 +1052,44 @@ export default function WhatsAppPage() {
 
       {/* ===== SEND ===== */}
       {activeTab === "send" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Send Single Message</h2>
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-sm text-green-800 flex items-center gap-2">
-                  <Phone className="w-4 h-4" /> Sending from: {accountLabel || "Loading account..."}
-                </p>
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-start">
+          <div className="card lg:col-span-3">
+            <div className="card-header flex-wrap gap-y-1">
+              <h2 className="card-title whitespace-nowrap">Send Single Message</h2>
+              <span className="flex items-center gap-1.5 text-xs text-gray-500 min-w-0 max-w-full">
+                <Phone className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                <span className="truncate">Sending from: <span className="font-medium text-gray-700">{accountLabel || "Loading account..."}</span></span>
+              </span>
+            </div>
+            <div className="p-4 sm:p-5 space-y-5">
+              <div>
+                <label className="field-label" htmlFor="wa-recipient">Recipient Phone Number</label>
+                <input id="wa-recipient" type="text" inputMode="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} placeholder="+91 98765 43210" className="input" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Recipient Phone Number</label>
-                <input type="text" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} placeholder="+91 98765 43210" className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Message Type</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="messageType" value="template" checked={messageType === "template"} onChange={() => setMessageType("template")} className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-gray-700">Template</span>
+                <span className="field-label">Message Type</span>
+                <div className="segmented">
+                  <label className="segmented-item cursor-pointer" data-active={messageType === "template"}>
+                    <input type="radio" name="messageType" value="template" checked={messageType === "template"} onChange={() => setMessageType("template")} className="sr-only" />
+                    Template
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="messageType" value="text" checked={messageType === "text"} onChange={() => setMessageType("text")} className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-gray-700">Custom Text</span>
+                  <label className="segmented-item cursor-pointer" data-active={messageType === "text"}>
+                    <input type="radio" name="messageType" value="text" checked={messageType === "text"} onChange={() => setMessageType("text")} className="sr-only" />
+                    Custom Text
                   </label>
                 </div>
               </div>
               {messageType === "template" && (
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">Select Template</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-sm font-medium text-gray-700" htmlFor="wa-template">Select Template</label>
                     <button
                       onClick={syncTemplatesFromMeta}
                       disabled={syncingTemplates}
-                      className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
                     >
-                      {syncingTemplates ? "Syncing..." : "↻ Sync from Meta"}
+                      <RefreshCw className={`w-3.5 h-3.5 ${syncingTemplates ? "animate-spin" : ""}`} />
+                      {syncingTemplates ? "Syncing..." : "Sync from Meta"}
                     </button>
                   </div>
                   <select
@@ -1123,15 +1102,15 @@ export default function WhatsAppPage() {
                       // is what let a stale/invalid image link slip into a real send before).
                       setTemplateSendImageUrl(picked?.headerContent || "");
                     }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900"
+                    id="wa-template"
+                    className="input"
                   >
                     <option value="">Select a template...</option>
-                    {templates.map(t => {
-                      const icon = t.headerType === 'image' ? '🖼 ' : t.headerType === 'video' ? '🎥 ' : t.headerType === 'document' ? '📄 ' : '';
-                      return <option key={t.id} value={t.name}>{icon}{t.name} ({t.approvalStatus === "approved" ? "Approved" : "Pending"})</option>;
-                    })}
+                    {templates.map(t => (
+                      <option key={t.id} value={t.name}>{t.name}{templateHeaderLabel(t)} ({t.approvalStatus === "approved" ? "Approved" : "Pending"})</option>
+                    ))}
                   </select>
-                  {templates.length === 0 && <p className="text-xs text-yellow-600 mt-1">No templates. Click Sync from Meta or create at Templates page.</p>}
+                  {templates.length === 0 && <p className="field-hint text-amber-700">No templates. Click Sync from Meta or create at Templates page.</p>}
 
                   {(() => {
                     const sel = templates.find((t: any) => t.name === selectedTemplate);
@@ -1150,28 +1129,25 @@ export default function WhatsAppPage() {
                           />
                         </div>
                         {sel.headerType === 'image' && (
-                          <div className="w-full flex-1 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <label className="block text-xs font-semibold text-blue-800 mb-1">🖼 Image URL (required for this template)</label>
-                            <input
-                              type="text"
-                              value={templateSendImageUrl}
-                              onChange={e => setTemplateSendImageUrl(e.target.value)}
-                              placeholder="https://your-server.com/image.jpg"
-                              className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
-                            />
-                            <p className="text-xs text-blue-600 mt-1">Must be a publicly accessible URL (HTTPS).</p>
+                          <div className="w-full flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                            <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 mb-1.5" htmlFor="wa-image-url">
+                              <ImageIcon className="w-3.5 h-3.5 text-gray-500" /> Image URL (required for this template)
+                            </label>
+                            <input id="wa-image-url" type="text" value={templateSendImageUrl} onChange={e => setTemplateSendImageUrl(e.target.value)}
+                              placeholder="https://your-server.com/image.jpg" className="input h-9" />
+                            <p className="field-hint">Must be a publicly accessible URL (HTTPS).</p>
                           </div>
                         )}
                       </div>
                     );
                   })()}
-                  <p className="text-xs text-gray-500 mt-2">Variables: Leave empty if template has no variables</p>
+                  <p className="field-hint">Variables: Leave empty if template has no variables</p>
                 </div>
               )}
               {messageType === "text" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Custom Message</label>
-                  <textarea value={messageText} onChange={e => setMessageText(e.target.value)} rows={4} placeholder="Type your custom message..." className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900" />
+                  <label className="field-label" htmlFor="wa-custom">Custom Message</label>
+                  <textarea id="wa-custom" value={messageText} onChange={e => setMessageText(e.target.value)} rows={4} placeholder="Type your custom message..." className="input" />
                 </div>
               )}
               {(() => {
@@ -1182,16 +1158,17 @@ export default function WhatsAppPage() {
                 return (
                   <>
                     {missingMedia && (
-                      <p className="text-xs text-red-600 mb-2">
+                      <p className="text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2 flex gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
                         This template needs a {sel.headerType} URL before it can be sent — Meta accepts the call but never delivers it otherwise.
                       </p>
                     )}
                     <button
                       onClick={handleSend}
                       disabled={loading || missingMedia}
-                      className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="btn btn-whatsapp btn-lg w-full"
                     >
-                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <AnimatedSendIcon className="w-5 h-5" />}
+                      {loading ? <Loader2 className="animate-spin" /> : <AnimatedSendIcon className="w-4 h-4" />}
                       {loading ? "Sending..." : "Send Message"}
                     </button>
                   </>
@@ -1200,28 +1177,30 @@ export default function WhatsAppPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Messages</h2>
+          <div className="card lg:col-span-2">
+            <div className="card-header">
+              <h2 className="card-title">Recent Messages</h2>
+            </div>
             {messages.length === 0 ? (
-              <div className="text-center py-8">
-                <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No messages sent yet</p>
+              <div className="text-center px-6 py-12">
+                <MessageSquare className="w-9 h-9 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">No messages sent yet</p>
               </div>
             ) : (
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+              <ul className="divide-y divide-gray-100 max-h-[28rem] overflow-y-auto">
                 {messages.slice(0, 10).map(msg => (
-                  <div key={msg.id} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="font-medium text-gray-900">{msg.to}</span>
-                      <span className="text-xs text-gray-500">{new Date(msg.sentAt).toLocaleTimeString()}</span>
+                  <li key={msg.id} className="px-4 sm:px-5 py-3">
+                    <div className="flex justify-between items-baseline gap-2 mb-1">
+                      <span className="text-sm font-medium text-gray-900 tabular-nums truncate">{msg.to}</span>
+                      <span className="text-[11px] text-gray-400 tabular-nums shrink-0">{new Date(msg.sentAt).toLocaleTimeString()}</span>
                     </div>
-                    <p className="text-sm text-gray-600 line-clamp-2">{msg.message}</p>
-                    <span className="inline-flex items-center text-xs font-medium text-green-600 mt-2">
-                      <CheckCircle className="w-3 h-3 mr-1" />{msg.status}
+                    <p className="text-[13px] text-gray-600 line-clamp-2">{msg.message}</p>
+                    <span className="badge badge-green mt-2 capitalize">
+                      <CheckCircle className="w-3 h-3" />{msg.status}
                     </span>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
         </div>
@@ -1229,45 +1208,45 @@ export default function WhatsAppPage() {
 
       {/* ===== BULK MODAL ===== */}
       {showBulkModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-4 sm:p-6 pb-4 border-b border-gray-100 shrink-0">
-              <h2 className="text-xl font-bold text-gray-900">Bulk Send Message</h2>
-              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatches([]); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); }} className="p-1 hover:bg-gray-100 rounded">
-                <X className="w-5 h-5 text-gray-500" />
+        <div className="fixed inset-0 bg-gray-900/50 flex items-end sm:items-center justify-center z-50 sm:p-4 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="bulk-send-title">
+          <div className="bg-white w-full max-w-2xl h-[92dvh] sm:h-auto sm:max-h-[90vh] rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col animate-modal-in">
+            <div className="flex justify-between items-start gap-3 px-4 sm:px-6 py-4 border-b border-gray-200 shrink-0">
+              <div className="min-w-0">
+                <h2 id="bulk-send-title" className="text-lg font-semibold text-gray-900">Bulk Send Message</h2>
+                <p className="mt-0.5 text-xs text-gray-500 flex items-center gap-1.5 min-w-0">
+                  <Phone className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                  <span className="truncate">Using WhatsApp Account: <span className="font-medium text-gray-700">{accountLabel || "Loading account..."}</span></span>
+                </p>
+              </div>
+              <button onClick={() => { setShowBulkModal(false); setBulkResult(null); setSelectedBatches([]); setSelectedContacts([]); sentKeysRef.current = new Set(); allBatchPhonesRef.current = []; setSendRange("all"); setRangeFrom(""); setRangeTo(""); }} className="btn btn-ghost btn-icon btn-sm -mr-1 shrink-0" aria-label="Close">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-            <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-sm text-green-800 flex items-center gap-2">
-                <Phone className="w-4 h-4" /> Using WhatsApp Account: {accountLabel || "Loading account..."}
-              </p>
-            </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Message Type</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="bulkMessageType" value="text" checked={bulkMessageType === "text"} onChange={() => setBulkMessageType("text")} className="w-4 h-4 text-green-600" />
-                  <span className="text-sm text-gray-700">Custom Text</span>
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-5">
+            <div>
+              <span className="field-label">Message Type</span>
+              <div className="segmented">
+                <label className="segmented-item cursor-pointer" data-active={bulkMessageType === "text"}>
+                  <input type="radio" name="bulkMessageType" value="text" checked={bulkMessageType === "text"} onChange={() => setBulkMessageType("text")} className="sr-only" />
+                  Custom Text
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="bulkMessageType" value="template" checked={bulkMessageType === "template"} onChange={() => setBulkMessageType("template")} className="w-4 h-4 text-green-600" />
-                  <span className="text-sm text-gray-700">Template</span>
+                <label className="segmented-item cursor-pointer" data-active={bulkMessageType === "template"}>
+                  <input type="radio" name="bulkMessageType" value="template" checked={bulkMessageType === "template"} onChange={() => setBulkMessageType("template")} className="sr-only" />
+                  Template
                 </label>
               </div>
             </div>
             {bulkMessageType === "template" && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Template</label>
-                <select value={selectedBulkTemplate} onChange={e => setSelectedBulkTemplate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900">
+              <div>
+                <label className="field-label" htmlFor="bulk-template">Select Template</label>
+                <select id="bulk-template" value={selectedBulkTemplate} onChange={e => setSelectedBulkTemplate(e.target.value)} className="input">
                   <option value="">Select a template...</option>
-                  {templates.map(t => {
-                    const icon = t.headerType === 'image' ? '🖼 ' : t.headerType === 'video' ? '🎥 ' : t.headerType === 'document' ? '📄 ' : '';
-                    return <option key={t.id} value={t.name}>{icon}{t.name} ({t.approvalStatus === "approved" ? "Approved" : "Pending"})</option>;
-                  })}
+                  {templates.map(t => (
+                    <option key={t.id} value={t.name}>{t.name}{templateHeaderLabel(t)} ({t.approvalStatus === "approved" ? "Approved" : "Pending"})</option>
+                  ))}
                 </select>
                 {templates.length === 0 && (
-                  <p className="text-xs text-yellow-600 mt-1">No approved templates. Click Sync from Meta or create one at the Templates page.</p>
+                  <p className="field-hint text-amber-700">No approved templates. Click Sync from Meta or create one at the Templates page.</p>
                 )}
 
                 {(() => {
@@ -1288,9 +1267,10 @@ export default function WhatsAppPage() {
                         />
                       </div>
                       {missingHeaderMedia && (
-                        <p className="w-full text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 flex-1">
-                          This template has a {sel.headerType} header but no media is attached — Meta will reject every send.
-                          Edit it on the Templates page and re-attach the {sel.headerType}.
+                        <p className="w-full text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2 flex gap-2 flex-1">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          <span>This template has a {sel.headerType} header but no media is attached — Meta will reject every send.
+                          Edit it on the Templates page and re-attach the {sel.headerType}.</span>
                         </p>
                       )}
                     </div>
@@ -1299,22 +1279,25 @@ export default function WhatsAppPage() {
               </div>
             )}
             {bulkMessageType === "text" && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-                <textarea value={bulkMessage} onChange={e => setBulkMessage(e.target.value)} rows={4} placeholder="Type your message..." className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900" />
+              <div>
+                <label className="field-label" htmlFor="bulk-message">Message</label>
+                <textarea id="bulk-message" value={bulkMessage} onChange={e => setBulkMessage(e.target.value)} rows={4} placeholder="Type your message..." className="input" />
               </div>
             )}
             {batches.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm font-semibold text-gray-700">Send to Batches</label>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm font-medium text-gray-700">
+                    Send to Batches
+                    {selectedBatches.length > 0 && <span className="ml-1.5 badge badge-blue tabular-nums">{selectedBatches.length} selected</span>}
+                  </span>
                   {selectedBatches.length > 0 && (
-                    <button onClick={() => applyBatchSelection([])} className="text-xs text-blue-600 hover:text-blue-700">Clear</button>
+                    <button onClick={() => applyBatchSelection([])} className="text-xs font-medium text-blue-600 hover:text-blue-700">Clear</button>
                   )}
                 </div>
-                <div className="border border-gray-300 rounded-lg max-h-40 overflow-y-auto">
+                <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto divide-y divide-gray-100">
                   {batches.map(b => (
-                    <label key={b.name} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-b-0">
+                    <label key={b.name} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${selectedBatches.includes(b.name) ? "bg-blue-50/60" : "hover:bg-gray-50"}`}>
                       <input
                         type="checkbox"
                         checked={selectedBatches.includes(b.name)}
@@ -1324,21 +1307,23 @@ export default function WhatsAppPage() {
                             ? selectedBatches.filter(n => n !== b.name)
                             : [...selectedBatches, b.name]
                         )}
-                        className="w-4 h-4 text-green-600 rounded"
+                        className="w-4 h-4 rounded shrink-0"
                       />
-                      <span className="text-sm text-gray-800">{b.name} <span className="text-gray-500">({b.count} contacts)</span></span>
+                      <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">{b.name}</span>
+                      <span className="text-xs text-gray-500 tabular-nums shrink-0">{b.count} contacts</span>
                     </label>
                   ))}
                 </div>
-                {loadingBatches && <p className="text-xs text-gray-500 mt-1">Loading contacts…</p>}
+                {loadingBatches && <p className="field-hint flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading contacts…</p>}
                </div>
              )}
 
              {/* Send Range */}
              {selectedBatches.length > 0 && (
-               <div className="mb-4 space-y-2">
-                 <label className="block text-sm font-semibold text-gray-700">Send Range</label>
+               <div className="space-y-2">
+                 <label className="block text-sm font-medium text-gray-700" htmlFor="bulk-range">Send Range</label>
                  <select
+                   id="bulk-range"
                    value={sendRange}
                    onChange={e => {
                      const val = e.target.value;
@@ -1353,7 +1338,7 @@ export default function WhatsAppPage() {
                        setRangeFrom(String(s)); setRangeTo(String(en));
                      }
                    }}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800"
+                   className="input"
                  >
                    <option value="all">All ({allBatchPhonesRef.current.length} contacts)</option>
                    {Array.from({ length: Math.ceil(allBatchPhonesRef.current.length / 100) }, (_, i) => {
@@ -1362,47 +1347,50 @@ export default function WhatsAppPage() {
                      return <option key={s} value={`${s}-${en}`}>{s} – {en} ({en - s + 1} contacts)</option>;
                    })}
                  </select>
-                 <div className="flex items-center gap-2">
-                   <span className="text-xs text-gray-500 flex-shrink-0">Custom:</span>
-                   <span className="text-xs text-gray-500">From</span>
+                 <div className="flex flex-wrap items-center gap-2">
+                   <span className="text-xs text-gray-500">Custom range: from</span>
                    <input type="number" min="1" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)}
-                     placeholder="1" className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-800 focus:ring-2 focus:ring-green-400 focus:outline-none" />
-                   <span className="text-xs text-gray-500">To</span>
+                     placeholder="1" aria-label="Range from" className="input h-8 w-20 tabular-nums" />
+                   <span className="text-xs text-gray-500">to</span>
                    <input type="number" min="1" value={rangeTo} onChange={e => setRangeTo(e.target.value)}
                      placeholder={String(allBatchPhonesRef.current.length || "")}
-                     className="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-800 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+                     aria-label="Range to" className="input h-8 w-20 tabular-nums" />
                    <button onClick={() => {
                      const from = Math.max(1, parseInt(rangeFrom) || 1);
                      const to   = Math.min(allBatchPhonesRef.current.length, parseInt(rangeTo) || allBatchPhonesRef.current.length);
                      setSelectedContacts(allBatchPhonesRef.current.slice(from - 1, to));
                      setSendRange(`${from}-${to}`);
-                   }} className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 flex-shrink-0">
+                   }} className="btn btn-secondary btn-sm">
                      Apply
                    </button>
                  </div>
                </div>
              )}
 
-             <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm text-gray-600 font-medium">{selectedContacts.length} contacts selected</span>
-              <button onClick={selectAllFiltered} className="text-sm text-blue-600 hover:text-blue-700">
+            <div>
+             <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">
+                Recipients <span className="ml-1 text-gray-500 font-normal tabular-nums">{selectedContacts.length} contacts selected</span>
+              </span>
+              <button onClick={selectAllFiltered} className="text-xs font-medium text-blue-600 hover:text-blue-700">
                 {selectedContacts.length === contacts.length ? "Deselect All" : "Select All"}
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto border rounded-lg mb-4 max-h-48">
+            <div className="overflow-y-auto border border-gray-200 rounded-lg max-h-56 divide-y divide-gray-100">
               {contacts.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">No contacts available</div>
+                <div className="px-4 py-6 text-center text-sm text-gray-500">No contacts available</div>
               ) : (
                 contacts.map(contact => (
-                  <label key={contact.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0">
-                    <input type="checkbox" checked={selectedContacts.includes(contact.phone)} onChange={() => toggleContact(contact.phone)} className="w-4 h-4 text-green-600 rounded" />
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 text-sm">{contact.name}</p>
-                      <p className="text-xs text-gray-500">{contact.phone}{(contact as any).dataName ? ` · ${(contact as any).dataName}` : ''}</p>
+                  <label key={contact.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer">
+                    <input type="checkbox" checked={selectedContacts.includes(contact.phone)} onChange={() => toggleContact(contact.phone)} className="w-4 h-4 rounded shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-sm truncate">{contact.name}</p>
+                      <p className="text-xs text-gray-500 truncate tabular-nums">{contact.phone}{(contact as any).dataName ? ` · ${(contact as any).dataName}` : ''}</p>
                     </div>
                   </label>
                 ))
               )}
+            </div>
             </div>
 
             {/* Progress bar — shown while sending. The job runs on the backend,
@@ -1410,13 +1398,13 @@ export default function WhatsAppPage() {
                 same progress is also shown in the persistent banner above
                 and in the Reports tab. */}
             {sendingBulk && (
-              <div className="mb-4 space-y-2">
+              <div className="space-y-2 rounded-lg border border-gray-200 p-3">
                 <div className="flex justify-between text-sm font-medium text-gray-700">
                   <span className="flex items-center gap-1.5"><Loader2 className="w-4 h-4 animate-spin text-green-600" /> Sending…</span>
                   <span className="tabular-nums">{bulkSentCount} / {bulkTotalCount}</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                  <div className="bg-green-600 h-3 rounded-full transition-all duration-300"
+                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div className="bg-green-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: bulkTotalCount > 0 ? `${Math.round((bulkSentCount / bulkTotalCount) * 100)}%` : "0%" }} />
                 </div>
                 {optedOutSkippedCount > 0 && (
@@ -1428,19 +1416,19 @@ export default function WhatsAppPage() {
                   <p className="text-xs text-gray-500">
                     {bulkTotalCount > 0 ? Math.round((bulkSentCount / bulkTotalCount) * 100) : 0}% complete — safe to close this window
                   </p>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={handleResumeBroadcast}
                     disabled={resumingBroadcast}
                     title="If progress looks stalled, this nudges the broadcast to continue — safe to click even if it's already moving."
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                    className="btn btn-ghost btn-sm"
                   >
                     {resumingBroadcast ? "Resuming…" : "Resume"}
                   </button>
                   <button
                     onClick={handleCancelBroadcast}
                     disabled={cancellingBroadcast}
-                    className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
+                    className="btn btn-danger-ghost btn-sm"
                   >
                     {cancellingBroadcast ? "Cancelling…" : "Cancel Broadcast"}
                   </button>
@@ -1451,28 +1439,36 @@ export default function WhatsAppPage() {
 
             {/* Result */}
             {!sendingBulk && bulkResult && (
-              <div className={`mb-4 p-4 rounded-lg ${bulkResult.error ? "bg-red-50" : bulkResult.cancelled ? "bg-yellow-50" : "bg-green-50"}`}>
-                {bulkResult.error ? <p className="text-red-700">{bulkResult.error}</p> : bulkResult.cancelled ? (
-                  <div className="text-yellow-800">
-                    <p className="font-semibold">Broadcast cancelled</p>
-                    <p className="text-sm mt-0.5">✅ {bulkResult.sent} sent &nbsp;·&nbsp; ❌ {bulkResult.failed} failed before it was stopped</p>
-                    {bulkResult.reason && <p className="text-xs mt-1 text-yellow-700">Reason: {bulkResult.reason}</p>}
+              <div className={`p-4 rounded-lg border ${bulkResult.error ? "bg-red-50 border-red-200" : bulkResult.cancelled ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}`}>
+                {bulkResult.error ? <p className="text-sm text-red-700 flex gap-2"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />{bulkResult.error}</p> : bulkResult.cancelled ? (
+                  <div className="text-amber-900">
+                    <p className="font-semibold text-sm">Broadcast cancelled</p>
+                    <p className="text-sm mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums">
+                      <span className="inline-flex items-center gap-1"><CheckCircle className="w-4 h-4 text-green-600" />{bulkResult.sent} sent</span>
+                      <span className="inline-flex items-center gap-1"><XCircle className="w-4 h-4 text-red-500" />{bulkResult.failed} failed before it was stopped</span>
+                    </p>
+                    {bulkResult.reason && <p className="text-xs mt-1 text-amber-800">Reason: {bulkResult.reason}</p>}
                   </div>
                 ) : (
-                  <div className="text-green-700">
-                    <p className="font-semibold">Send Complete!</p>
-                    <p className="text-sm mt-0.5">✅ {bulkResult.sent} sent &nbsp;·&nbsp; ❌ {bulkResult.failed} failed</p>
-                    {bulkResult.durationMs != null && (
-                      <p className="text-xs mt-1 text-green-600">Took {formatDuration(bulkResult.durationMs)}</p>
-                    )}
-                    <p className="text-xs mt-1 text-green-600">Thanks for using RealHubb WhatsApp Broadcast — your messages are on their way.</p>
+                  <div className="text-green-800">
+                    <p className="font-semibold text-sm">Send Complete!</p>
+                    <p className="text-sm mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums">
+                      <span className="inline-flex items-center gap-1"><CheckCircle className="w-4 h-4 text-green-600" />{bulkResult.sent} sent</span>
+                      <span className="inline-flex items-center gap-1"><XCircle className="w-4 h-4 text-red-500" />{bulkResult.failed} failed</span>
+                    </p>
+                    {bulkResult.durationMs != null && <p className="text-xs mt-1 text-green-700">Took {formatDuration(bulkResult.durationMs)}</p>}
+                    <p className="text-xs mt-1 text-green-700">Thanks for using RealHubb WhatsApp Broadcast — your messages are on their way.</p>
                   </div>
                 )}
               </div>
             )}
             </div>
 
-            <div className="p-4 sm:p-6 pt-4 border-t border-gray-100 shrink-0">
+            <div className="px-4 sm:px-6 py-3.5 border-t border-gray-200 bg-gray-50/80 shrink-0 pb-safe flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="min-w-0 sm:flex-1">
+                <p className="text-sm text-gray-600"><span className="text-lg font-semibold text-gray-900 tabular-nums">{selectedContacts.length}</span> recipient{selectedContacts.length === 1 ? "" : "s"}</p>
+                {selectedBatches.length > 0 && <p className="text-xs text-gray-500 truncate">from {selectedBatches.join(", ")}</p>}
+              </div>
               {(() => {
                 const bulkSel = templates.find((t: any) => t.name === selectedBulkTemplate);
                 const bulkMissingMedia = bulkMessageType === "template" && !!bulkSel &&
@@ -1486,9 +1482,9 @@ export default function WhatsAppPage() {
                       (bulkMessageType === "template" && !selectedBulkTemplate) ||
                       bulkMissingMedia
                     }
-                    className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="btn btn-whatsapp btn-lg w-full sm:w-auto"
                   >
-                    <AnimatedSendIcon sending={sendingBulk} className="w-5 h-5" />
+                    <AnimatedSendIcon sending={sendingBulk} className="w-4 h-4" />
                     {bulkMissingMedia ? "Attach the template's media first" : `Send to ${selectedContacts.length} Contacts`}
                   </button>
                 );
@@ -1500,18 +1496,18 @@ export default function WhatsAppPage() {
 
       {/* ===== WEBHOOK DIAGNOSTIC PANEL ===== */}
       {showWebhookPanel && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 p-4 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="webhook-title">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 max-w-lg w-full shadow-xl max-h-[90vh] overflow-y-auto animate-modal-in">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-900">Webhook Diagnostics</h2>
-              <button onClick={() => setShowWebhookPanel(false)} className="p-1 hover:bg-gray-100 rounded">
-                <X className="w-5 h-5 text-gray-500" />
+              <h2 id="webhook-title" className="text-lg font-semibold text-gray-900">Webhook Diagnostics</h2>
+              <button onClick={() => setShowWebhookPanel(false)} className="btn btn-ghost btn-icon btn-sm -mr-1" aria-label="Close">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {webhookLogs.length === 0 ? (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <p className="text-red-700 font-semibold text-sm">⚠️ No webhook calls received from Meta</p>
+                <p className="text-red-700 font-semibold text-sm flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> No webhook calls received from Meta</p>
                 <p className="text-red-600 text-xs mt-2">This means Meta is NOT sending messages to your server. Fix this in Meta Business Manager:</p>
                 <ol className="text-red-600 text-xs mt-2 space-y-1 list-decimal list-inside">
                   <li>Go to <strong>Meta Business Manager → Apps → Your App</strong></li>
@@ -1524,25 +1520,25 @@ export default function WhatsAppPage() {
               </div>
             ) : (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                <p className="text-green-700 font-semibold text-sm">✅ Webhook is being called ({webhookLogs.length} recent calls)</p>
+                <p className="text-green-700 font-semibold text-sm flex items-center gap-1.5"><CheckCircle className="w-4 h-4" /> Webhook is being called ({webhookLogs.length} recent calls)</p>
               </div>
             )}
 
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-1.5 max-h-64 overflow-y-auto">
               {webhookLogs.map((log) => (
-                <div key={log.id} className={`text-xs p-2 rounded border ${log.hasMessages ? "border-blue-200 bg-blue-50" : "border-gray-200 bg-gray-50"}`}>
-                  <div className="flex justify-between">
-                    <span className={log.hasMessages ? "text-blue-700 font-medium" : "text-gray-600"}>
-                      {log.hasMessages ? "📨 Inbound message" : log.hasStatuses ? "📤 Status update" : "📡 Webhook call"}
+                <div key={log.id} className={`text-xs px-2.5 py-2 rounded-md border ${log.hasMessages ? "border-blue-200 bg-blue-50" : "border-gray-200 bg-gray-50"}`}>
+                  <div className="flex justify-between gap-2">
+                    <span className={`inline-flex items-center gap-1.5 ${log.hasMessages ? "text-blue-700 font-medium" : "text-gray-600"}`}>
+                      {log.hasMessages ? <><InboxIcon className="w-3.5 h-3.5" /> Inbound message</> : log.hasStatuses ? <><Send className="w-3.5 h-3.5" /> Status update</> : <><Radio className="w-3.5 h-3.5" /> Webhook call</>}
                     </span>
-                    <span className="text-gray-400">{log.receivedAt ? new Date(log.receivedAt).toLocaleTimeString() : "unknown"}</span>
+                    <span className="text-gray-400 tabular-nums">{log.receivedAt ? new Date(log.receivedAt).toLocaleTimeString() : "unknown"}</span>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-yellow-800 text-xs font-medium">After fixing Meta config, send a real WhatsApp message to this number from your phone to verify inbound messages work end-to-end.</p>
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-amber-900 text-xs font-medium">After fixing Meta config, send a real WhatsApp message to this number from your phone to verify inbound messages work end-to-end.</p>
             </div>
           </div>
         </div>

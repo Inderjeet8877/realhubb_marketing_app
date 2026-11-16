@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { fetcher, swrConfig } from "@/lib/swr";
 import { TableSkeleton } from "@/components/Skeletons";
+import PageHeader from "@/components/ui/PageHeader";
 import { AnimatedSendIcon } from "@/components/icons/AnimatedIcons";
 import {
   Radio, AlertTriangle, Loader2, Search, CheckSquare, Square,
@@ -102,18 +103,16 @@ export default function RcsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Radio className="w-6 h-6 text-blue-600" />
-          RCS Messaging
-          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">
-            Upcoming Feature
+      <PageHeader
+        className="!mb-0"
+        title={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            RCS Messaging
+            <span className="badge badge-amber">Upcoming Feature</span>
           </span>
-        </h1>
-        <p className="text-gray-600 text-sm mt-1">
-          Send RCS messages via Ping Smart, with names and numbers logged below.
-        </p>
-      </div>
+        }
+        description="Send RCS messages via Ping Smart, with names and numbers logged below."
+      />
 
       <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
         <Sparkles className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
@@ -143,15 +142,15 @@ export default function RcsPage() {
       )}
 
       {/* Compose */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Compose</h2>
+      <div className="card p-4 sm:p-6 space-y-4">
+        <h2 className="card-title flex items-center gap-2"><Radio className="w-4 h-4 text-blue-600" /> Compose</h2>
 
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Message text..."
           rows={3}
-          className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          className="input"
         />
 
         {/* Quick single send */}
@@ -161,35 +160,35 @@ export default function RcsPage() {
             value={quickName}
             onChange={(e) => setQuickName(e.target.value)}
             placeholder="Name (optional, for a one-off number)"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            className="input"
           />
           <input
             type="text"
             value={quickPhone}
             onChange={(e) => setQuickPhone(e.target.value)}
             placeholder="Phone number (for a one-off send)"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            className="input"
           />
         </div>
 
         {/* Contact picker */}
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+          <p className="field-label flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" /> Or select from Contacts
           </p>
           <div className="relative mb-2">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search contacts..."
-              className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input h-9 pl-9"
             />
           </div>
-          <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
+          <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
             {filteredContacts.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">No matching contacts.</p>
+              <p className="text-sm text-gray-500 text-center py-6">No matching contacts.</p>
             ) : (
               filteredContacts.map((c) => {
                 const checked = selectedPhones.has(c.phone);
@@ -202,7 +201,7 @@ export default function RcsPage() {
                       {checked ? <CheckSquare className="w-4 h-4 text-blue-600" /> : <Square className="w-4 h-4 text-gray-400" />}
                     </button>
                     <span className="truncate text-gray-800">{c.name}</span>
-                    <span className="text-xs text-gray-400 ml-auto shrink-0">{c.phone}</span>
+                    <span className="text-xs text-gray-500 ml-auto shrink-0 tabular-nums">{c.phone}</span>
                   </label>
                 );
               })
@@ -225,47 +224,48 @@ export default function RcsPage() {
         <button
           onClick={handleSend}
           disabled={!configured || sending || recipientCount === 0}
-          className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+          className="btn btn-primary btn-lg w-full sm:w-auto"
         >
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedSendIcon className="w-4 h-4" />}
+          {sending ? <Loader2 className="animate-spin" /> : <AnimatedSendIcon className="w-4 h-4" />}
           {sending ? "Sending..." : `Send${recipientCount > 0 ? ` to ${recipientCount}` : ""}`}
         </button>
       </div>
 
       {/* Message log */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Sent Messages</h2>
+      <div className="card overflow-hidden">
+        <div className="card-header">
+          <h2 className="card-title">Sent Messages</h2>
+          {messages.length > 0 && <span className="text-xs text-gray-500 tabular-nums">{messages.length} logged</span>}
+        </div>
         {messagesLoading ? (
-          <TableSkeleton rows={4} cols={5} />
+          <div className="[&>div]:!border-0 [&>div]:!shadow-none [&>div]:!rounded-none"><TableSkeleton rows={4} cols={5} /></div>
         ) : messages.length === 0 ? (
-          <p className="text-sm text-gray-500 py-6 text-center">No RCS messages sent yet.</p>
+          <p className="text-sm text-gray-500 px-6 py-10 text-center">No RCS messages sent yet. Messages you send above are logged here with their delivery status.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-gray-500 border-b border-gray-100">
-                  <th className="py-2 pr-4">Name</th>
-                  <th className="py-2 pr-4">Phone</th>
-                  <th className="py-2 pr-4">Message</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2">Sent At</th>
+                <tr className="table-head">
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Message</th>
+                  <th>Status</th>
+                  <th>Sent At</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody>
                 {messages.map((m) => (
-                  <tr key={m.id}>
-                    <td className="py-2 pr-4 font-medium text-gray-800">{m.name}</td>
-                    <td className="py-2 pr-4 text-gray-600">{m.phone}</td>
-                    <td className="py-2 pr-4 text-gray-600 max-w-xs truncate" title={m.message}>{m.message}</td>
-                    <td className="py-2 pr-4">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        m.success ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                      }`}>
+                  <tr key={m.id} className="table-row">
+                    <td className="font-medium !text-gray-900">{m.name}</td>
+                    <td>{m.phone}</td>
+                    <td className="max-w-xs truncate" title={m.message}>{m.message}</td>
+                    <td>
+                      <span className={`badge ${m.success ? "badge-green" : "badge-red"}`}>
                         {m.success ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                         {m.success ? "Sent" : (m.errorDesc || "Failed")}
                       </span>
                     </td>
-                    <td className="py-2 text-gray-500">{m.createdAt ? new Date(m.createdAt).toLocaleString() : "—"}</td>
+                    <td className="!text-gray-500">{m.createdAt ? new Date(m.createdAt).toLocaleString() : "—"}</td>
                   </tr>
                 ))}
               </tbody>
