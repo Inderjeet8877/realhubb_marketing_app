@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import useSWR from "swr";
-import { fetcher, metaSwrConfig } from "@/lib/swr";
+import { fetcher, metaSwrConfig, fetchFresh } from "@/lib/swr";
 import {
   BarChart3, Users, TrendingUp, Eye, Target, DollarSign, RefreshCw,
   Download, FileSpreadsheet, FileText, AlertTriangle, TrendingDown, Inbox, Calendar, FileBadge,
@@ -14,9 +14,8 @@ import {
 import Skeleton from "react-loading-skeleton";
 import { AppSkeletonTheme, StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
 import { ActionQueue, ProgressBar, type ActionItem } from "@/components/ActionQueue";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+// xlsx / jsPDF / jspdf-autotable (~700 KB together) load inside the Download
+// handlers below instead of with the dashboard.
 
 const CHART_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6"];
 // Status slices keep a fixed meaning: live = green, paused = neutral gray.
@@ -119,7 +118,10 @@ export default function MetaDashboardContent() {
   const loading    = campLoading && allCampaigns.length === 0;
   const refreshing = campValidating || leadsValidating;
 
-  const fetchAllData = () => { campMutate(); leadsMutate(); };
+  const fetchAllData = () => {
+    campMutate(fetchFresh(`/api/meta/campaigns?account_id=all&${dateQuery}`), { revalidate: false });
+    leadsMutate(fetchFresh("/api/meta/leads?account_id=all"), { revalidate: false });
+  };
 
   const filtered = selectedAccount === "all"
     ? allCampaigns
@@ -214,7 +216,8 @@ export default function MetaDashboardContent() {
 
   const [showDlDropdown, setShowDlDropdown] = useState(false);
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
+    const XLSX = await import("xlsx");
     const wb = XLSX.utils.book_new();
 
     // Sheet 1 — Summary
@@ -257,7 +260,11 @@ export default function MetaDashboardContent() {
     setShowDlDropdown(false);
   };
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
+    const [{ default: jsPDF }, { applyPlugin }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+    // Attach doc.autoTable explicitly: the plugin only self-attaches when a
+    // global window.jsPDF exists, which a bundled import never sets.
+    applyPlugin(jsPDF);
     const doc = new jsPDF({ orientation: "landscape" });
     const pw = doc.internal.pageSize.getWidth();
 

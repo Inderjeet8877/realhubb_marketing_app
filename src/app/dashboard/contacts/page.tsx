@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Component, ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, useDeferredValue, Component, ReactNode } from "react";
 import useSWR from "swr";
 import { fetcher, swrConfig } from "@/lib/swr";
 import { Users, Upload, Tag, Loader2, Search, X, FileText, CheckCircle, CheckSquare, Square, TriangleAlert, Plus } from "lucide-react";
@@ -294,21 +294,23 @@ export default function ContactsPage() {
   const { data: failedData, isLoading: failedLoading } =
     useSWR("/api/contacts?failed=true", fetcher, swrConfig);
 
-  const contacts: Contact[] = (contactsData?.contacts || []).map((c: any) => ({
+  // Memoised: with ~87k contacts, re-normalising every record on each
+  // keystroke/render was the main source of typing lag on this page.
+  const contacts: Contact[] = useMemo(() => (contactsData?.contacts || []).map((c: any) => ({
     ...c,
     id:    c.id    || '',
     name:  String(c.name  ?? 'Unknown'),
     phone: String(c.phone ?? ''),
     tags:  Array.isArray(c.tags) ? c.tags
            : typeof c.tags === 'string' ? c.tags.split(',').filter(Boolean) : [],
-  }));
-  const failedContacts: (Contact & { failReason?: string })[] = (failedData?.contacts || []).map((c: any) => ({
+  })), [contactsData]);
+  const failedContacts: (Contact & { failReason?: string })[] = useMemo(() => (failedData?.contacts || []).map((c: any) => ({
     ...c,
     id:    c.id    || '',
     name:  String(c.name  ?? 'Unknown'),
     phone: String(c.phone ?? ''),
     failReason: c.failReason || 'Unknown',
-  }));
+  })), [failedData]);
   const totalContacts = contactsData?.total || contacts.length;
   const loading = contactsLoading && contacts.length === 0;
   const [searchTerm, setSearchTerm] = useState("");
@@ -551,41 +553,53 @@ export default function ContactsPage() {
     }
   };
 
-  const allBatches = [...new Set(
+  // Everything below is derived from ~87k records, so each list is computed
+  // once per data/filter change instead of on every render.
+  const allBatches = useMemo(() => [...new Set(
     [...contacts, ...failedContacts].map(c => c.dataName || 'Uncategorized')
-  )].sort();
+  )].sort(), [contacts, failedContacts]);
+
+  // One pass for all batch counts (was one full scan per batch, per render).
+  const batchCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of contacts) { const k = c.dataName || 'Uncategorized'; m.set(k, (m.get(k) || 0) + 1); }
+    return m;
+  }, [contacts]);
 
   const activeList = viewMode === "failed" ? failedContacts : contacts;
 
-  const isRecent = (c: Contact) => {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    return new Date(c.addedAt) >= thirtyDaysAgo;
-  };
+  const thirtyDaysAgo = useMemo(() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.getTime(); }, []);
+  const isRecent = (c: Contact) => new Date(c.addedAt).getTime() >= thirtyDaysAgo;
   const isTagged = (c: Contact) => Array.isArray(c.tags) && c.tags.length > 0;
+  const recentCount = useMemo(() => contacts.filter(isRecent).length, [contacts, thirtyDaysAgo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filteredContacts = activeList.filter((contact) => {
-    if (!contact || typeof contact !== 'object') return false;
-    const name  = String(contact.name ?? '');
-    const phone = String(contact.phone ?? '');
-    const matchSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || phone.includes(searchTerm);
-    const matchBatch  = filterBatch === 'all' || (contact.dataName || 'Uncategorized') === filterBatch;
-    const matchStat   = viewMode === "failed" || statFilter === "all"
-      || (statFilter === "tagged" && isTagged(contact))
-      || (statFilter === "recent" && isRecent(contact));
-    return matchSearch && matchBatch && matchStat;
-  });
+  // The input updates instantly; the 87k-row filter follows a beat behind.
+  const deferredSearch = useDeferredValue(searchTerm);
+  const filteredContacts = useMemo(() => {
+    const needle = deferredSearch.toLowerCase();
+    return activeList.filter((contact) => {
+      if (!contact || typeof contact !== 'object') return false;
+      const name  = String(contact.name ?? '');
+      const phone = String(contact.phone ?? '');
+      const matchSearch = name.toLowerCase().includes(needle) || phone.includes(deferredSearch);
+      const matchBatch  = filterBatch === 'all' || (contact.dataName || 'Uncategorized') === filterBatch;
+      const matchStat   = viewMode === "failed" || statFilter === "all"
+        || (statFilter === "tagged" && isTagged(contact))
+        || (statFilter === "recent" && isRecent(contact));
+      return matchSearch && matchBatch && matchStat;
+    });
+  }, [activeList, deferredSearch, filterBatch, viewMode, statFilter, thirtyDaysAgo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.max(1, Math.ceil(filteredContacts.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const pagedContacts = filteredContacts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  const uniqueTags = [...new Set(contacts.flatMap((c) => {
+  const uniqueTags = useMemo(() => [...new Set(contacts.flatMap((c) => {
     const t = c.tags as unknown;
     if (Array.isArray(t)) return t as string[];
     if (typeof t === 'string') return (t as string).split(',').filter(Boolean);
     return [];
-  }))];
+  }))], [contacts]);
 
   if (loading) {
     return (
@@ -667,7 +681,7 @@ export default function ContactsPage() {
             <p className="stat-label truncate">Added This Month</p>
           </div>
           <p className="stat-value">
-            {contacts.filter(isRecent).length}
+            {recentCount}
           </p>
         </button>
       </div>
@@ -726,7 +740,7 @@ export default function ContactsPage() {
               >
                 <option value="all">All Batches ({contacts.length})</option>
                 {allBatches.map(b => (
-                  <option key={b} value={b}>{b} ({contacts.filter(c => (c.dataName || 'Uncategorized') === b).length})</option>
+                  <option key={b} value={b}>{b} ({batchCounts.get(b) || 0})</option>
                 ))}
               </select>
               {selectedIds.size > 0 && (

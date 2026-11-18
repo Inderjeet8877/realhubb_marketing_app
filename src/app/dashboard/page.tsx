@@ -1,11 +1,23 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { Megaphone, MessageSquare } from "lucide-react";
-import MetaDashboardContent from "./MetaDashboardContent";
-import WhatsAppDashboardContent from "./WhatsAppDashboardContent";
 import PageHeader from "@/components/ui/PageHeader";
+import { StatCardsSkeleton } from "@/components/Skeletons";
+
+// Each view (and the recharts library both use) is its own chunk: the page
+// shell paints immediately, and the WhatsApp view's code only downloads
+// when someone switches to it.
+const MetaDashboardContent = dynamic(() => import("./MetaDashboardContent"), {
+  ssr: false,
+  loading: () => <StatCardsSkeleton count={6} />,
+});
+const WhatsAppDashboardContent = dynamic(() => import("./WhatsAppDashboardContent"), {
+  ssr: false,
+  loading: () => <StatCardsSkeleton count={3} />,
+});
 
 // Single dashboard route — Meta and WhatsApp each keep their own component
 // (MetaDashboardContent / WhatsAppDashboardContent, moved here unchanged
@@ -60,7 +72,7 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<StatCardsSkeleton count={6} />}>
       <DashboardContent />
     </Suspense>
   );

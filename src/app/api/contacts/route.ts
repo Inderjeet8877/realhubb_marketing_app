@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 import { normalizePhone, isValidPhoneNumber } from '@/lib/whatsapp-send';
+import {
+  listContacts, listFailedContacts, listCategories, addContacts,
+  deleteContactsByIds, deleteContactsByDataName, deleteAllContacts,
+} from '@/lib/contacts-store';
 
-// Apps Script reads/writes over a 15,000+ row sheet can comfortably exceed
-// Vercel's platform-default function timeout (as low as 10s on some plans)
-// with no explicit override — this route would then get killed mid-request
-// regardless of the retry/abort logic below. Give it real headroom.
+// Contacts are stored in Firestore (src/lib/contacts-store.ts). They moved
+// off the Google Sheets / Apps Script backend, which took 7-16 s per call.
+// Headroom kept for large imports, which check every stored phone for duplicates.
 export const maxDuration = 60;
-
-const SHEETS_URL = process.env.GOOGLE_SHEETS_API_URL || '';
-
-function checkConfig() {
-  if (!SHEETS_URL) throw new Error('GOOGLE_SHEETS_API_URL environment variable is not set');
-}
 
 interface Contact {
   id?: string;
@@ -128,100 +125,24 @@ function parseCSV(text: string, dataName: string): ParseResult {
   return parseDataRows(rows as string[][], dataName);
 }
 
-// ── Sheets helper ──────────────────────────────────────────────────────────
-// Apps Script web apps can be slow (they re-scan the whole sheet per request) and
-// occasionally drop the connection (ECONNRESET) with no fault of the caller — retry
-// transient network failures a few times before giving up.
-async function fetchWithRetry(url: string, init: RequestInit | undefined, attempts = 2): Promise<Response> {
-  let lastErr: unknown;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      const controller = new AbortController();
-      // Sized so attempts * timeout + backoff comfortably fits inside this
-      // route's maxDuration (60s) — the previous 45s * up to 3 attempts could
-      // run well past that, meaning Vercel could kill the function mid-retry
-      // and turn a slow-but-working request into a hard failure.
-      const timeout = setTimeout(() => controller.abort(), 25_000);
-      try {
-        return await fetch(url, { ...init, signal: controller.signal });
-      } finally {
-        clearTimeout(timeout);
-      }
-    } catch (err) {
-      lastErr = err;
-      if (i < attempts - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-    }
-  }
-  throw lastErr;
-}
-
-async function sheetsGet(params: Record<string, string>) {
-  checkConfig();
-  const url = new URL(SHEETS_URL);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetchWithRetry(url.toString(), undefined);
-  return res.json();
-}
-
-async function sheetsPost(body: object) {
-  checkConfig();
-  const res = await fetchWithRetry(SHEETS_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-  });
-  return res.json();
-}
-
 // ══════════════════════════════════════════════════════════════════════════
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const listCategories = searchParams.get('listCategories') === 'true';
+  const wantCategories = searchParams.get('listCategories') === 'true';
   const filterDataName = searchParams.get('dataName');
   const failed = searchParams.get('failed') === 'true';
 
   try {
-    if (listCategories) {
-      const data = await sheetsGet({ action: 'getCategories' });
-      return NextResponse.json({ success: true, categories: data.categories || [] });
+    if (wantCategories) {
+      return NextResponse.json({ success: true, categories: await listCategories() });
     }
 
-    const params: Record<string, string> = { action: failed ? 'getFailedData' : 'getAll' };
-    if (filterDataName) params.dataName = filterDataName;
-
-    const data = await sheetsGet(params);
-
-    // A previous version of this route trusted whatever came back and always
-    // answered with HTTP 200 + contacts:[] on ANY failure (network error, Apps
-    // Script down/quota-exceeded, a malformed/non-JSON response like Google's
-    // own HTML error pages) — indistinguishable, from the UI's point of view,
-    // from "this business genuinely has zero contacts." That silently showed
-    // an empty Contacts page with no error, no matter what actually went
-    // wrong upstream. Explicitly require the shape the Apps Script backend
-    // sends on a real success (`success: true`) — anything else is treated
-    // as a real failure and reported as one, not swallowed into "0 results."
-    if (!data || typeof data !== 'object' || Array.isArray(data)) {
-      throw new Error('Apps Script returned an unexpected response (not a JSON object).');
-    }
-    if (data.error) {
-      throw new Error(`Apps Script error: ${data.error}`);
-    }
-    if (data.success !== true) {
-      throw new Error(
-        `Apps Script did not confirm success for action=${params.action}. ` +
-        `Response: ${JSON.stringify(data).slice(0, 300)}`
-      );
-    }
-
-    return NextResponse.json({
-      success:  true,
-      contacts: data.contacts || [],
-      total:    data.total    || 0,
-    });
+    const contacts = failed ? await listFailedContacts() : await listContacts(filterDataName || undefined);
+    return NextResponse.json({ success: true, contacts, total: contacts.length });
   } catch (error: any) {
-    console.error('[Contacts API] Failed to load contacts from Google Sheets:', error);
+    console.error('[Contacts API] Failed to load contacts:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to load contacts from Google Sheets', contacts: [], total: 0 },
+      { success: false, error: error.message || 'Failed to load contacts', contacts: [], total: 0 },
       { status: 502 }
     );
   }
@@ -268,8 +189,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Direct save (legacy path)
-      const data = await sheetsPost({ action: 'addBatch', contacts: result.valid });
-      return NextResponse.json({ success: true, saved: data.saved || 0, dbDuplicates: data.dbDuplicates || 0 });
+      const data = await addContacts(result.valid);
+      return NextResponse.json({ success: true, saved: data.saved, dbDuplicates: data.dbDuplicates });
     }
 
     // ── BATCH SAVE (JSON) ────────────────────────────────────────────────
@@ -277,16 +198,15 @@ export async function POST(request: NextRequest) {
       const body = await request.json();
 
       if (Array.isArray(body.contacts)) {
-        const data = await sheetsPost({ action: 'addBatch', contacts: body.contacts });
-        return NextResponse.json({ success: true, saved: data.saved || 0, dbDuplicates: data.dbDuplicates || 0 });
+        const data = await addContacts(body.contacts);
+        return NextResponse.json({ success: true, saved: data.saved, dbDuplicates: data.dbDuplicates });
       }
 
       // ── DEDUPE — same-phone rows within one batch, e.g. from a retried upload.
       // Done entirely on our side (fetch all, pick survivors, delete the rest) so it
-      // doesn't depend on whatever duplicate-detection the Apps Script does or doesn't do.
+      // is independent of the duplicate check that runs on import.
       if (body.action === 'dedupe' && body.dataName) {
-        const listData = await sheetsGet({ action: 'getAll', dataName: body.dataName });
-        const contacts: Contact[] = listData.contacts || [];
+        const contacts: Contact[] = await listContacts(body.dataName);
 
         // Keep the first occurrence of each phone number (sheet/array order), delete the rest.
         const seenPhones = new Set<string>();
@@ -302,7 +222,7 @@ export async function POST(request: NextRequest) {
         const duplicates = contacts.filter(c => c.id && idsToDelete.includes(c.id));
 
         if (!body.dryRun && idsToDelete.length > 0) {
-          await sheetsPost({ action: 'deleteByIds', ids: idsToDelete });
+          await deleteContactsByIds(idsToDelete);
         }
 
         return NextResponse.json({
@@ -331,16 +251,16 @@ export async function DELETE(request: NextRequest) {
     const { ids, dataName } = await request.json();
 
     if (ids && Array.isArray(ids) && ids.length > 0) {
-      await sheetsPost({ action: 'deleteByIds', ids });
+      await deleteContactsByIds(ids);
       return NextResponse.json({ success: true, message: `Deleted ${ids.length} contact(s)` });
     }
 
     if (dataName) {
-      await sheetsPost({ action: 'deleteByDataName', dataName });
+      await deleteContactsByDataName(dataName);
       return NextResponse.json({ success: true, message: `Deleted batch "${dataName}"` });
     }
 
-    await sheetsPost({ action: 'deleteAll' });
+    await deleteAllContacts();
     return NextResponse.json({ success: true, message: 'All contacts deleted' });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

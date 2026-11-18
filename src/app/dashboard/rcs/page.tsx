@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import useSWR from "swr";
 import { fetcher, swrConfig } from "@/lib/swr";
 import { TableSkeleton } from "@/components/Skeletons";
@@ -41,11 +41,13 @@ export default function RcsPage() {
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Typing stays instant; the scan over every contact follows a beat behind.
+  const deferredSearch = useDeferredValue(search);
   const filteredContacts = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     if (!q) return contacts.slice(0, 200); // avoid rendering 40k+ rows at once
     return contacts.filter((c) => c.name?.toLowerCase().includes(q) || c.phone?.includes(q)).slice(0, 200);
-  }, [contacts, search]);
+  }, [contacts, deferredSearch]);
 
   const toggleContact = (phone: string) => {
     setSelectedPhones((prev) => {

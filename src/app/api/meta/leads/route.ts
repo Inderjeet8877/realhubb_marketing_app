@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccountCredentials } from '@/lib/meta-credentials';
+import { cachedJson } from '@/lib/api-cache';
 
 // Server-side token lookup — tokens are NEVER exposed to the browser
 async function getAccountToken(accountId: string): Promise<string | null> {
@@ -112,39 +113,53 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const allForms: any[] = [];
-  const errors: string[] = [];
+  // Cached for 1 min (served instantly, refreshed in the background) so the
+  // Leads page's 30 s auto-refresh still picks up new leads. ?fresh=1 = Refresh.
+  const { uniqueForms, totalLeads, accountsLoaded, errors } = await cachedJson({
+    group: 'meta',
+    key: `leads:${accountId}`,
+    ttlSeconds: 60,
+    fresh: searchParams.get('fresh') === '1',
+    shouldCache: (r) => r.uniqueForms.length > 0 && r.errors.length === 0,
+    load: async () => {
+        const allForms: any[] = [];
+        const errors: string[] = [];
 
-  // Fetch ALL accounts in PARALLEL
-  const results = await Promise.allSettled(
-    accountIds.map(async (id) => {
-      const token = await getAccountToken(id);
-      if (!token) return { forms: [], permissionErrors: [] } as FormsResult;
-      return fetchFormsForAccount(id, token);
-    })
-  );
+        // Fetch ALL accounts in PARALLEL
+        const results = await Promise.allSettled(
+          accountIds.map(async (id) => {
+            const token = await getAccountToken(id);
+            if (!token) return { forms: [], permissionErrors: [] } as FormsResult;
+            return fetchFormsForAccount(id, token);
+          })
+        );
 
-  results.forEach((r, i) => {
-    if (r.status === 'fulfilled') {
-      allForms.push(...r.value.forms);
-      for (const err of r.value.permissionErrors) {
-        errors.push(`Account ${accountIds[i]}: ${err}`);
-      }
-    } else {
-      errors.push(`Account ${accountIds[i]}: ${r.reason?.message || 'unknown error'}`);
-    }
+        results.forEach((r, i) => {
+          if (r.status === 'fulfilled') {
+            allForms.push(...r.value.forms);
+            for (const err of r.value.permissionErrors) {
+              errors.push(`Account ${accountIds[i]}: ${err}`);
+            }
+          } else {
+            errors.push(`Account ${accountIds[i]}: ${r.reason?.message || 'unknown error'}`);
+          }
+        });
+
+        // Deduplicate by form id across accounts
+        const seen = new Set<string>();
+        const uniqueForms = allForms.filter(f => { if (seen.has(f.id)) return false; seen.add(f.id); return true; });
+
+        uniqueForms.sort((a, b) => new Date(b.createdTime).getTime() - new Date(a.createdTime).getTime());
+
+        const totalLeads = uniqueForms.reduce((s, f) => s + (f.leadsCount || 0), 0);
+
+        const accountsLoadedFlags = await Promise.all(accountIds.map(async (id) => !!(await getAccountToken(id))));
+        const accountsLoaded = accountIds.filter((_, i) => accountsLoadedFlags[i]);
+
+
+      return { uniqueForms, totalLeads, accountsLoaded, errors };
+    },
   });
-
-  // Deduplicate by form id across accounts
-  const seen = new Set<string>();
-  const uniqueForms = allForms.filter(f => { if (seen.has(f.id)) return false; seen.add(f.id); return true; });
-
-  uniqueForms.sort((a, b) => new Date(b.createdTime).getTime() - new Date(a.createdTime).getTime());
-
-  const totalLeads = uniqueForms.reduce((s, f) => s + (f.leadsCount || 0), 0);
-
-  const accountsLoadedFlags = await Promise.all(accountIds.map(async (id) => !!(await getAccountToken(id))));
-  const accountsLoaded = accountIds.filter((_, i) => accountsLoadedFlags[i]);
 
   return NextResponse.json({
     success: true,

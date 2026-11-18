@@ -12,7 +12,8 @@ import { onSnapshot, doc } from "firebase/firestore";
 import { describeMetaErrorCode } from "@/lib/whatsapp-send";
 import { formatDuration } from "@/lib/format";
 import { fetcher, reportSwrConfig } from "@/lib/swr";
-import { buildBroadcastReportPdf, type BroadcastReportRow, type EngagementReportData } from "@/lib/broadcast-report-pdf";
+// The PDF builder (and jsPDF with it) loads when a report is generated.
+import type { BroadcastReportRow, EngagementReportData } from "@/lib/broadcast-report-pdf";
 import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 import { useToast } from "@/contexts/ToastContext";
 
@@ -332,6 +333,7 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
       }
 
       try {
+        const { buildBroadcastReportPdf } = await import("@/lib/broadcast-report-pdf");
         const doc = buildBroadcastReportPdf(rows, { scopeLabel, engagement });
         const dateStr = new Date().toISOString().split("T")[0];
         const filename = `whatsapp-broadcast-report-${dateStr}.pdf`;

@@ -18,6 +18,12 @@ export const fetcher = async (url: string) => {
   return r.json();
 };
 
+// For Refresh buttons: the Meta routes serve a server-side cached copy, and
+// fresh=1 makes them reload from Meta (and update that cache). Use as
+// `mutate(fetchFresh(key), { revalidate: false })` so SWR keeps the same key.
+export const fetchFresh = (url: string) =>
+  fetcher(url + (url.includes('?') ? '&' : '?') + 'fresh=1');
+
 // Shared SWR options — show stale data instantly, refresh in background
 export const swrConfig = {
   revalidateOnFocus:    false,  // don't re-fetch every time window is focused

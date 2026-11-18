@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { requireAdmin } from '@/lib/require-admin';
+import { clearApiCache } from '@/lib/api-cache';
 
 type Slot = '1' | '2' | '3';
 
@@ -20,7 +21,7 @@ interface SelectBody {
 // token) straight from Firestore by pendingId — the token never passed
 // through the browser to get here — and writes it into meta_credentials/
 // {slot} for each assigned slot, then deletes the pending doc.
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const admin = await requireAdmin(request);
   if (admin instanceof NextResponse) return admin;
 
@@ -92,4 +93,11 @@ export async function POST(request: NextRequest) {
   await pendingRef.delete();
 
   return NextResponse.json({ success: true, slotsConnected: written });
+}
+
+// A different Meta login means different campaigns, leads and templates.
+export async function POST(request: NextRequest) {
+  const res = await handlePOST(request);
+  if (res.ok) await Promise.all(['meta', 'wa-templates', 'wa-account'].map(clearApiCache));
+  return res;
 }

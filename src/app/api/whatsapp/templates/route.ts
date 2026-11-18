@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { getAccountCredentials } from '@/lib/meta-credentials';
+import { cachedJson, clearApiCache } from '@/lib/api-cache';
+
+class MetaTemplatesError extends Error {
+  constructor(public metaError: { code?: number; message?: string }) { super(metaError?.message || 'Meta error'); }
+}
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
 
@@ -152,6 +157,7 @@ export async function GET(request: Request) {
   
   // If syncFromMeta=true, fetch ALL templates from Meta and save to Firestore
   if (syncFromMeta) {
+    await clearApiCache('wa-templates');
     const { accessToken, wabaId: businessAccountId } = await getAccountCredentials('1');
 
     if (!accessToken || !businessAccountId) {
@@ -281,27 +287,36 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Fetch all templates from Meta (with pagination)
-    let metaTemplates: any[] = [];
-    let nextUrl: string | null =
-      `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}&limit=100&fields=${TEMPLATE_FIELDS}`;
-
-    while (nextUrl) {
-      const res: Response = await fetch(nextUrl);
-      const data: any = await res.json();
-      if (data.error) {
-        const metaError = data.error;
-        console.error('[Templates GET] Meta error:', metaError);
-        return NextResponse.json(
-          {
-            error: `Meta error (${metaError.code}): ${metaError.message}`,
-            templates: [],
-          },
-          { status: 502 }
-        );
-      }
-      if (data.data) metaTemplates = [...metaTemplates, ...data.data];
-      nextUrl = data.paging?.next || null;
+    // 1. Fetch all templates from Meta (with pagination). Cached for 2 min
+    // and cleared by any create/edit/delete/sync below; ?fresh=1 bypasses.
+    let metaTemplates: any[];
+    try {
+      metaTemplates = await cachedJson<any[]>({
+        group: 'wa-templates',
+        key: `list:${accountId}`,
+        ttlSeconds: 120,
+        fresh: url.searchParams.get('fresh') === '1',
+        load: async () => {
+          let all: any[] = [];
+          let nextUrl: string | null =
+            `${WHATSAPP_API_URL}/${businessAccountId}/message_templates?access_token=${accessToken}&limit=100&fields=${TEMPLATE_FIELDS}`;
+          while (nextUrl) {
+            const res: Response = await fetch(nextUrl);
+            const data: any = await res.json();
+            if (data.error) throw new MetaTemplatesError(data.error);
+            if (data.data) all = [...all, ...data.data];
+            nextUrl = data.paging?.next || null;
+          }
+          return all;
+        },
+      });
+    } catch (err) {
+      if (!(err instanceof MetaTemplatesError)) throw err;
+      console.error('[Templates GET] Meta error:', err.metaError);
+      return NextResponse.json(
+        { error: `Meta error (${err.metaError.code}): ${err.metaError.message}`, templates: [] },
+        { status: 502 }
+      );
     }
 
     // 2. Load Firestore docs keyed by metaTemplateId and name (for headerContent lookup)
@@ -365,7 +380,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   try {
     const body = await request.json();
     const { name, language, category, content, headerType, headerContent, footerContent, buttons, accountId } = body;
@@ -573,7 +588,7 @@ const components: any[] = [];
   }
 }
 
-export async function PUT(request: Request) {
+async function handlePUT(request: Request) {
   try {
     const body = await request.json();
     const { id, name, language, category, content, headerType, headerContent, footerContent, buttons } = body;
@@ -614,7 +629,7 @@ export async function PUT(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+async function handleDELETE(request: Request) {
   try {
     const { ids } = await request.json();
     if (!ids || !Array.isArray(ids)) {
@@ -629,3 +644,12 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+// Any successful create/edit/delete makes the cached template list stale.
+async function clearingCache(res: Response) {
+  if (res.ok) await clearApiCache('wa-templates');
+  return res;
+}
+export async function POST(request: Request) { return clearingCache(await handlePOST(request)); }
+export async function PUT(request: Request) { return clearingCache(await handlePUT(request)); }
+export async function DELETE(request: Request) { return clearingCache(await handleDELETE(request)); }

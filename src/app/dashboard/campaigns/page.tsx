@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { fetcher, metaSwrConfig } from "@/lib/swr";
+import { fetcher, metaSwrConfig, fetchFresh } from "@/lib/swr";
 import { Megaphone, TrendingUp, RefreshCw, Target, IndianRupee, Users } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { StatCardsSkeleton, TableSkeleton } from "@/components/Skeletons";
@@ -72,7 +72,7 @@ export default function CampaignsPage() {
   const refreshing = isValidating;
   const error: string | null = swrErr?.message || (data?.error ?? null);
 
-  const fetchCampaigns = () => mutate();
+  const fetchCampaigns = () => mutate(fetchFresh(`/api/meta/campaigns?account_id=${selectedAccount}`), { revalidate: false });
 
   const sorted = [...campaigns].sort((a, b) => {
     if (sortBy === "cpl") return (b.insights?.cpl || 0) - (a.insights?.cpl || 0);

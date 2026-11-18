@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccountCredentials } from '@/lib/meta-credentials';
+import { cachedJson } from '@/lib/api-cache';
 
 async function getToken(accountId: string): Promise<string | null> {
   const { accessToken } = await getAccountCredentials(accountId);
@@ -131,20 +132,28 @@ export async function GET(request: NextRequest) {
     ? `time_range=${encodeURIComponent(JSON.stringify({ since, until }))}`
     : `date_preset=${datePreset}`;
 
-  // Fetch ALL accounts in PARALLEL
-  const results = await Promise.allSettled(
-    accountIds.map(async (id) => {
-      const token = await getToken(id);
-      if (!token) return [] as any[];
-      return fetchCampaignsForAccount(id, token, dateParam);
-    })
-  );
-
-  const allCampaigns: any[] = results.flatMap(r =>
-    r.status === 'fulfilled' ? r.value : []
-  );
-
-  allCampaigns.sort((a, b) => (b.insights?.spend || 0) - (a.insights?.spend || 0));
+  // One Graph call per campaign makes this 2-8 s, so it's cached for 5 min
+  // (served instantly, refreshed in the background). ?fresh=1 = Refresh button.
+  const allCampaigns = await cachedJson<any[]>({
+    group: 'meta',
+    key: `campaigns:${accountId}:${dateParam}`,
+    ttlSeconds: 300,
+    fresh: request.nextUrl.searchParams.get('fresh') === '1',
+    shouldCache: (rows) => rows.length > 0,   // Meta errors come back as [] — never cache those
+    load: async () => {
+      // Fetch ALL accounts in PARALLEL
+      const results = await Promise.allSettled(
+        accountIds.map(async (id) => {
+          const token = await getToken(id);
+          if (!token) return [] as any[];
+          return fetchCampaignsForAccount(id, token, dateParam);
+        })
+      );
+      const rows: any[] = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+      rows.sort((a, b) => (b.insights?.spend || 0) - (a.insights?.spend || 0));
+      return rows;
+    },
+  });
 
   return NextResponse.json({ success: true, campaigns: allCampaigns });
 }

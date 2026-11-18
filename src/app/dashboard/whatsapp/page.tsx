@@ -8,6 +8,7 @@ import { collection, query, where, onSnapshot, orderBy, limit, doc } from "fireb
 import { TemplatePreviewPhone } from "@/components/WhatsAppTemplatePreview";
 import { ChatListSkeleton, ChatBubblesSkeleton } from "@/components/Skeletons";
 import { BulkReports } from "@/components/whatsapp/BulkReports";
+import WindowedList from "@/components/WindowedList";
 import { normalizePhone } from "@/lib/whatsapp-send";
 import { formatDuration } from "@/lib/format";
 import { AnimatedCopyIcon, AnimatedSendIcon } from "@/components/icons/AnimatedIcons";
@@ -177,11 +178,16 @@ export default function WhatsAppPage() {
     .filter(c => !showRepliesOnly || c.hasInbound)
     .filter(c => !broadcastReplyPhoneSet || broadcastReplyPhoneSet.has(c.phone));
 
+  // The full contact list (~87k) is only needed by the Bulk Send dialog, so
+  // it loads when that dialog opens instead of on every visit to this page.
   useEffect(() => {
-    fetchContacts();
     fetchTemplates();
     fetchAccountInfo();
   }, []);
+
+  useEffect(() => {
+    if (showBulkModal) ensureContacts();
+  }, [showBulkModal]);
 
   const fetchAccountInfo = async () => {
     try {
@@ -377,14 +383,24 @@ export default function WhatsAppPage() {
     }
   };
 
-  const fetchContacts = async () => {
-    try {
-      const r = await fetch("/api/contacts");
-      if (r.ok) {
-        const d = await r.json();
-        setContacts(d.contacts || []);
-      }
-    } catch {}
+  // One shared in-flight load: opening the dialog and pressing Send never
+  // fetch the list twice. A failed load is retried on the next call.
+  const contactsPromiseRef = useRef<Promise<Contact[]> | null>(null);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const ensureContacts = () => {
+    if (!contactsPromiseRef.current) {
+      setContactsLoading(true);
+      contactsPromiseRef.current = fetch("/api/contacts")
+        .then(async (r) => {
+          if (!r.ok) throw new Error("load failed");
+          const list: Contact[] = (await r.json()).contacts || [];
+          setContacts(list);
+          return list;
+        })
+        .catch(() => { contactsPromiseRef.current = null; return [] as Contact[]; })
+        .finally(() => setContactsLoading(false));
+    }
+    return contactsPromiseRef.current;
   };
 
   const fetchConversations = async () => {
@@ -582,8 +598,12 @@ export default function WhatsAppPage() {
       return;
     }
 
+    // Names only for the recipients (the server looks a name up per phone it
+    // sends to), instead of a map of every contact in the database.
+    const allContacts = await ensureContacts();
+    const recipients = new Set(contactsToSend);
     const contactNamesMap: Record<string, string> = {};
-    contacts.forEach(c => { if (c.phone) contactNamesMap[c.phone] = c.name; });
+    allContacts.forEach(c => { if (c.phone && recipients.has(c.phone)) contactNamesMap[c.phone] = c.name; });
 
     setSendingBulk(true);
     setBulkResult(null);
@@ -752,6 +772,7 @@ export default function WhatsAppPage() {
     // snapshot, right at the moment you're trying to look at replies.
   };
 
+  const selectedSet = useMemo(() => new Set(selectedContacts), [selectedContacts]);
   const toggleContact = (phone: string) => setSelectedContacts(prev => prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]);
   const selectAllFiltered = () => {
     const phones = contacts.map(c => c.phone);
@@ -911,6 +932,9 @@ export default function WhatsAppPage() {
                         key={conv.id}
                         onClick={() => selectConversation(conv)}
                         aria-current={isSelected ? "true" : undefined}
+                        // Off-screen rows skip layout/paint, so thousands of
+                        // conversations scroll smoothly on phones.
+                        style={{ contentVisibility: "auto", containIntrinsicSize: "auto 65px" }}
                         className={`w-full text-left flex items-center gap-3 px-4 py-3 border-b border-gray-100 transition-colors ${isSelected ? "bg-blue-50/70" : "hover:bg-gray-50"}`}
                       >
                         <div className="w-10 h-10 rounded-full flex-shrink-0 grid place-items-center bg-green-100 text-green-800 font-semibold text-sm">
@@ -1376,21 +1400,28 @@ export default function WhatsAppPage() {
                 {selectedContacts.length === contacts.length ? "Deselect All" : "Select All"}
               </button>
             </div>
-            <div className="overflow-y-auto border border-gray-200 rounded-lg max-h-56 divide-y divide-gray-100">
-              {contacts.length === 0 ? (
-                <div className="px-4 py-6 text-center text-sm text-gray-500">No contacts available</div>
-              ) : (
-                contacts.map(contact => (
-                  <label key={contact.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer">
-                    <input type="checkbox" checked={selectedContacts.includes(contact.phone)} onChange={() => toggleContact(contact.phone)} className="w-4 h-4 rounded shrink-0" />
+            {contacts.length === 0 ? (
+              <div className="border border-gray-200 rounded-lg px-4 py-6 text-center text-sm text-gray-500">
+                {contactsLoading ? "Loading contacts…" : "No contacts available"}
+              </div>
+            ) : (
+              <WindowedList
+                items={contacts}
+                rowHeight={56}
+                maxHeight={224}
+                className="border border-gray-200 rounded-lg"
+                getKey={(c) => c.id}
+                renderRow={(contact) => (
+                  <label className="flex items-center gap-3 h-full px-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+                    <input type="checkbox" checked={selectedSet.has(contact.phone)} onChange={() => toggleContact(contact.phone)} className="w-4 h-4 rounded shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 text-sm truncate">{contact.name}</p>
                       <p className="text-xs text-gray-500 truncate tabular-nums">{contact.phone}{(contact as any).dataName ? ` · ${(contact as any).dataName}` : ''}</p>
                     </div>
                   </label>
-                ))
-              )}
-            </div>
+                )}
+              />
+            )}
             </div>
 
             {/* Progress bar — shown while sending. The job runs on the backend,

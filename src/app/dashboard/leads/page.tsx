@@ -2,16 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
-import { fetcher, metaSwrConfig } from "@/lib/swr";
+import { fetcher, metaSwrConfig, fetchFresh } from "@/lib/swr";
 import { useRouter } from "next/navigation";
-import jsPDF from "jspdf";
-// jspdf-autotable v3+ only self-attaches doc.autoTable(...) when a
-// `window.jsPDF` GLOBAL already exists (see its own source) — a bundled
-// ES-module import never sets that, so the old side-effect-only import below
-// silently never patched anything and this button threw "doc.autoTable is
-// not a function" the moment it ran. The documented, version-proof API is
-// this function-call form instead.
-import autoTable from "jspdf-autotable";
+// jsPDF + jspdf-autotable (~350 KB) are loaded inside the PDF export handler,
+// not with the page. autoTable is used in its function-call form: v3+ only
+// self-attaches doc.autoTable(...) when a `window.jsPDF` global exists, which
+// a bundled import never sets.
 import { StatCardsSkeleton, CardGridSkeleton, ListSkeleton } from "@/components/Skeletons";
 import { AnimatedChevronDown } from "@/components/icons/AnimatedIcons";
 import { useToast } from "@/contexts/ToastContext";
@@ -213,7 +209,10 @@ export default function LeadsPage() {
     if (data && !isValidating) setLastUpdated(new Date());
   }, [data, isValidating]);
 
-  const fetchForms = () => { mutate(); campMutate(); };
+  const fetchForms = () => {
+    mutate(fetchFresh(`/api/meta/leads?account_id=${selectedAccount}`), { revalidate: false });
+    campMutate(fetchFresh("/api/meta/campaigns?account_id=all&date_preset=maximum"), { revalidate: false });
+  };
   const inr = (n: number) => n > 0 ? `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : "—";
 
   const handleAccountChange = (accountId: string) => {
@@ -405,6 +404,10 @@ export default function LeadsPage() {
     try {
       const account = META_ACCOUNTS.find((a) => a.id === selectedAccount);
 
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       let yPos = 15;

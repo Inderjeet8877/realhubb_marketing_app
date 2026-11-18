@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAccountCredentials } from '@/lib/meta-credentials';
+import { cachedJson } from '@/lib/api-cache';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
 
@@ -16,11 +17,21 @@ export async function GET(request: Request) {
   }
 
   try {
-    const fields = 'display_phone_number,verified_name,quality_rating,messaging_limit_tier';
-    const res = await fetch(
-      `${WHATSAPP_API_URL}/${phoneNumberId}?access_token=${accessToken}&fields=${fields}`
-    );
-    const data = await res.json();
+    // Quality rating / tier change rarely; cached 10 min, ?fresh=1 bypasses.
+    const data = await cachedJson<any>({
+      group: 'wa-account',
+      key: `info:${accountId}`,
+      ttlSeconds: 600,
+      fresh: url.searchParams.get('fresh') === '1',
+      shouldCache: (d) => !d?.error,
+      load: async () => {
+        const fields = 'display_phone_number,verified_name,quality_rating,messaging_limit_tier';
+        const res = await fetch(
+          `${WHATSAPP_API_URL}/${phoneNumberId}?access_token=${accessToken}&fields=${fields}`
+        );
+        return res.json();
+      },
+    });
 
     if (data.error) {
       return NextResponse.json({ error: data.error.message }, { status: 502 });
