@@ -54,7 +54,8 @@ export async function verifyAllowedIdToken(idToken: string): Promise<AdminIdenti
 
   // Fails closed: an unset/empty ALLOWED_EMAILS lets nobody in. Otherwise
   // anyone could create a Firebase account via the public API key and pass.
-  const raw = process.env.ALLOWED_EMAILS || '';
+  // The env var overrides this default team list (kept in sync with firestore.rules).
+  const raw = process.env.ALLOWED_EMAILS || 'realhubbventures@gmail.com,inderjeet.kumar8184@gmail.com';
   const allowedEmails = raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
   if (allowedEmails.length === 0) {
     return NextResponse.json({ error: 'Access is not configured (ALLOWED_EMAILS is empty).' }, { status: 403 });
