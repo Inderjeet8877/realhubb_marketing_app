@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { installAuthFetch } from "@/lib/auth-fetch";
 
 interface AuthContextType {
   user: User | null;
@@ -27,6 +28,9 @@ export default function AuthProvider({
   const router = useRouter();
 
   useEffect(() => {
+    // Before any child renders (children wait for `loading` to clear), so
+    // every dashboard /api call carries the user's token.
+    installAuthFetch();
     const unsubscribe = auth.onAuthStateChanged(
       (user: User | null) => {
         setUser(user);

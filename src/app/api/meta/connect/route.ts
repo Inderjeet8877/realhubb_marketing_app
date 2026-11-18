@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
-import { getAuth } from 'firebase-admin/auth';
-import { getApps } from 'firebase-admin/app';
-import '@/lib/firebase-admin'; // ensure admin is initialized
+import { verifyAllowedIdToken } from '@/lib/require-admin';
 
 // Kicks off the real Meta login — full scope covering Ads (campaigns/leads)
 // and WhatsApp Business Management in one grant, unlike the old version of
@@ -35,19 +33,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'META_APP_ID is not configured.' }, { status: 500 });
   }
 
+  // A full-page redirect can't carry an Authorization header, so the
+  // Settings page passes the ID token as ?idToken. It is required: starting
+  // a Meta login must come from a signed-in, allow-listed user.
   const idToken = request.nextUrl.searchParams.get('idToken');
-  let connectedByEmail: string | null = null;
-  if (idToken) {
-    try {
-      const app = getApps()[0];
-      if (app) {
-        const decoded = await getAuth(app).verifyIdToken(idToken);
-        connectedByEmail = (decoded.email || '').toLowerCase().trim() || null;
-      }
-    } catch {
-      return NextResponse.json({ error: 'Invalid or expired session — sign in again and retry.' }, { status: 401 });
-    }
+  if (!idToken) {
+    return NextResponse.json({ error: 'Sign in again and retry.' }, { status: 401 });
   }
+  const caller = await verifyAllowedIdToken(idToken);
+  if (caller instanceof NextResponse) return caller;
+  const connectedByEmail: string | null = caller.email;
 
   // Pinned to NEXT_PUBLIC_APP_URL only — never derived from request Host/
   // X-Forwarded-Host headers, which a spoofed request could use to redirect
