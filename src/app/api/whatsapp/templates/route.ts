@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { lookup } from 'dns/promises';
+import { isIP } from 'net';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { getAccountCredentials } from '@/lib/meta-credentials';
@@ -9,6 +11,74 @@ class MetaTemplatesError extends Error {
 }
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v22.0';
+
+// ── Outbound fetch guard for admin-supplied media URLs (SSRF) ─────────────
+// https only, public addresses only (checked after DNS, on every redirect
+// hop), and downloads capped. Upstream responses are never echoed back.
+const MAX_MEDIA_BYTES = 16 * 1024 * 1024;
+
+function isPrivateAddress(ip: string): boolean {
+  const v4 = ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+  if (isIP(v4) === 4) {
+    const [a, b] = v4.split('.').map(Number);
+    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+  }
+  const l = ip.toLowerCase();
+  return l === '::1' || l === '::' || l.startsWith('fc') || l.startsWith('fd') || l.startsWith('fe80');
+}
+
+async function mediaUrlProblem(url: string): Promise<string | null> {
+  let u: URL;
+  try { u = new URL(url); } catch { return 'The media URL is not a valid URL.'; }
+  if (u.protocol !== 'https:') return 'The media URL must start with https://';
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.internal')) {
+    return 'The media URL must be a public internet address.';
+  }
+  try {
+    const addrs = isIP(host) ? [{ address: host }] : await lookup(host, { all: true });
+    if (addrs.some((a) => isPrivateAddress(a.address))) return 'The media URL must be a public internet address.';
+  } catch {
+    return 'The media URL host could not be found.';
+  }
+  return null;
+}
+
+async function guardedFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  let current = url;
+  for (let hop = 0; hop < 4; hop++) {
+    const problem = await mediaUrlProblem(current);
+    if (problem) throw new Error(problem);
+    const res = await fetch(current, { ...init, redirect: 'manual' });
+    const location = res.headers.get('location');
+    if (res.status >= 300 && res.status < 400 && location) {
+      current = new URL(location, current).href;
+      continue;
+    }
+    return res;
+  }
+  throw new Error('The media URL redirects too many times.');
+}
+
+async function readCapped(res: Response, max: number): Promise<Buffer<ArrayBuffer>> {
+  if (Number(res.headers.get('content-length') || 0) > max) throw new Error('The media file is too large (max 16 MB).');
+  const reader = res.body?.getReader();
+  if (!reader) return Buffer.alloc(0);
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) { await reader.cancel(); throw new Error('The media file is too large (max 16 MB).'); }
+    parts.push(value);
+  }
+  const out = new Uint8Array(new ArrayBuffer(total));
+  let offset = 0;
+  for (const p of parts) { out.set(p, offset); offset += p.byteLength; }
+  return Buffer.from(out.buffer);
+}
 
 /**
  * Upload an image/video/document to Meta's Resumable Upload API
@@ -35,15 +105,14 @@ async function uploadMediaHandle(
   }
 
   try {
-    // 1. Download the image from its public URL
-    const fileRes = await fetch(imageUrl);
+    // 1. Download the image from its public URL (guarded + size-capped)
+    const fileRes = await guardedFetch(imageUrl);
     if (!fileRes.ok) {
-      return { handle: null, error: `Could not download the header image from ${imageUrl} (HTTP ${fileRes.status}).` };
+      return { handle: null, error: 'Could not download the header media — it must be a public, direct https file URL.' };
     }
-    const buffer    = Buffer.from(await fileRes.arrayBuffer());
+    const buffer    = await readCapped(fileRes, MAX_MEDIA_BYTES);
     const mimeType  = fileRes.headers.get('content-type') || 'image/jpeg';
     const fileSize  = buffer.length;
-    console.log(`[upload] size=${fileSize} type=${mimeType}`);
 
     // 2. Create upload session  →  POST /{app-id}/uploads
     const sessionRes  = await fetch(
@@ -52,7 +121,6 @@ async function uploadMediaHandle(
       { method: 'POST' },
     );
     const sessionData = await sessionRes.json();
-    console.log('[upload] session:', JSON.stringify(sessionData));
     const uploadId: string = sessionData.id; // "upload:XXXXX"
     if (!uploadId) {
       const metaMsg = sessionData?.error?.message || JSON.stringify(sessionData);
@@ -70,14 +138,14 @@ async function uploadMediaHandle(
       body: buffer,
     });
     const uploadData = await uploadRes.json();
-    console.log('[upload] result:', JSON.stringify(uploadData));
     if (!uploadData.h) {
       const metaMsg = uploadData?.error?.message || JSON.stringify(uploadData);
       return { handle: null, error: `Meta rejected the media upload: ${metaMsg}` };
     }
     return { handle: uploadData.h, error: null }; // "4::aGFz..."
   } catch (err: any) {
-    return { handle: null, error: `Header media upload failed: ${err.message || err}` };
+    const msg = /^The media/.test(err?.message || '') ? err.message : 'could not download or upload the file';
+    return { handle: null, error: `Header media upload failed: ${msg}` };
   }
 }
 
@@ -94,17 +162,19 @@ const EXPECTED_CONTENT_TYPE: Record<string, string> = {
 async function validateHeaderMediaUrl(url: string, headerType: string): Promise<string | null> {
   let res: Response;
   try {
-    res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+    res = await guardedFetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+    await res.body?.cancel();
   } catch (err: any) {
-    return `Could not reach ${url}: ${err.message || err}`;
+    // Our own guard messages are safe to show; network errors are not echoed.
+    return /^The media/.test(err?.message || '') ? err.message : 'Could not reach the header media URL.';
   }
   if (!res.ok && res.status !== 206) {
-    return `${url} returned HTTP ${res.status} — it must be a public, direct file URL (not a login-gated dashboard/console link).`;
+    return 'The header media URL is not publicly downloadable — it must be a public, direct https file URL (not a login-gated dashboard/console link).';
   }
   const contentType = res.headers.get('content-type') || '';
   const expected = EXPECTED_CONTENT_TYPE[headerType];
   if (expected && !contentType.startsWith(expected)) {
-    return `${url} did not return a ${headerType} file (got content-type "${contentType}"). Use the "Upload to Cloudinary" button instead of pasting a URL copied from a dashboard.`;
+    return `The header media URL did not return a ${headerType} file. Use the "Upload to Cloudinary" button instead of pasting a URL copied from a dashboard.`;
   }
   return null;
 }
@@ -385,8 +455,6 @@ async function handlePOST(request: Request) {
     const body = await request.json();
     const { name, language, category, content, headerType, headerContent, footerContent, buttons, accountId } = body;
 
-    console.log('Template creation payload:', { name, language, category, content, accountId });
-
     if (!name || !content) {
       return NextResponse.json(
         { error: 'Template name and content are required' },
@@ -466,7 +534,10 @@ const components: any[] = [];
         .map((btn: any) => {
           if (btn.type === 'URL') {
             if (!btn.url?.trim()) return null;  // Skip URL button without URL
-            return { type: 'URL', text: btn.text, url: btn.url };
+            // A Tracked Link button ends in {{1}}; Meta needs an example value.
+            return String(btn.url).includes('{{1}}')
+              ? { type: 'URL', text: btn.text, url: btn.url, example: [String(btn.url).replace('{{1}}', 'Ab12Cd34')] }
+              : { type: 'URL', text: btn.text, url: btn.url };
           }
           if (btn.type === 'PHONE') {
             if (!btn.phone_number?.trim()) return null;
@@ -490,8 +561,6 @@ const components: any[] = [];
       components,
     };
 
-    console.log('[Template] Payload →', JSON.stringify(templatePayload));
-
     const metaResponse = await fetch(
       `${WHATSAPP_API_URL}/${businessAccountId}/message_templates`,
       {
@@ -504,9 +573,7 @@ const components: any[] = [];
       }
     );
 
-    console.log('Meta response status:', metaResponse.status);
     const metaData = await metaResponse.json();
-    console.log('Meta response:', JSON.stringify(metaData, null, 2));
 
     let approvalStatus = 'none';
     let metaTemplateId = '';

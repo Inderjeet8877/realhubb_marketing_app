@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/require-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { normalizePhone, isValidPhoneNumber } from '@/lib/whatsapp-send';
@@ -25,6 +26,10 @@ const DELAY_BETWEEN_SENDS_MS = 200;
 interface SendContact { name: string; phone: string }
 
 export async function POST(request: NextRequest) {
+  // Defence in depth: middleware already checks this; a middleware bypass
+  // must still not be able to send messages.
+  const admin = await requireAdmin(request);
+  if (admin instanceof NextResponse) return admin;
   const status = getPingSmartConfigStatus();
   if (!status.configured) {
     return NextResponse.json(

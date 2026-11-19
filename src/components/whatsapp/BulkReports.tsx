@@ -37,6 +37,8 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
   // already from reading too much per page load.
   const [liveContacts, setLiveContacts] = useState<Record<string, any[]>>({});
   const [loadingStatus, setLoadingStatus] = useState<string | null>(null);
+  // Tracked-link clicks per broadcast, keyed by digits-only phone (loaded with Details).
+  const [clicks, setClicks] = useState<Record<string, { links: number; totalClicks: number; uniqueClickers: number; byDigits: Record<string, number> }>>({});
   // The contact whose failure detail modal is open — click any failed
   // number to see the full reason instead of just the truncated badge text.
   const [selectedFailure, setSelectedFailure] = useState<any | null>(null);
@@ -157,10 +159,23 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
     return [];
   };
 
+  const loadClicks = async (id: string) => {
+    if (clicks[id]) return;
+    try {
+      const d = await (await fetch(`/api/whatsapp/broadcasts/clicks?id=${encodeURIComponent(id)}`)).json();
+      if (!d.success) return;
+      const byDigits: Record<string, number> = {};
+      for (const [phone, n] of Object.entries(d.byPhone as Record<string, number>)) byDigits[phone.replace(/\D/g, "")] = n;
+      setClicks(prev => ({ ...prev, [id]: { links: d.links, totalClicks: d.totalClicks, uniqueClickers: d.uniqueClickers, byDigits } }));
+    } catch {
+      // clicks are a bonus; the report works without them
+    }
+  };
+
   const toggleExpanded = async (id: string) => {
     if (expanded === id) { setExpanded(null); return; }
     setExpanded(id);
-    await ensureContactsLoaded(id);
+    await Promise.all([ensureContactsLoaded(id), loadClicks(id)]);
   };
 
   const handleViewReplies = async (r: any) => {
@@ -738,6 +753,13 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
             {/* Expandable contact list */}
             {isExpanded && (
               <div className="border-t border-gray-100">
+                {clicks[r.id]?.links > 0 && (
+                  <div className="px-4 py-2.5 border-b border-gray-100 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    <span className="font-medium text-gray-900">Tracked link clicks</span>
+                    <span className="text-gray-600"><span className="font-semibold tabular-nums text-blue-600">{clicks[r.id].uniqueClickers}</span> {clicks[r.id].uniqueClickers === 1 ? "person" : "people"} clicked</span>
+                    <span className="text-gray-500 tabular-nums">{clicks[r.id].totalClicks} clicks total</span>
+                  </div>
+                )}
                 {failedList.length > 0 && (
                   <div className="px-4 py-3 bg-red-50/70 border-b border-red-100">
                     <p className="text-xs font-semibold text-red-700 mb-2">{failedList.length} failed — click one for the full reason</p>
@@ -768,6 +790,11 @@ export function BulkReports({ onViewReplies }: { onViewReplies: (phones: string[
                           <p className="text-sm font-medium text-gray-800 truncate">{c.name || c.phone}</p>
                           <p className="text-gray-500 tabular-nums">{c.phone}</p>
                         </div>
+                        {(clicks[r.id]?.byDigits[String(c.phone || "").replace(/\D/g, "")] ?? 0) > 0 && (
+                          <span className="badge badge-blue flex-shrink-0 ml-auto">
+                            Clicked ×{clicks[r.id].byDigits[String(c.phone || "").replace(/\D/g, "")]}
+                          </span>
+                        )}
                         <span className={`badge flex-shrink-0 max-w-[45%] truncate ${
                           c.status === "read"      ? "badge-blue" :
                           c.status === "delivered" ? "badge-gray" :

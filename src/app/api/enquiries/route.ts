@@ -11,22 +11,39 @@ interface EnquiryBody {
   phone?: string;
   company?: string;
   message?: string;
+  website?: string;   // honeypot: hidden on the form, only bots fill it
 }
+
+const MAX_BODY_BYTES = 10_000;
+const LIMITS = { name: 100, company: 100, phone: 20, email: 254, message: 2000 } as const;
+const PUSH_EVERY_MS = 5 * 60_000;
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 // Public, unauthenticated — this is the whole point (a visitor with no
-// account submits an enquiry). No admin identity to check here, unlike the
-// Meta OAuth routes; rate limiting/spam defenses are a separate concern to
-// add later if this ever gets abused, not built preemptively.
+// account submits an enquiry). Abuse defenses: per-IP rate limit in
+// src/middleware.ts, size/length caps and a honeypot here, and at most one
+// push notification per PUSH_EVERY_MS.
 export async function POST(request: NextRequest) {
+  if (Number(request.headers.get('content-length') || 0) > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: 'Request too large.' }, { status: 413 });
+  }
   let body: EnquiryBody;
   try {
-    body = await request.json();
+    const raw = await request.text();
+    if (raw.length > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Request too large.' }, { status: 413 });
+    }
+    body = JSON.parse(raw);
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  // Bots fill every field; people never see this one. Pretend success.
+  if (typeof body.website === 'string' && body.website.trim()) {
+    return NextResponse.json({ success: true });
   }
 
   const name = (body.name || '').trim();
@@ -40,6 +57,14 @@ export async function POST(request: NextRequest) {
   }
   if (!isValidEmail(email)) {
     return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
+  }
+  if (!/^[0-9+\-\s]+$/.test(phone)) {
+    return NextResponse.json({ error: 'Enter a valid phone number.' }, { status: 400 });
+  }
+  const tooLong = (Object.keys(LIMITS) as (keyof typeof LIMITS)[])
+    .find((k) => ({ name, email, phone, company, message })[k].length > LIMITS[k]);
+  if (tooLong) {
+    return NextResponse.json({ error: `${tooLong[0].toUpperCase()}${tooLong.slice(1)} is too long.` }, { status: 400 });
   }
 
   let docId: string;
@@ -67,17 +92,32 @@ export async function POST(request: NextRequest) {
     )
   );
   after(() =>
-    sendPushNotification(
-      `📩 New enquiry: ${name}`,
-      company ? `${company} — ${phone}` : phone,
-      { link: '/dashboard/enquiries' }
+    pushAtMostEvery(PUSH_EVERY_MS, () =>
+      sendPushNotification(
+        `📩 New enquiry: ${name}`,
+        company ? `${company} — ${phone}` : phone,
+        { link: '/dashboard/enquiries' }
+      )
     ).catch((e) => console.error('[Enquiries] Push notification failed:', e))
   );
 
   return NextResponse.json({ success: true, id: docId });
 }
 
-async function notifyByEmail(enquiry: Required<Omit<EnquiryBody, 'company' | 'message'>> & { company: string; message: string }) {
+// A flood of enquiries must not flood every operator's lock screen: one
+// push per window; the rest are still saved and emailed.
+async function pushAtMostEvery(windowMs: number, send: () => Promise<unknown>) {
+  const ref = adminDb.collection('app_meta').doc('enquiry_push');
+  const due = await adminDb.runTransaction(async (tx) => {
+    const last = (await tx.get(ref)).data()?.at ?? 0;
+    if (Date.now() - last < windowMs) return false;
+    tx.set(ref, { at: Date.now() });
+    return true;
+  });
+  if (due) await send();
+}
+
+async function notifyByEmail(enquiry: Required<Omit<EnquiryBody, 'company' | 'message' | 'website'>> & { company: string; message: string }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn('[Enquiries] RESEND_API_KEY not configured — skipping email notification.');

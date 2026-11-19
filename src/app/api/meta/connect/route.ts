@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
-import { verifyAllowedIdToken } from '@/lib/require-admin';
+import { requireAdmin } from '@/lib/require-admin';
 
 // Kicks off the real Meta login — full scope covering Ads (campaigns/leads)
 // and WhatsApp Business Management in one grant, unlike the old version of
@@ -23,24 +23,19 @@ const SCOPE = [
   'whatsapp_business_messaging',
 ].join(',');
 
-// The browser's return trip from Facebook to /api/meta/callback is a plain
-// top-level navigation — it can't carry a custom Authorization header, so
-// the caller's identity has to travel via cookie instead. This route
-// verifies it once, up front, and /callback just reads the cookie back.
-export async function GET(request: NextRequest) {
+// Called with fetch (Authorization header, checked by middleware and again
+// here for the email) — never with the ID token in the URL, where it would
+// land in browser history and request logs. Returns the Facebook login URL
+// and sets the state/email cookies; the page then navigates there. The
+// browser's return trip to /api/meta/callback is a plain top-level
+// navigation, so identity travels back via those cookies.
+export async function POST(request: NextRequest) {
   const appId = process.env.META_APP_ID;
   if (!appId) {
     return NextResponse.json({ error: 'META_APP_ID is not configured.' }, { status: 500 });
   }
 
-  // A full-page redirect can't carry an Authorization header, so the
-  // Settings page passes the ID token as ?idToken. It is required: starting
-  // a Meta login must come from a signed-in, allow-listed user.
-  const idToken = request.nextUrl.searchParams.get('idToken');
-  if (!idToken) {
-    return NextResponse.json({ error: 'Sign in again and retry.' }, { status: 401 });
-  }
-  const caller = await verifyAllowedIdToken(idToken);
+  const caller = await requireAdmin(request);
   if (caller instanceof NextResponse) return caller;
   const connectedByEmail: string | null = caller.email;
 
@@ -62,7 +57,7 @@ export async function GET(request: NextRequest) {
     `state=${state}&` +
     `response_type=code`;
 
-  const response = NextResponse.redirect(authUrl);
+  const response = NextResponse.json({ url: authUrl });
   const cookieOpts = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

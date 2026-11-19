@@ -13,8 +13,10 @@ import { ConfirmProvider } from "@/contexts/ConfirmContext";
 import {
   LayoutDashboard, Megaphone, Users, MessageSquare,
   Settings, LogOut, Menu, X, Target, FileText, Radio, Inbox,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, ShieldCheck,
 } from "lucide-react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/swr";
 
 interface NavItem {
   name: string;
@@ -69,7 +71,10 @@ const bottomNav: NavItem[] = [
 const WHATSAPP_HREF = "/dashboard/whatsapp";
 const COLLAPSE_KEY = "rh.sidebarCollapsed";
 
-const allNavItems = [...navSections.flatMap((s) => s.items), settingsItem];
+// Admin only: manage who can use the app.
+const teamItem: NavItem = { name: "Team", href: "/dashboard/admin", icon: ShieldCheck };
+
+const allNavItems = [...navSections.flatMap((s) => s.items), settingsItem, teamItem];
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
@@ -87,8 +92,26 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen]  = useState(false);
   const [collapsed, setCollapsed]    = useState(false);
   const { unreadCount, clearUnread } = useNotifications();
+  const { data: me } = useSWR("/api/me", fetcher, { revalidateOnFocus: false });
+  const isAdmin = me?.role === "admin";
 
-  const handleSignOut = async () => { await signOut(auth); };
+  // Unregister this device's push token first, so a signed-out phone stops
+  // getting lead names / message text on its lock screen. Best-effort:
+  // sign-out always proceeds even if this fails.
+  const handleSignOut = async () => {
+    try {
+      const token = localStorage.getItem("fcm_device_token");
+      if (token) {
+        await fetch("/api/notifications/register", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        localStorage.removeItem("fcm_device_token");
+      }
+    } catch { /* ignore — never block sign-out */ }
+    await signOut(auth);
+  };
 
   // "Inbox" (/dashboard/whatsapp) must not light up while on its
   // Templates child page, so the most specific matching href wins.
@@ -151,6 +174,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           isActive={isActive}
           unreadCount={unreadBadge}
           onSignOut={handleSignOut}
+          isAdmin={isAdmin}
           footer={
             <button
               onClick={toggleCollapsed}
@@ -195,7 +219,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <SidebarNav collapsed={false} isActive={isActive} unreadCount={unreadBadge} onSignOut={handleSignOut} />
+            <SidebarNav collapsed={false} isActive={isActive} unreadCount={unreadBadge} onSignOut={handleSignOut} isAdmin={isAdmin} />
           </div>
         </div>
       )}
@@ -242,13 +266,14 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 }
 
 function SidebarNav({
-  collapsed, isActive, unreadCount, onSignOut, footer,
+  collapsed, isActive, unreadCount, onSignOut, footer, isAdmin = false,
 }: {
   collapsed: boolean;
   isActive: (href: string) => boolean;
   unreadCount: number;
   onSignOut: () => void;
   footer?: React.ReactNode;
+  isAdmin?: boolean;
 }) {
   return (
     <>
@@ -276,6 +301,7 @@ function SidebarNav({
         ))}
       </nav>
       <div className="shrink-0 border-t border-gray-100 px-3 py-3 space-y-0.5 pb-safe">
+        {isAdmin && <SidebarLink item={teamItem} active={isActive(teamItem.href)} collapsed={collapsed} count={0} />}
         <SidebarLink item={settingsItem} active={isActive(settingsItem.href)} collapsed={collapsed} count={0} />
         <button
           onClick={onSignOut}

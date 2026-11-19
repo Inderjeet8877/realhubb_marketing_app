@@ -276,7 +276,12 @@ export default function WhatsAppTemplatesPage() {
   };
 
   const addButton = (type: string) => {
-    if (type === "URL") {
+    if (type === "TRACKED") {
+      // Dynamic URL button: each recipient's own short code fills {{1}}, and
+      // the real destination is chosen when the broadcast is sent.
+      const base = (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "");
+      setButtons([...buttons, { type: "URL", text: "View Details", url: `${base}/r/{{1}}` }]);
+    } else if (type === "URL") {
       setButtons([...buttons, { type: "URL", text: "Click Here", url: "" }]);
     } else if (type === "PHONE") {
       setButtons([...buttons, { type: "PHONE", text: "Call Us", phone_number: "" }]);
@@ -850,6 +855,14 @@ export default function WhatsAppTemplatesPage() {
                       <button onClick={() => addButton("QUICK_REPLY")} className="btn btn-secondary btn-sm">
                         <Plus /> Quick Reply
                       </button>
+                      <button
+                        onClick={() => addButton("TRACKED")}
+                        disabled={buttons.some((b) => b.url?.endsWith("/r/{{1}}"))}
+                        className="btn btn-secondary btn-sm"
+                        title="A link button that counts which contact clicked. You choose where it goes each time you send."
+                      >
+                        <Plus /> Tracked Link
+                      </button>
                     </div>
 
                     {buttons.map((btn, index) => (
@@ -862,7 +875,12 @@ export default function WhatsAppTemplatesPage() {
                           placeholder="Button text"
                           className="input h-9 flex-1 min-w-[120px]"
                         />
-                        {btn.type === 'URL' && (
+                        {btn.type === 'URL' && btn.url?.endsWith('/r/{{1}}') && (
+                          <span className="flex-1 min-w-[120px] text-xs text-gray-500">
+                            Tracked link — counts clicks per contact; destination is set when sending.
+                          </span>
+                        )}
+                        {btn.type === 'URL' && !btn.url?.endsWith('/r/{{1}}') && (
                           <input
                             type="text"
                             value={btn.url || ''}

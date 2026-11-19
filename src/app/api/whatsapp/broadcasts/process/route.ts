@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { after } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
+import { trackedConfigs } from '@/lib/short-links';
 import {
   buildMetaRequestBody, getMetaCredentials, triggerWorker, runWithConcurrency,
   CONCURRENCY, WHATSAPP_API_URL, SendConfig, RATE_LIMIT_ERROR_CODES, MESSAGING_LIMIT_ERROR_CODES,
@@ -40,8 +42,10 @@ type ContactResult = {
 // the piece that makes sending a true backend process: the browser that
 // called /broadcasts/start is never involved again after the first response.
 export async function POST(request: Request) {
-  const suppliedSecret = request.headers.get('x-internal-secret');
-  if (!process.env.INTERNAL_API_SECRET || suppliedSecret !== process.env.INTERNAL_API_SECRET) {
+  // Constant-time compare so response timing can't leak the secret.
+  const expected = Buffer.from(process.env.INTERNAL_API_SECRET || '');
+  const supplied = Buffer.from(request.headers.get('x-internal-secret') || '');
+  if (expected.length === 0 || supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -126,8 +130,10 @@ export async function POST(request: Request) {
           error: 'WhatsApp not configured', errorCode: null, errorSubcode: null, errorDetail: null,
         }));
       } else {
+        // Tracked links: each recipient gets their own short-link codes.
+        const perContact = await trackedConfigs(broadcastId, chunkContacts, sendConfig);
         results = await runWithConcurrency(chunkContacts, CONCURRENCY, (c) =>
-          sendOneContact(c, sendConfig, accessToken, phoneNumberId)
+          sendOneContact(c, perContact?.get(c.phone) ?? sendConfig, accessToken, phoneNumberId)
         );
       }
       chunksProcessedThisInvocation++;

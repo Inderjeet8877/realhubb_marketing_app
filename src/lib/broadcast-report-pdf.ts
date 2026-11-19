@@ -432,7 +432,8 @@ export function buildBroadcastReportPdf(
 // the footer can never land on top of real data.
 function stampFooters(doc: jsPDF): void {
   const pageWidth = pageWidthOf(doc);
-  const pageCount = doc.internal.getNumberOfPages();
+  // The stale @types/jspdf package hides jsPDF 4's own typing of this call.
+  const pageCount = (doc as any).internal.getNumberOfPages() as number;
   for (let p = 1; p <= pageCount; p++) {
     doc.setPage(p);
     const h = pageHeightOf(doc);

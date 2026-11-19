@@ -18,9 +18,26 @@ const nextConfig = {
   },
   images: {
     remotePatterns: [
-      { protocol: 'http', hostname: 'localhost' },
       { protocol: 'https', hostname: 'firebasestorage.googleapis.com' },
     ],
+  },
+  // Security headers on every response. The CSP here only carries directives
+  // that can't break loading (no script/style allow-lists): no framing (stops
+  // clickjacking), no <base> hijacking, no plugins, forms post to this site.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'; upgrade-insecure-requests" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+        ],
+      },
+    ];
   },
   async rewrites() {
     return [

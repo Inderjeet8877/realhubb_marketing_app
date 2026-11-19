@@ -85,8 +85,13 @@ function MetaConnections() {
     if (!user) return;
     setConnecting(true);
     try {
-      const idToken = await user.getIdToken();
-      window.location.href = `/api/meta/connect?idToken=${encodeURIComponent(idToken)}`;
+      // POST with the token in the Authorization header (added by auth-fetch),
+      // never in the URL; the server sets the OAuth cookies and returns
+      // Facebook's login URL to navigate to.
+      const res = await fetch("/api/meta/connect", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) throw new Error(data.error || "Could not start login");
+      window.location.href = data.url;
     } catch (e: any) {
       setConnectError(e.message || "Could not start login");
       setConnecting(false);
@@ -428,6 +433,8 @@ function SettingSwitch({ label, checked, onChange }: { label: string; checked: b
 function SettingsContent() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const { data: me } = useSWR("/api/me", fetcher, { revalidateOnFocus: false });
+  const isAdmin = me?.role === "admin";
 
   useEffect(() => {
     setLoading(false);
@@ -450,16 +457,16 @@ function SettingsContent() {
     );
   }
 
-  if (loading) {
+  if (loading || !me) {
     return <FormSkeleton fields={4} />;
   }
 
   return (
     <div className="max-w-4xl">
-      <PageHeader title="Settings" description="Manage your Meta Business accounts" />
+      <PageHeader title="Settings" description={isAdmin ? "Manage your Meta Business accounts" : "Manage your notifications"} />
 
       <div className="space-y-6">
-        <MetaConnections />
+        {isAdmin && <MetaConnections />}
 
         <section className="card overflow-hidden">
           <div className="card-header">
@@ -480,7 +487,7 @@ function SettingsContent() {
           </div>
         </section>
 
-        <RegisteredDevices />
+        {isAdmin && <RegisteredDevices />}
       </div>
     </div>
   );

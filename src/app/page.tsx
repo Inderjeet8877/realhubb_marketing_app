@@ -124,7 +124,7 @@ function FeatureCard({ icon, title, description }: { icon: React.ReactNode; titl
 }
 
 function EnquiryForm() {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", company: "", message: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", company: "", message: "", website: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +164,13 @@ function EnquiryForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8 space-y-4">
+    <form onSubmit={handleSubmit} className="relative bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8 space-y-4">
+      {/* Honeypot: hidden from people and screen readers; bots fill it and get silently dropped. */}
+      <input
+        type="text" name="website" value={form.website} onChange={handleChange("website")}
+        tabIndex={-1} autoComplete="off" aria-hidden="true"
+        className="absolute -left-[9999px] w-px h-px opacity-0"
+      />
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name *</label>
         <input

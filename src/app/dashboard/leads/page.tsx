@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { DOWNLOADS_ENABLED } from "@/lib/features";
 import useSWR from "swr";
 import { fetcher, metaSwrConfig, fetchFresh } from "@/lib/swr";
 import { useRouter } from "next/navigation";
@@ -112,7 +113,6 @@ function getLeadEmail(lead: Lead): string {
 function getLeadPhone(lead: Lead): string {
   if (!lead.fieldData || lead.fieldData.length === 0) return "-";
   
-  console.log("lead.fieldData:", lead.fieldData);
   
   const phoneField = lead.fieldData.find(f => {
     const name = f.name.toLowerCase();
@@ -300,11 +300,6 @@ export default function LeadsPage() {
   };
 
   const exportFormsCSV = async () => {
-    console.log("=== exportFormsCSV called ===");
-    console.log("filteredForms.length:", filteredForms.length);
-    console.log("forms.length:", forms.length);
-    console.log("selectedAccount:", selectedAccount);
-    console.log("META_ACCOUNTS:", META_ACCOUNTS);
     
     if (filteredForms.length === 0 && forms.length === 0) {
       toast("No forms loaded. Please wait for forms to load or refresh.", "warning");
@@ -312,9 +307,7 @@ export default function LeadsPage() {
     }
 
     setShowExportDropdown(false);
-    console.log("Setting exporting to true...");
     setExporting(true);
-    console.log("Exporting should now be true");
     setExportProgress({ current: 0, total: filteredForms.length || forms.length, currentForm: "", leadsCount: 0 });
     
     try {
@@ -328,10 +321,8 @@ export default function LeadsPage() {
         
         try {
           const url = `/api/meta/leads/form?form_id=${form.id}&account_id=${selectedAccount}`;
-          console.log("Fetching CSV leads for form:", form.name, form.id);
           const res = await fetch(url);
           const data = await res.json();
-          console.log("CSV leads response for", form.name, ":", data.leads?.length || 0, "leads", data.error || "");
           const leads: Lead[] = data.leads || [];
 
           for (const lead of leads) {
@@ -365,12 +356,18 @@ export default function LeadsPage() {
         return;
       }
 
+      // Lead fields are typed by whoever fills the ad form, so a value like
+      // =HYPERLINK(...) must not run as a formula when the CSV is opened in
+      // Excel/Sheets: prefix it with ' . Plain numbers (+91 98765 43210) stay as-is.
+      const csvCell = (value: unknown) => {
+        const v = String(value ?? "");
+        const risky = /^[=@\t\r]/.test(v) || (/^[+-]/.test(v) && !/^[+-][\d\s().]+$/.test(v));
+        return `"${(risky ? "'" + v : v).replace(/"/g, '""')}"`;
+      };
       const headers = Object.keys(allRows[0]);
       const csvContent = [
-        headers.join(","),
-        ...allRows.map(row =>
-          headers.map(h => `"${String(row[h] || "").replace(/"/g, '""')}"`).join(",")
-        ),
+        headers.map(csvCell).join(","),
+        ...allRows.map(row => headers.map(h => csvCell(row[h] || "")).join(",")),
       ].join("\n");
 
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -380,7 +377,6 @@ export default function LeadsPage() {
       a.download = `leads_export_${new Date().toISOString().split("T")[0]}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      console.log("CSV export complete:", allRows.length, "leads exported");
       toast(`CSV exported successfully! ${allRows.length} leads saved.`, "success");
     } catch (error) {
       console.error("Error exporting CSV:", error);
@@ -391,7 +387,6 @@ export default function LeadsPage() {
   };
 
   const exportFormsPDF = async () => {
-    console.log("Starting PDF export", filteredForms.length, "forms", forms.length, "total forms");
     if (filteredForms.length === 0 && forms.length === 0) {
       toast("No forms loaded. Please wait for forms to load or refresh.", "warning");
       setExporting(false);
@@ -429,10 +424,8 @@ export default function LeadsPage() {
         
         try {
           const url = `/api/meta/leads/form?form_id=${form.id}&account_id=${selectedAccount}`;
-          console.log("Fetching PDF leads for form:", form.name, form.id);
           const res = await fetch(url);
           const data = await res.json();
-          console.log("PDF leads response for", form.name, ":", data.leads?.length || 0, "leads", data.error || "");
           const leads: Lead[] = data.leads || [];
           totalLeads += leads.length;
 
@@ -619,22 +612,26 @@ export default function LeadsPage() {
             >
               <RefreshCw className={refreshing ? "animate-spin" : ""} />
             </button>
-            <button
-              onClick={() => exportFormsCSV()}
-              disabled={refreshing || filteredForms.length === 0}
-              className="btn btn-secondary shrink-0"
-            >
-              <Download />
-              Export CSV
-            </button>
-            <button
-              onClick={() => exportFormsPDF()}
-              disabled={refreshing || filteredForms.length === 0}
-              className="btn btn-secondary shrink-0"
-            >
-              <Download />
-              Export PDF
-            </button>
+            {DOWNLOADS_ENABLED && (
+              <>
+                <button
+                  onClick={() => exportFormsCSV()}
+                  disabled={refreshing || filteredForms.length === 0}
+                  className="btn btn-secondary shrink-0"
+                >
+                  <Download />
+                  Export CSV
+                </button>
+                <button
+                  onClick={() => exportFormsPDF()}
+                  disabled={refreshing || filteredForms.length === 0}
+                  className="btn btn-secondary shrink-0"
+                >
+                  <Download />
+                  Export PDF
+                </button>
+              </>
+            )}
           </>
         }
       />

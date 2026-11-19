@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import * as XLSX from 'xlsx';
+import { requireAdmin } from '@/lib/require-admin';
 import { normalizePhone, isValidPhoneNumber } from '@/lib/whatsapp-send';
 import {
   listContacts, listFailedContacts, listCategories, addContacts, contactsVersion,
@@ -110,15 +111,26 @@ function parseDataRows(data: string[][], dataName: string): ParseResult {
   return { valid, corrupted, intraFileDuplicates };
 }
 
+// Upload limits: uploaded lists come from third parties and are parsed on
+// the server, so bound both the file size and the rows actually processed.
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_UPLOAD_ROWS = 50_000;
+class UploadLimitError extends Error {}
+const tooManyRows = () =>
+  new UploadLimitError(`This file has more than ${MAX_UPLOAD_ROWS.toLocaleString('en-IN')} rows. Split it into smaller files and import them one by one.`);
+
 function parseExcel(buffer: ArrayBuffer, dataName: string): ParseResult {
-  const wb = XLSX.read(buffer, { type: 'array' });
+  // sheetRows stops parsing just past the cap instead of expanding the whole sheet.
+  const wb = XLSX.read(buffer, { type: 'array', sheetRows: MAX_UPLOAD_ROWS + 2 });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as string[][];
+  if (data.length > MAX_UPLOAD_ROWS + 1) throw tooManyRows();
   return parseDataRows(data, dataName);
 }
 
 function parseCSV(text: string, dataName: string): ParseResult {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length > MAX_UPLOAD_ROWS + 1) throw tooManyRows();
   const rows  = lines.map(line =>
     line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map(m => m.replace(/^"|"$/g, '').trim()) ||
     line.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
@@ -160,6 +172,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const admin = await requireAdmin(request);
+  if (admin instanceof NextResponse) return admin;
   const { searchParams } = new URL(request.url);
   const preview = searchParams.get('preview') === 'true';
 
@@ -173,16 +187,24 @@ export async function POST(request: NextRequest) {
       const dataName = (formData.get('dataName') as string || '').trim() || 'Unnamed Batch';
 
       if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+      if (file.size > MAX_UPLOAD_BYTES) {
+        return NextResponse.json({ error: 'File is too large (max 5 MB). Split it into smaller files and import them one by one.' }, { status: 400 });
+      }
 
       let result: ParseResult;
       const fn = file.name.toLowerCase();
 
-      if (fn.endsWith('.csv')) {
-        result = parseCSV(await file.text(), dataName);
-      } else if (fn.endsWith('.xlsx') || fn.endsWith('.xls')) {
-        result = parseExcel(await file.arrayBuffer(), dataName);
-      } else {
-        return NextResponse.json({ error: 'Upload a CSV or Excel file (.csv / .xlsx)' }, { status: 400 });
+      try {
+        if (fn.endsWith('.csv')) {
+          result = parseCSV(await file.text(), dataName);
+        } else if (fn.endsWith('.xlsx') || fn.endsWith('.xls')) {
+          result = parseExcel(await file.arrayBuffer(), dataName);
+        } else {
+          return NextResponse.json({ error: 'Upload a CSV or Excel file (.csv / .xlsx)' }, { status: 400 });
+        }
+      } catch (err) {
+        if (err instanceof UploadLimitError) return NextResponse.json({ error: err.message }, { status: 400 });
+        throw err;
       }
 
       if (result.valid.length === 0 && result.corrupted.length === 0) {
@@ -258,6 +280,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const admin = await requireAdmin(request);
+  if (admin instanceof NextResponse) return admin;
   try {
     const { ids, dataName } = await request.json();
 

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Template header images only (this posts to Cloudinary's image endpoint).
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_BYTES = 5 * 1024 * 1024;
+
 export async function POST(request: NextRequest) {
   try {
     const reqFormData = await request.formData();
@@ -11,11 +15,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json({ error: 'Only JPG, PNG or WebP images can be uploaded.' }, { status: 400 });
+    }
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json({ error: 'Image is too large (max 5 MB).' }, { status: 400 });
+    }
 
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
-
-    console.log('Cloudinary config:', { cloudName, uploadPreset: uploadPreset ? 'set' : 'missing' });
 
     if (!cloudName || !uploadPreset) {
       return NextResponse.json(
@@ -23,8 +31,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    console.log('Uploading file:', file.name, file.type, file.size);
 
     // Generate a unique ID without any special chars
     const uniqueId = `wts${Date.now()}${Math.random().toString(36).substring(2, 8)}`;
@@ -34,8 +40,6 @@ export async function POST(request: NextRequest) {
     cloudFormData.append('file', file);
     cloudFormData.append('upload_preset', uploadPreset);
     cloudFormData.append('public_id', uniqueId);
-
-    console.log('Sending to Cloudinary:', { cloudName, uploadPreset, uniqueId });
 
     // Upload to Cloudinary using FormData
     const response = await fetch(
@@ -47,9 +51,6 @@ export async function POST(request: NextRequest) {
     );
 
     const data = await response.json();
-
-    console.log('Cloudinary response status:', response.status);
-    console.log('Cloudinary response:', JSON.stringify(data));
 
     if (!response.ok || data.error) {
       const errorMsg = data.error?.message || JSON.stringify(data.error) || 'Upload failed';

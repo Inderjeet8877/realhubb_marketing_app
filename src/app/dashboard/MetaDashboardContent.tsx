@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { DOWNLOADS_ENABLED } from "@/lib/features";
 import useSWR from "swr";
 import { fetcher, metaSwrConfig, fetchFresh } from "@/lib/swr";
 import {
@@ -444,8 +445,8 @@ export default function MetaDashboardContent() {
             <RefreshCw className={`text-gray-500 ${refreshing ? "animate-spin" : ""}`} />
           </button>
 
-          {/* Download dropdown */}
-          <div className="relative">
+          {/* Download dropdown (off via DOWNLOADS_ENABLED) */}
+          {DOWNLOADS_ENABLED && <div className="relative">
             <button onClick={() => setShowDlDropdown(!showDlDropdown)} className="btn btn-primary">
               <Download />
               Download
@@ -471,7 +472,7 @@ export default function MetaDashboardContent() {
                 </button>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
 

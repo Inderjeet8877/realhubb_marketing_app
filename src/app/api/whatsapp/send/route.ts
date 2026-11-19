@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/require-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { WHATSAPP_API_URL, SendConfig, buildMetaRequestBody, validateTemplateHeaderMedia, normalizePhone } from '@/lib/whatsapp-send';
@@ -53,6 +54,10 @@ interface BulkSendRequest {
 }
 
 export async function POST(request: Request) {
+  // Defence in depth: middleware already checks this; a middleware bypass
+  // must still not be able to send messages.
+  const admin = await requireAdmin(request as NextRequest);
+  if (admin instanceof NextResponse) return admin;
   const contentType = request.headers.get('content-type') || '';
   
   try {

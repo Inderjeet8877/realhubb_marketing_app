@@ -113,6 +113,12 @@ function MsgTick({ status }: { status?: string }) {
   );
 }
 
+// Index of a template's "Tracked Link" button (URL ending in /r/{{1}}), or -1.
+function trackedButtonIndex(template: any): number {
+  return (template?.buttons || []).findIndex((b: any) => b.type === "URL" && String(b.url || "").endsWith("/r/{{1}}"));
+}
+const isWebUrl = (v: string) => { try { return /^https?:$/.test(new URL(v.trim()).protocol); } catch { return false; } };
+
 export default function WhatsAppPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"send" | "inbox" | "reports">("send");
@@ -135,6 +141,10 @@ export default function WhatsAppPage() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [bulkMessage, setBulkMessage] = useState("");
+  // Tracked links: custom text → every link becomes a per-contact short link;
+  // template with a "Tracked Link" button → that button's destination.
+  const [trackLinks, setTrackLinks] = useState(false);
+  const [trackedButtonUrl, setTrackedButtonUrl] = useState("");
   const [sendingBulk, setSendingBulk] = useState(false);
   const [bulkResult, setBulkResult] = useState<any>(null);
   const [bulkSentCount, setBulkSentCount] = useState(0);
@@ -628,6 +638,10 @@ export default function WhatsAppPage() {
           templateHeaderType:  bulkMessageType === "template" ? (bulkTemplateObj?.headerType || "") : undefined,
           templateHeaderContent: bulkMessageType === "template" ? (bulkTemplateObj?.headerContent || "") : undefined,
           isTemplate:          bulkMessageType === "template",
+          trackLinks:          bulkMessageType === "text" && trackLinks,
+          trackedButton:       bulkMessageType === "template" && trackedButtonIndex(bulkTemplateObj) >= 0
+                                 ? { index: trackedButtonIndex(bulkTemplateObj), url: trackedButtonUrl.trim() }
+                                 : undefined,
         }),
       });
       const d = await res.json();
@@ -1306,6 +1320,26 @@ export default function WhatsAppPage() {
               <div>
                 <label className="field-label" htmlFor="bulk-message">Message</label>
                 <textarea id="bulk-message" value={bulkMessage} onChange={e => setBulkMessage(e.target.value)} rows={4} placeholder="Type your message..." className="input" />
+                {/https?:\/\//i.test(bulkMessage) && (
+                  <label className="mt-2 flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={trackLinks} onChange={e => setTrackLinks(e.target.checked)} className="mt-0.5 w-4 h-4 rounded" />
+                    <span>
+                      Track link clicks per contact
+                      <span className="block text-xs text-gray-500">Each link is sent as a short realhubb.co.in/r/… link unique to each person, so reports show who clicked.</span>
+                    </span>
+                  </label>
+                )}
+              </div>
+            )}
+            {bulkMessageType === "template" && trackedButtonIndex(templates.find((t: any) => t.name === selectedBulkTemplate)) >= 0 && (
+              <div>
+                <label className="field-label" htmlFor="tracked-url">Tracked button link</label>
+                <input
+                  id="tracked-url" type="url" inputMode="url" value={trackedButtonUrl}
+                  onChange={e => setTrackedButtonUrl(e.target.value)}
+                  placeholder="https://www.realhubb.co.in/projects/…" className="input"
+                />
+                <p className="field-hint">Where this template&apos;s Tracked Link button should open. Each contact gets their own short link, so reports show who clicked.</p>
               </div>
             )}
             {batches.length > 0 && (
@@ -1504,6 +1538,7 @@ export default function WhatsAppPage() {
                 const bulkSel = templates.find((t: any) => t.name === selectedBulkTemplate);
                 const bulkMissingMedia = bulkMessageType === "template" && !!bulkSel &&
                   ['image', 'video', 'document'].includes(bulkSel.headerType) && !bulkSel.headerContent;
+                const bulkMissingTrackedUrl = bulkMessageType === "template" && trackedButtonIndex(bulkSel) >= 0 && !isWebUrl(trackedButtonUrl);
                 return (
                   <button
                     onClick={handleBulkSend}
@@ -1511,12 +1546,12 @@ export default function WhatsAppPage() {
                       sendingBulk || selectedContacts.length === 0 ||
                       (bulkMessageType === "text" && !bulkMessage) ||
                       (bulkMessageType === "template" && !selectedBulkTemplate) ||
-                      bulkMissingMedia
+                      bulkMissingMedia || bulkMissingTrackedUrl
                     }
                     className="btn btn-whatsapp btn-lg w-full sm:w-auto"
                   >
                     <AnimatedSendIcon sending={sendingBulk} className="w-4 h-4" />
-                    {bulkMissingMedia ? "Attach the template's media first" : `Send to ${selectedContacts.length} Contacts`}
+                    {bulkMissingMedia ? "Attach the template's media first" : bulkMissingTrackedUrl ? "Add the tracked button's link" : `Send to ${selectedContacts.length} Contacts`}
                   </button>
                 );
               })()}

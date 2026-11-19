@@ -2,15 +2,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // The team's accounts. Keep in sync with ALLOWED_EMAILS in Vercel
-    // (rules can't read environment variables).
+    // The owner, plus every active member in app_users (managed on the
+    // admin page, same list the API checks). get() works even though
+    // clients can't read app_users themselves.
     function isTeam() {
       return request.auth != null
         && request.auth.token.email != null
-        && request.auth.token.email.lower() in [
-          'realhubbventures@gmail.com',
-          'inderjeet.kumar8184@gmail.com'
-        ];
+        && (
+          request.auth.token.email.lower() == 'inderjeet.kumar8184@gmail.com'
+          || get(/databases/$(database)/documents/app_users/$(request.auth.token.email.lower())).data.active == true
+        );
     }
 
     // The dashboard reads these live in the browser (inbox, reply

@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
+import { requireAdmin } from '@/lib/require-admin';
 import { adminDb } from '@/lib/firebase-admin';
 import { triggerWorker } from '../_shared';
 
@@ -11,6 +12,10 @@ import { triggerWorker } from '../_shared';
 // built into triggerWorker() — a manual, instant way to recover instead of
 // waiting to see if it resumes on its own.
 export async function POST(request: Request) {
+  // Defence in depth: middleware already checks this; a middleware bypass
+  // must still not be able to send messages.
+  const admin = await requireAdmin(request as NextRequest);
+  if (admin instanceof NextResponse) return admin;
   try {
     const { broadcastId } = await request.json();
     if (!broadcastId) {

@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
+import { requireAdmin } from '@/lib/require-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { CHUNK_SIZE, triggerWorker, getMetaCredentials, validateTemplateHeaderMedia, filterOptedOutPhones } from '../_shared';
+import { isSafeDestination } from '@/lib/short-links';
 
 interface StartBroadcastRequest {
   contacts: string[];
@@ -18,6 +20,8 @@ interface StartBroadcastRequest {
   templateHeaderType?: string;
   templateHeaderContent?: string;
   isTemplate?: boolean;
+  trackLinks?: boolean;
+  trackedButton?: { index: number; url: string };
 }
 
 // Starts a bulk broadcast as a durable backend job instead of a client-driven
@@ -26,12 +30,17 @@ interface StartBroadcastRequest {
 // chunk at a time via after()) — it returns as soon as the job is queued, so
 // the caller never needs to stay connected for the send to complete.
 export async function POST(request: Request) {
+  // Defence in depth: middleware already checks this; a middleware bypass
+  // must still not be able to send messages.
+  const admin = await requireAdmin(request as NextRequest);
+  if (admin instanceof NextResponse) return admin;
   try {
     const body = (await request.json()) as StartBroadcastRequest;
     const {
       contacts, contactNames = {}, batchName = 'Unnamed Batch',
       message, templateContent, accountId, imageUrl, caption,
       templateName, languageCode = 'en', templateHeaderType, templateHeaderContent, isTemplate,
+      trackLinks, trackedButton,
     } = body;
 
     if (!contacts || contacts.length === 0) {
@@ -48,6 +57,11 @@ export async function POST(request: Request) {
     }
 
     const useTemplate = isTemplate || !!templateName;
+
+    // A tracked-link template button needs a real web page to open.
+    if (useTemplate && trackedButton && (!Number.isInteger(trackedButton.index) || !isSafeDestination(String(trackedButton.url || '')))) {
+      return NextResponse.json({ error: "The tracked button's link must be a full https:// address." }, { status: 400 });
+    }
 
     // Same guard as the previous client-driven bulk send: a media-header
     // template with no media URL would be accepted by Meta and silently never
@@ -80,6 +94,8 @@ export async function POST(request: Request) {
         accountId: accountNum, imageUrl: imageUrl || null, caption: caption || null,
         templateName: templateName || null, languageCode, templateHeaderType: templateHeaderType || null,
         templateHeaderContent: templateHeaderContent || null, isTemplate: useTemplate,
+        trackLinks: !useTemplate && !!trackLinks,
+        trackedButton: useTemplate && trackedButton ? { index: trackedButton.index, url: String(trackedButton.url).trim() } : null,
       },
       createdAt: FieldValue.serverTimestamp(),
     });

@@ -98,6 +98,10 @@ export interface SendConfig {
   templateHeaderType?: string | null;
   templateHeaderContent?: string | null;
   isTemplate?: boolean;
+  // Tracked links (src/lib/short-links.ts):
+  trackLinks?: boolean;                                  // text/caption: swap each URL for a per-recipient short link
+  trackedButton?: { index: number; url: string } | null; // template: dynamic URL button at `index` → `url`
+  urlButtonCode?: string | null;                         // set per recipient at send time, fills the button's {{1}}
 }
 
 // getMetaCredentials / getAccountIdForPhoneNumberId moved to
@@ -115,6 +119,12 @@ export function buildMetaRequestBody(to: string, config: SendConfig): Record<str
       components.push({ type: 'header', parameters: [{ type: 'video', video: { link: config.templateHeaderContent } }] });
     } else if (config.templateHeaderType === 'document' && config.templateHeaderContent) {
       components.push({ type: 'header', parameters: [{ type: 'document', document: { link: config.templateHeaderContent } }] });
+    }
+    if (config.trackedButton && config.urlButtonCode) {
+      components.push({
+        type: 'button', sub_type: 'url', index: String(config.trackedButton.index),
+        parameters: [{ type: 'text', text: config.urlButtonCode }],
+      });
     }
     return {
       messaging_product: 'whatsapp', to, type: 'template',

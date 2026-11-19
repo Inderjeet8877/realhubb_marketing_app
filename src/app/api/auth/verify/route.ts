@@ -3,7 +3,7 @@ import { verifyAllowedIdToken } from '@/lib/require-admin';
 
 // Login gate: the login page calls this right after sign-in and signs the
 // user back out unless `allowed` is true. Same check the API middleware
-// applies to every request (verified token + ALLOWED_EMAILS, fail-closed).
+// applies to every request (verified token + active team member, fail-closed).
 export async function POST(request: NextRequest) {
   const { idToken } = await request.json().catch(() => ({ idToken: null }));
 

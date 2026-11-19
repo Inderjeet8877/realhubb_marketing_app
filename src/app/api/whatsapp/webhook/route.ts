@@ -24,16 +24,9 @@ function isOptOutMessage(text: string): boolean {
 // Meta's own documented requirement for confirming a payload genuinely came
 // from Meta and not a forged request to this public URL (e.g. fake "read"
 // receipts to inflate reports, or fake inbound messages to spam push
-// notifications to every device). Fails OPEN (processes the request but
-// logs a warning) only when META_APP_SECRET isn't configured at all, so a
-// missing env var doesn't silently break real delivery tracking — but any
-// request whose signature doesn't match a configured secret is rejected.
-function isValidSignature(rawBody: string, signatureHeader: string | null): boolean {
-  const secret = process.env.META_APP_SECRET;
-  if (!secret) {
-    console.warn('[Webhook] META_APP_SECRET not set — skipping signature verification. Set it in Vercel to secure this endpoint.');
-    return true;
-  }
+// notifications to every device). Fails CLOSED: with META_APP_SECRET unset,
+// POST answers 500 (see below) instead of trusting unsigned payloads.
+function isValidSignature(rawBody: string, signatureHeader: string | null, secret: string): boolean {
   if (!signatureHeader || !signatureHeader.startsWith('sha256=')) return false;
 
   const expected = createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex');
@@ -45,10 +38,19 @@ function isValidSignature(rawBody: string, signatureHeader: string | null): bool
   return timingSafeEqual(expectedBuf, providedBuf);
 }
 
+// Logs keep only the last 4 digits of a phone number.
+const maskPhone = (phone: string) => `…${String(phone).slice(-4)}`;
+
 export async function POST(request: NextRequest) {
+  const secret = process.env.META_APP_SECRET;
+  if (!secret) {
+    console.error('[Webhook] META_APP_SECRET not set — refusing unsigned webhook. Set it in Vercel.');
+    return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
+  }
+
   const rawBody = await request.text();
 
-  if (!isValidSignature(rawBody, request.headers.get('x-hub-signature-256'))) {
+  if (!isValidSignature(rawBody, request.headers.get('x-hub-signature-256'), secret)) {
     console.warn('[Webhook] Rejected — invalid or missing X-Hub-Signature-256');
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
@@ -202,7 +204,7 @@ export async function POST(request: NextRequest) {
             wamid: msg.id,
             msgType: msg.type || 'text',
           });
-          console.log(`[Webhook] ✅ Saved inbound from ${phone}: "${messageText.slice(0, 60)}"`);
+          console.log(`[Webhook] ✅ Saved inbound from ${maskPhone(phone)}`);
 
           // Send push notification to all registered devices — wrapped in
           // after() so Vercel keeps this serverless invocation alive until
@@ -233,7 +235,7 @@ export async function POST(request: NextRequest) {
             );
           }
         } catch (err) {
-          console.error(`[Webhook] ❌ Failed to save from ${phone}:`, err);
+          console.error(`[Webhook] ❌ Failed to save from ${maskPhone(phone)}:`, err);
         }
       }
     }
@@ -249,7 +251,7 @@ async function handleOptOut(phone: string, name: string, triggerMessage: string,
     triggerMessage,
     optedOutAt: FieldValue.serverTimestamp(),
   }, { merge: true });
-  console.log(`[Webhook] 🚫 Opt-out recorded for ${phone}`);
+  console.log(`[Webhook] 🚫 Opt-out recorded for ${maskPhone(phone)}`);
 
   // Confirming it (rather than silently suppressing) matters here: without
   // this, someone who tried to unsubscribe and then got another broadcast
@@ -270,7 +272,7 @@ async function handleOptOut(phone: string, name: string, triggerMessage: string,
       })),
     });
   } catch (err) {
-    console.error(`[Webhook] Failed to send opt-out confirmation to ${phone}:`, err);
+    console.error(`[Webhook] Failed to send opt-out confirmation to ${maskPhone(phone)}:`, err);
   }
 }
 
@@ -289,20 +291,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ status: 'webhook_online', ts: new Date().toISOString() });
   }
 
-  // Accept both the env-var token AND the hardcoded default — whichever matches
-  const envToken     = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
-  const defaultToken = 'whatsapp_verify_token_123';
+  // Only the configured token is accepted (no built-in default: the repo is
+  // public, so any default is known to everyone). Tokens are never logged.
+  const envToken = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
 
-  const isValid =
-    mode === 'subscribe' &&
-    !!challenge &&
-    (token === defaultToken || (!!envToken && token === envToken));
+  const isValid = mode === 'subscribe' && !!challenge && !!envToken && token === envToken;
 
   if (isValid) {
-    console.log('[Webhook] ✅ Verified with token:', token);
-    return new NextResponse(challenge, { status: 200 });
+    console.log('[Webhook] ✅ Verification handshake accepted');
+    return new NextResponse(challenge, { status: 200, headers: { 'Content-Type': 'text/plain', 'X-Content-Type-Options': 'nosniff' } });
   }
 
-  console.warn('[Webhook] ❌ Rejected — received token:', token);
+  console.warn(`[Webhook] ❌ Verification rejected${envToken ? '' : ' (WHATSAPP_WEBHOOK_VERIFY_TOKEN not set)'}`);
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
