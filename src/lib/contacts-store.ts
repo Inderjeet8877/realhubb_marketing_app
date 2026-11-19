@@ -47,8 +47,35 @@ async function readChunks(collection: string, dataName?: string) {
 
 const flatten = (chunks: { data: Chunk }[]) => chunks.flatMap((c) => unpack(c.data));
 
+// Every write bumps this version. Readers use it to (a) keep the decoded
+// list in memory on a warm server instance and (b) give browsers an ETag,
+// so an unchanged list is answered with a tiny 304 instead of ~2-3 MB.
+const versionDoc = () => adminDb.collection('app_meta').doc('contacts_version');
+
+export async function contactsVersion(): Promise<string> {
+  const snap = await versionDoc().get();
+  return String(snap.exists ? snap.data()!.v : 'initial');
+}
+
+async function bumpVersion() {
+  await versionDoc().set({ v: Date.now() });
+}
+
+// ponytail: one full copy per warm instance (~87k objects); fine at this
+// size, move to per-batch memo if contacts grow past a few hundred thousand.
+let memo: { version: string; all: StoredContact[] } | null = null;
+
+async function allContacts(): Promise<StoredContact[]> {
+  const version = await contactsVersion();
+  if (!memo || memo.version !== version) {
+    memo = { version, all: flatten(await readChunks(MAIN)) };
+  }
+  return memo.all;
+}
+
 export async function listContacts(dataName?: string) {
-  return flatten(await readChunks(MAIN, dataName));
+  const all = await allContacts();
+  return dataName ? all.filter((c) => (c.dataName || 'Unnamed Batch') === dataName) : all;
 }
 
 export async function listFailedContacts() {
@@ -94,6 +121,7 @@ export async function writeChunks(collection: string, contacts: StoredContact[],
     }
   }
   await commitInBatches(ops);
+  await bumpVersion();
 }
 
 // Same rules the Google Sheets backend applied: a phone already stored
@@ -142,14 +170,17 @@ export async function deleteContactsByIds(ids: string[]) {
     ops.push(kept.length ? (b) => b.update(ref, { data: pack(kept), count: kept.length }) : (b) => b.delete(ref));
   }
   await commitInBatches(ops);
+  await bumpVersion();
 }
 
 export async function deleteContactsByDataName(dataName: string) {
   const chunks = await readChunks(MAIN, dataName);
   await commitInBatches(chunks.map(({ ref }) => (b) => b.delete(ref)));
+  await bumpVersion();
 }
 
 export async function deleteAllContacts() {
   const chunks = await readChunks(MAIN);
   await commitInBatches(chunks.map(({ ref }) => (b) => b.delete(ref)));
+  await bumpVersion();
 }

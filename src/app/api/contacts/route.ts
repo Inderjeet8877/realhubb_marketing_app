@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import * as XLSX from 'xlsx';
 import { normalizePhone, isValidPhoneNumber } from '@/lib/whatsapp-send';
 import {
-  listContacts, listFailedContacts, listCategories, addContacts,
+  listContacts, listFailedContacts, listCategories, addContacts, contactsVersion,
   deleteContactsByIds, deleteContactsByDataName, deleteAllContacts,
 } from '@/lib/contacts-store';
 
@@ -133,12 +134,22 @@ export async function GET(request: NextRequest) {
   const failed = searchParams.get('failed') === 'true';
 
   try {
+    // Unchanged since the browser's last copy → 304 with no body. The browser
+    // (and the Android WebView) then reuses its cached response. "private"
+    // keeps it out of any shared/CDN cache, since this is signed-in data.
+    const variant = wantCategories ? 'categories' : failed ? 'failed' : `list:${filterDataName || ''}`;
+    const etag = `W/"${createHash('sha1').update(`${await contactsVersion()}|${variant}`).digest('hex').slice(0, 20)}"`;
+    const headers = { ETag: etag, 'Cache-Control': 'private, no-cache' };
+    if (request.headers.get('if-none-match')?.includes(etag)) {
+      return new NextResponse(null, { status: 304, headers });
+    }
+
     if (wantCategories) {
-      return NextResponse.json({ success: true, categories: await listCategories() });
+      return NextResponse.json({ success: true, categories: await listCategories() }, { headers });
     }
 
     const contacts = failed ? await listFailedContacts() : await listContacts(filterDataName || undefined);
-    return NextResponse.json({ success: true, contacts, total: contacts.length });
+    return NextResponse.json({ success: true, contacts, total: contacts.length }, { headers });
   } catch (error: any) {
     console.error('[Contacts API] Failed to load contacts:', error);
     return NextResponse.json(
