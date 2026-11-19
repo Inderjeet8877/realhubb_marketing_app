@@ -17,13 +17,32 @@ const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
 const appUrl = () => (process.env.NEXT_PUBLIC_APP_URL || 'https://www.realhubb.co.in').replace(/\/$/, '');
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
+// Firebase's own "reset your password" email (from noreply@<project>.firebaseapp.com).
+// Works with no domain setup; wording is editable in Firebase → Authentication → Templates.
+async function sendFirebaseEmail(email: string): Promise<boolean> {
+  try {
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestType: 'PASSWORD_RESET', email }),
+    });
+    if (!res.ok) console.error('[admin/users] Firebase invite email failed', res.status);
+    return res.ok;
+  } catch (err) {
+    console.error('[admin/users] Firebase invite email failed', err);
+    return false;
+  }
+}
+
+// Branded email through Resend only when a verified sender is configured
+// (Resend's test sender only reaches the Resend account owner); otherwise Firebase's.
 async function sendInvite(email: string, name: string, link: string, invitedBy: string): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return false;
+  if (!apiKey || !process.env.RESEND_FROM_EMAIL) return sendFirebaseEmail(email);
   try {
     const { Resend } = await import('resend');
     const result = await new Resend(apiKey).emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'Realhubb <onboarding@resend.dev>',
+      from: process.env.RESEND_FROM_EMAIL,
       to: email,
       subject: 'You have been invited to Realhubb',
       html: `<p>Hi ${esc(name || 'there')},</p>
@@ -31,15 +50,24 @@ async function sendInvite(email: string, name: string, link: string, invitedBy: 
 <p><a href="${esc(link)}">Set your password</a>, then sign in at <a href="${appUrl()}/auth/login">${appUrl()}/auth/login</a> (web) or in the Realhubb Android app.</p>
 <p>This link works once and expires after a while. If it has expired, ask the admin to send a new invite.</p>`,
     });
-    return !result.error;
+    if (!result.error) return true;
+    console.error('[admin/users] Resend invite failed', result.error);
   } catch (err) {
-    console.error('[admin/users] invite email failed', err);
-    return false;
+    console.error('[admin/users] Resend invite failed', err);
   }
+  return sendFirebaseEmail(email);
 }
 
+// The "continue" button back to our login page needs the app's domain in
+// Firebase Auth → Settings → Authorized domains. Without it, fall back to a
+// plain link: it still sets the password, just without the button.
 async function inviteLink(email: string) {
-  return auth().generatePasswordResetLink(email, { url: `${appUrl()}/auth/login` });
+  try {
+    return await auth().generatePasswordResetLink(email, { url: `${appUrl()}/auth/login` });
+  } catch (err: any) {
+    if (err?.code !== 'auth/unauthorized-continue-uri') throw err;
+    return auth().generatePasswordResetLink(email);
+  }
 }
 
 // GET → every team member with their login status.
